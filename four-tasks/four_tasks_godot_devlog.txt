@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Devlog
 ==========================
-Last updated: May 2026 (session 2)
+Last updated: May 2026 (session 2, closed)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -35,21 +35,24 @@ Design notes (read whichever is relevant to the tile being worked on):
     principle. Features reveal over days/weeks, not at onboarding.
     Schema (tutorial_progress) reserved v1.0; coordinator + reveal
     content land in Phase 4. (Session 2)
+  - `four_tasks_architectural_preference.md`        — LOCKED meta-rule.
+    Clarity over cleverness for Four Tasks' low-throughput load
+    profile. (Session 2)
   - `four_tasks_theme_design_notes.md`              — palette system.
   - `four_tasks_monetisation_position.md`           — subscription model
     + tone position. (Session 1)
 
-The two planning documents are:
-  - `four_tasks_godot_port_plan.md`  — the master architectural read-through.
-                                        Stable. Updated rarely, only when an
-                                        architectural decision changes.
-  - `four_tasks_godot_roadmap.md`    — the phased tile list. Updated rarely;
-                                        tiles complete via the todo, not here.
+The design docs above collectively serve as both port plan and roadmap.
+Earlier session 1 docs referenced standalone `four_tasks_godot_port_plan.md`
+and `four_tasks_godot_roadmap.md` files but those were aspirational and
+never written — every architectural decision lives in a focused design
+doc instead, and the phased tile list lives in `four_tasks_godot_todo.txt`.
 
 When starting a fresh session:
-  1. Ask Morgan to upload the current Godot project as a zip.
+  1. Ask Morgan to upload any changed files (devlog, todo, schema.sql,
+     index.ts) since the last session.
   2. Read this devlog and `four_tasks_godot_todo.txt`.
-  3. Consult the port plan section relevant to the tile being worked on.
+  3. Consult the design doc relevant to the tile being worked on (see list above).
   4. Use str_replace for code patches — never rewrite whole files unless asked.
   5. Verify changes before reporting them complete.
 
@@ -69,7 +72,8 @@ Morgan's preferences:
     performance/cleverness, prefer the former. The clever option is
     reserved for cases where performance is genuinely constrained.
     This rule pre-empts a class of premature-optimisation debates.
-    (Session 2; see port plan for canonical statement.)
+    (Session 2; see four_tasks_architectural_preference.md for the
+    canonical statement.)
 
 Convention (set session 2): every tile entry in this devlog AND in the
 todo gets a "Time: ~Xh" or "Time: ~Xmin" log on its title line. Times
@@ -84,10 +88,10 @@ Store. Two-user pair model. No third-party login, no email collection.
 Pair-key identity (see v2 design notes). Hand-painted assets. Curated palette
 themes. 1080×2400 portrait.
 
-Backend: Cloudflare Worker + D1 (locked decision, see port plan 2.2).
+Backend: Cloudflare Worker + D1 (locked decision, session 1; D1 region OC).
 Identity: pair-key v2 (locked decision, see v2 design notes).
-Theme: curated lookup table tier (b) (locked decision, see port plan 2.4).
-Assets: hand-drawn / hand-painted by Morgan (see port plan 2.5).
+Theme: curated lookup table tier (b) (locked decision, session 1; see theme design notes).
+Assets: hand-drawn / hand-painted by Morgan.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PROJECT STRUCTURE (canonical)
@@ -114,7 +118,7 @@ Outside the Godot project (gitignored):
   server/.wrangler/     — Wrangler local cache
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ARCHITECTURE (reference — fuller detail in port plan section 4)
+ARCHITECTURE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Top-level scene tree:
@@ -570,8 +574,11 @@ END-OF-SESSION REVIEW NOTE:
   (2) Locked a meta-rule: "clarity over cleverness." Four Tasks is a
   low-throughput calendar app; when a design choice is between
   correctness/legibility and performance/cleverness, prefer the former.
-  Added to Morgan's preferences in this devlog AND the port plan as
-  section 2.0. Pre-empts a class of premature-optimisation debates.
+  Captured in four_tasks_architectural_preference.md (originally
+  written as a port-plan insert before we realised no port plan
+  document exists — the file lives as a standalone reference doc now)
+  and added to Morgan's preferences block in this devlog. Pre-empts
+  a class of premature-optimisation debates.
 
   (3) Mid-decision, Morgan flagged a feature that hadn't been discussed:
   partner reactions on MOTD and task tray. This is the first feature
@@ -695,18 +702,33 @@ UPDATED NOTES FOR NEXT SESSION (supersedes the older "next session" block above)
     (GET /pair/:key, POST /pair/:key/resolve, GET /leaderboard).
     Writes wait for session 4 — they're tied to tile 1.3 defensive
     logic and warrant their own focused session.
-  - The five design docs in four-tasks-notes/ need to be read in this
-    order if returning cold: v2 identity → partner reactions → coin
-    names → staggered disclosure. The v1 identity doc is background only.
-  - four-tasks-notes/ folder is currently NOT under version control.
-    Worth deciding session 3 whether to bring it under git (probably
-    a new private repo "pickle-moon-design-notes" alongside the
-    existing three) so design history survives device failure.
+  - The design docs need to be read in this order if returning cold:
+    v2 identity → partner reactions → coin names → staggered disclosure.
+    The v1 identity doc is background only. All five plus this devlog
+    + the todo now live in the new `pickle-moon-design-notes` repo
+    (private, on `thepicklemoon` GitHub account, structured as
+    `four-tasks/<files>` + `four-tasks/privacy/<drafts>` + empty
+    `studio/` placeholder).
+  - Repository inventory (THE PICKLE MOON, all private):
+      • four-tasks                 — Godot project + Cloudflare Worker
+      • pickle-moon-design-notes   — devlogs, todos, design notes (NEW session 2)
+      • pickle-moon-public         — published privacy + future ToS
+      • pickle-moon-ledger         — expense records
   - Schema is comprehensively reserved through v1.x for partner
     reactions, coin names, tutorial progress. No more migrations
     expected before tile 1.2 endpoints land. The "we keep finding
     more architectural reservations" wave appears to have settled
     after the schema absorbed everything from session 2's phone notes.
+  - Tile 1.2 is fully unlocked for code — all three pre-code locks
+    (response envelope, status codes, auth) recorded in the tile
+    description in the todo. Recommended session 3 scope: read
+    endpoints only (GET /pair/:key, POST /pair/:key/resolve,
+    GET /leaderboard). Write endpoints depend on tile 1.3 defensive
+    logic — give them their own session.
+  - Going forward, session bootstrap uses a Claude Project with all
+    design docs attached, eliminating the per-session "paste a zip"
+    pattern from the prototype era. Project system prompt drafted at
+    end of session 2.
   - Outstanding ledger items:
       • Cloudflare domain (thepicklemoon.com) — invoice IN-64839053,
         USD $10.46, expected ~A$16-17, paid 11 May. Card statement
@@ -716,3 +738,16 @@ UPDATED NOTES FOR NEXT SESSION (supersedes the older "next session" block above)
   - Wrangler D1 token-refresh quirk now documented. If a D1 import
     fails with "Authentication error [code: 10000]" first try
     `wrangler logout` + `wrangler login` before assuming worse.
+  - Near-miss with credentials during the design-notes repo creation:
+    Cloudflare 2FA recovery codes were sitting in
+    `pickle-moon-design-notes/four-tasks/privacy/` as a .txt file from
+    earlier in the session, would have been committed to the initial
+    repo state if not caught. Caught before commit, removed from the
+    folder, copied to Bitwarden notes + Desktop. Lesson: scan for
+    plaintext credentials in any folder going into a new git repo,
+    especially during folder migrations where files can drift between
+    locations without conscious tracking.
+
+SESSION 2 CLOSED. Total session time: ~10h across continuous work
+(architectural design was roughly half of that, code + commits + repo
+admin the other half).

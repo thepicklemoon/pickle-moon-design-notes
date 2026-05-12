@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Todo
 ========================
-Last updated: May 2026 (session 2)
+Last updated: May 2026 (session 2, end)
 
 This list is driven by the roadmap (`four_tasks_godot_roadmap.md`). All tiles
 from the roadmap are seeded below as `[ ]` items, organised by phase. Tick
@@ -682,11 +682,24 @@ SESSION 1 — Project bootstrap + Phase 0 closeout + Phase 1 opening
 
 Session 1 total: ~8.75h across two sub-sessions.
 
-SESSION 2 — Worker scaffold + D1 + identity v2
+SESSION 2 — Worker scaffold + D1 + identity v2 + architectural detours
 [x] 0.11  (extended)     Aseprite expense + chronological sort.     ~30min
 [x] 0.12  [CONFIG]       Dev environment setup (VS Code).           ~15min
 [x] 1.1   [CODE]         Worker scaffold + D1 + schema + v2 lock-in. ~3h
+[~] 1.2   [CODE]         Tile 1.2 pre-code locks (envelope, status   ~4h
+                         codes, auth) + architectural detours
+                         (partner reactions, coin names, staggered
+                         disclosure) + migrations 001 + 002 applied.
+                         Endpoint code remains for session 3.
 
-Session 2 total: ~3.75h.
+Plus housekeeping (not phase-tile work but logged for hours-tracked
+honesty):
+- 5 design docs written (v2 identity, partner reactions, coin names,
+  staggered disclosure, architectural preference)               ~2h
+- pickle-moon-design-notes repo created + populated + pushed    ~30min
+- Project system prompt drafted                                 ~15min
 
-Running project total: ~12.5h across 17 completed tiles.
+Session 2 total: ~10h.
+
+Running project total: ~18.75h across 17 completed tiles + tile 1.2
+pre-code work + session 2 architectural design + repo admin.
