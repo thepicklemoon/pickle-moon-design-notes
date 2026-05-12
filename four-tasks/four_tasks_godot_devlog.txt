@@ -751,3 +751,176 @@ UPDATED NOTES FOR NEXT SESSION (supersedes the older "next session" block above)
 SESSION 2 CLOSED. Total session time: ~10h across continuous work
 (architectural design was roughly half of that, code + commits + repo
 admin the other half).
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 3 (12 May 2026) — Tile 1.2 read endpoints
+
+Focused session on the read half of tile 1.2. Tile started fully unlocked
+(all three pre-code decisions from session 2 already locked: envelope,
+status codes, auth). Goal: GET /pair/:key, POST /resolve, GET /leaderboard.
+Closed with the first two done, leaderboard moved out to a new Phase 4
+tile after a scoping conversation.
+
+[~] Tile 1.2 (continued) — Read endpoints. Time: ~3h.
+
+  GET /pair/:key:
+  - Three pre-implementation decisions surfaced and locked:
+    1. Day history cap: calendar year + previous year (not rolling
+       365 days). The calendar-year choice creates a natural
+       annual ritual — Jan 1 the previous year drops off, app
+       offers the keepsake export (new future feature, see below).
+       Server-side date computation so client clocks can't affect
+       what's returned.
+    2. Missing-pair-key handling: split 400 (malformed) vs 404
+       (not found). The auth conversation's "permission denied
+       folds into 404" rule didn't apply here — no caller, no
+       permission to deny. Pair-key itself is the credential;
+       anyone holding the right 16-hex string gets the data.
+    3. JSON-string columns parsed server-side, returned as real
+       arrays/objects (task_labels, tutorial_progress, tasks_done).
+       Removes a double-parse step on the client.
+  - Helper functions extracted: ok() and err() for envelope
+    construction. Removes the risk of envelope drift across
+    endpoints — the shape is enforced by construction. Worth the
+    minor indirection.
+  - One D1 batch() call for the three queries (pair + users +
+    days). Single round-trip per request. Not optimisation — just
+    the natural way the D1 client exposes "run these together".
+  - All three paths curl-verified end-to-end:
+    • 200 with seeded test pair returned full payload with
+      correctly-typed nested arrays/objects
+    • 400 rejected three malformed-key variants (empty, too short,
+      non-hex 16-char)
+    • 404 returned correct envelope for a well-formed but
+      non-existent key
+
+  POST /resolve:
+  - URL correction caught mid-walkthrough: the todo said
+    POST /pair/:key/resolve but that's nonsense — the whole point
+    of resolve is "I don't have the key, derive it for me from
+    the six values." Fixed to POST /resolve. Captured in this
+    session's todo edits.
+  - Decision: return the full pair payload on success, not just
+    the key. Reuses GET /pair/:key's getPair() function internally
+    — single source of truth for the response shape, saves the
+    client a round-trip.
+  - Input validation conversation produced a useful clarification.
+    The canonical-form rules (no '|', no '__') will be enforced
+    client-side at onboarding tiles 3.3 / 3.3a, AND server-side
+    at /resolve (and at tile 1.3's write endpoints). Morgan
+    initially pushed back on the server-side check as redundant
+    given onboarding enforces it. The case for keeping it:
+    onboarding stops a USER from typing bad input; server
+    validation stops bad input from existing in the database,
+    regardless of source. Different jobs, same rule. Cost is six
+    lines of code, benefit is data integrity guarantees that
+    survive client regressions, raw API access, and data
+    restoration paths. Asymmetry is huge enough that "always
+    write the server check" is just a free habit.
+  - derivePairKey() helper extracted as a standalone function.
+    Web Crypto API (not Node's crypto module) since Workers run
+    in a different environment. Tile 1.3's pair-key migration
+    logic will use the same function.
+  - Sort-by-name happens server-side after input is received. The
+    caller's "self" vs "partner" labelling doesn't affect the
+    derived key — server resolves canonical A/B ordering from
+    name alphabetical sort. Tested end-to-end and works correctly.
+  - All three paths curl-verified:
+    • 400 for missing body fields, invalid JSON, forbidden
+      characters (with specific field/character named in error
+      message)
+    • 404 for valid input that doesn't match any stored pair
+    • 200 for valid input matching a stored pair, returns full
+      payload identical in shape to GET /pair/:key
+
+  Doc consequences:
+  - Tile 1.2 moved to [~] in todo. Description rewritten to show
+    what's done vs what's still TODO. Session 3 notes appended.
+  - Tile 4.13 split into 4.13 (UI) + 4.13a (endpoint). The
+    leaderboard endpoint moved out of tile 1.2 because its shape
+    isn't specced anywhere — it tangles with the coin-name
+    censorship layer (4.17) and the opt-out UX (4.13). Needs a
+    focused design conversation when 4.13 lands, not a snap
+    decision in this session. Schema impact likely small (maybe
+    one opt-out flag) but not yet committed.
+  - Year-end keepsake export feature captured to ACTIVE. Surfaced
+    naturally from the calendar-year cap decision — Jan 1 each
+    year, older days fall off the GET /pair/:key response, but
+    the data remains in DB. Keepsake feature offers the user a
+    composite image of the closed year. Hand-painted, matches
+    app aesthetic. Architectural cost: zero (schema unchanged,
+    new endpoint just queries the existing days table for an
+    arbitrary year). Target launch timing: store launch by July
+    2026 latest, so first cohort of users gets a few months of
+    data accumulated before NYE 2026/2027 — keepsake feature
+    fires for the first time Jan 1 2027 with real emotional
+    weight rather than just being an export button.
+  - Phase 3 onboarding tiles (3.3 / 3.3a) gained a note in ACTIVE
+    pinning the validation rules they must enforce at name +
+    username + icon entry: no '|', no '__', non-empty strings.
+    Mirrors server-side rules from /resolve as defence-in-depth.
+
+GIT COMMITS THIS SESSION (planned at session-close batch):
+  four-tasks repo:
+    (will commit)  Tile 1.2: implement read endpoints (GET /pair/:key,
+                   POST /resolve) with envelope helpers and pair-key
+                   derivation utility.
+  pickle-moon-design-notes repo:
+    (will commit)  Session 3 update: tile 1.2 partial close, leaderboard
+                   tile split, year-end keepsake export feature captured,
+                   PowerShell/curl/wrangler conventions logged.
+
+DEV ENVIRONMENT LESSONS:
+  - Windows PowerShell `curl` is an alias for Invoke-WebRequest, NOT
+    real curl. Different semantics, security prompt UX, different
+    output format. Adopted convention: use `curl.exe` explicitly on
+    this project, always. Same flags as everywhere else, same output
+    as everywhere else.
+  - PowerShell mangles JSON bodies on the command line — backslash-
+    escaped quotes don't survive interpolation. Stored JSON in a file
+    and used `--data-binary "@file.json"` to sidestep quoting. Adopted
+    as the convention for any curl-with-body command going forward.
+  - `npx wrangler dev` drifted to remote mode mid-startup twice during
+    this session (no clear root cause — possibly hotkey, possibly
+    config). Workaround: `npx wrangler dev --local` with the explicit
+    flag prevents the drift. Adopted as the convention.
+  - Local D1 is a separate SQLite file from remote D1. Tile 1.1 only
+    applied schema to remote. First time `--local` ran, `pairs` table
+    didn't exist locally and the endpoint 500'd. Fix: apply schema.sql
+    with `--local`. Migrations 001/002 are baked into schema.sql so
+    re-applying them to a fresh local DB fails with "duplicate column"
+    — harmless, skip them for local seed. Will document the fresh-
+    clone setup sequence in the /server/README.md when that lands in
+    tile 1.3.
+  - SQL seed via shell: PowerShell escaped-quote interpolation
+    corrupted a JSON string column on first insert attempt (stored
+    `\workout\` instead of `"workout"`). Caught immediately because
+    the endpoint 500'd on JSON.parse — the try/catch did exactly what
+    it was designed for. Fix: put SQL in a .sql file, use `--file=`,
+    no shell escaping in play. Convention adopted: anytime SQL needs
+    quoted strings, write the SQL to a file.
+
+  Pattern across these: PowerShell's argument handling is a
+  consistent source of friction. The fix is the same every time —
+  use an explicit executable (curl.exe), use file references over
+  inline strings (--data-binary @file, --file=seed.sql). Doing this
+  by default removes a class of mystery bugs.
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.2 still [~]. Remaining endpoints (writes): PUT user,
+    PUT day, POST bug_report. These depend on tile 1.3's defensive
+    write rules being designed alongside. Logical session-4 scope:
+    tile 1.3's full rule-table design + the three write endpoints
+    implementing it. Will be denser than session 3 — schema
+    interactions, migration logic for username/icon changes, the
+    409 stale-key handling, the partner reaction immutability gate.
+  - Local D1 wiped at end of session — fresh tables, no rows.
+    Reseed at start of session 4 if testing needs seeded data.
+  - Wrangler dev --local is the project convention. curl.exe is the
+    project convention. --data-binary @file.json is the project
+    convention. Captured in todo PARKED + ACTIVE.
+  - The leaderboard tile reposition (4.13a) is now its own thing —
+    don't lump it back into tile 1.2 scope when writes land.
+
+SESSION 3 CLOSED. Total session time: ~4h (mostly endpoint
+walkthrough + curl verification; modest amount of doc updates).

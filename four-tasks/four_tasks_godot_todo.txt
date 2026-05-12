@@ -268,11 +268,17 @@ PHASE 1 — Backend + foundations
     Worker scaffold, schema (fa0e618), wrangler.toml binding (f103435).
     (Session 2)
 
-[ ] 1.2 [CODE] Worker endpoints v1.
-    GET /pair/:key, PUT /pair/:key/users/:name,
-    PUT /pair/:key/users/:name/day/:date, POST /pair/:key/resolve,
-    POST /bug_report, GET /leaderboard. All with input validation. All
-    returning consistent JSON envelopes.
+[~] 1.2 [CODE] Worker endpoints v1.
+    PARTIAL — read endpoints landed session 3, writes deferred to a
+    future session paired with tile 1.3 defensive logic.
+    Endpoints in scope:
+      DONE: GET /health, GET /pair/:key, POST /resolve
+      TODO: PUT /pair/:key/users/:name (self-write),
+            PUT /pair/:key/users/:name/day/:date (self-write),
+            POST /bug_report
+      MOVED: GET /leaderboard → new tile 4.13a (depends on Phase 4
+            UI work + a small design conversation about shape,
+            opt-out, censorship hooks).
     PRE-CODE LOCKS (session 2):
       • Response envelope: uniform { "ok": true, "data": ... } on
         success, { "ok": false, "error": "code", "message": "..." }
@@ -283,14 +289,24 @@ PHASE 1 — Backend + foundations
       • Auth: caller named in URL. Self-writes have the caller as
         the path segment. Cross-user writes use ?caller=name query
         param. See tile 1.3 for the full defensive logic flow.
-    NOTE: /resolve endpoint takes the six-value tuple, derives the
-    pair-key, looks up the pair. See pair_key_v2 design notes for
-    canonical-form rules.
-    SESSION SHAPE: realistic split is read endpoints first (GET /pair/:key,
-    POST /pair/:key/resolve, GET /leaderboard) one session, write
-    endpoints (PUT user, PUT day, POST bug_report) another. Cleaner
-    per-session scope, each verifiable end-to-end with curl before
-    moving on.
+    SESSION 3 NOTES:
+      • /resolve URL corrected from POST /pair/:key/resolve to
+        POST /resolve. The caller doesn't have a key yet — that's
+        the whole point of resolve. Body shape:
+        {self: {name, username, icon}, partner: {name, username, icon}}.
+      • Day history cap on GET /pair/:key: calendar year + previous
+        year. Older days remain in DB but aren't returned. See new
+        keepsake-export note in ACTIVE.
+      • Server-side input validation in /resolve enforces the
+        canonical-form rules (no '|', no '__', non-empty strings).
+        Onboarding will mirror these rules client-side at tiles
+        3.3 / 3.3a (name + username steps) with friendlier error
+        feedback. Server checks remain as defence-in-depth.
+      • derivePairKey() helper extracted for reuse by tile 1.3's
+        migration logic.
+      • A /server/README.md with curl examples is still slated for
+        tile 1.3 — defer until write endpoints exist so it can
+        document the full surface in one pass.
 
 [ ] 1.3 [CODE] Worker defensive write rules.
     "Never reduce task count" rule. "Only this user can write to their own
@@ -451,7 +467,20 @@ Code tiles (animation + polish):
     operational log). DevKit-side handling (review, archive, delete)
     treats them as their own thing, not pair-attached data. See
     pair_key_v2 design notes "Bug reports — out-of-band lifecycle".
-[ ] 4.13 [CODE] Leaderboard — popup, top 10, opt-out flow.
+[ ] 4.13 [CODE] Leaderboard UI — popup, top 10, opt-out flow.
+    Client-side popup, render top-10 list, opt-out toggle wired
+    through to server. Depends on tile 4.13a (the endpoint) landing
+    first.
+[ ] 4.13a [CODE] Leaderboard endpoint — GET /leaderboard.
+    Moved from tile 1.2 in session 3. The endpoint was originally
+    bundled into the read-endpoints group but couldn't ship there:
+    its shape (which metric? top N? filter? opt-out flag?) and its
+    interactions with the coin-name censorship layer (tile 4.17)
+    aren't specced yet. Needs a focused design conversation before
+    code, then a small implementation tile. Sits next to 4.13
+    because they ship as a pair (UI + endpoint). Schema impact
+    likely small: maybe one opt-out flag on users, decided at design
+    time.
 [ ] 4.14 [CODE] Theme manager — palette swap on emoji change. Plumbing
     pass through every scene that should theme. Sacred semantic colours
     stay constant.
@@ -616,6 +645,58 @@ ACTIVE — ad-hoc items found during the port
     response shape for every endpoint in a way that's runnable from
     PowerShell without any client tooling.
 
+[ ] Year-end keepsake export feature.
+    Surfaced session 3 while deciding GET /pair/:key day-history
+    cap. Calendar-year cap means days from older years stop being
+    returned to the client on Jan 1 — but they remain in the
+    database indefinitely. The keepsake feature is the user-facing
+    counterpart: when a year closes, the app offers a downloadable
+    artefact of that completed year (composite image of the full
+    year's calendar grid with stamps, tasks, MOTDs, reactions).
+    Hand-painted styling to match app aesthetic.
+    Launch timing assumption: target store launch no later than
+    July 2026 so users get a few months of data accumulated before
+    their first NYE with [partner]. First keepsake offer fires
+    Jan 1 2027 — gives the feature a real cultural moment rather
+    than just an export button.
+    Architecturally cheap: no schema changes needed. New endpoint
+    GET /pair/:key/year/:year returns days for an arbitrary year.
+    Image composition is client-side. Feature can land any time in
+    Phase 4 / v1.x — no hard dependency.
+    Captured here so it's not lost. Real design conversation +
+    tile when timing is right.
+
+[ ] Phase 3 onboarding validation rules — capture for tile 3.3 / 3.3a.
+    When the name + username steps land in Phase 3, they must
+    enforce these rules client-side at input time:
+      • no '|' character in any of name, username, icon
+      • no '__' (double underscore) substring in any of name,
+        username, icon
+      • non-empty strings required
+    These mirror the server-side validation already enforced in
+    POST /resolve (and in tile 1.3's write endpoints when those
+    land). Onboarding catches first with friendly error messaging;
+    server catches always as defence-in-depth.
+    Rationale: the canonical pair-key form uses '|' and '__' as
+    separators. Allowing them in user input would ambiguate the
+    canonical string and let two distinct pairs hash to the same
+    key. See four_tasks_pair_key_v2_design_notes.md "Pair-key format".
+
+[ ] curl-test convention for the project — use curl.exe explicitly.
+    Captured session 3. On Windows PowerShell, `curl` is an alias
+    for Invoke-WebRequest, which has different semantics, a
+    security-prompt UX, and a different output format. Using
+    `curl.exe` invokes the real curl that ships with Windows
+    10/11. Standard curl flags work, output matches documentation
+    everywhere else, copy-paste from tutorials works without
+    translation. Adopted as the project convention going forward.
+    Also: PowerShell mangles JSON bodies on the command line
+    (backslash-escaped quotes don't survive). For any curl with
+    a JSON body, write the body to a file and use --data-binary
+    "@filename.json". Sidesteps the quoting entirely. The /server/
+    README.md (when written in tile 1.3) should follow these
+    conventions in its examples.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PARKED — known, not blocking
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -635,6 +716,30 @@ PARKED — known, not blocking
     Windows' Schannel SSL stack being conservative. Won't recur
     on already-known URLs but may bite again on any new subdomain.
     Workaround: browser-test first while curl warms up.
+
+[ ] Wrangler dev "drifting to remote mode" on startup.
+    Observed session 3: `npx wrangler dev` would boot in local
+    mode then partway through startup print "Starting remote
+    preview... Shutting down local server..." and end up running
+    against the real D1. Possibly a stray hotkey from terminal
+    focus, possibly a wrangler.toml setting, unclear root cause.
+    Workaround that worked: `npx wrangler dev --local` — the
+    explicit flag forces local mode and prevents the drift.
+    Adopted as the project convention. If it ever needs to hit
+    remote D1 for a real reason, use `--remote` explicitly.
+
+[ ] Local D1 must be seeded separately from remote D1.
+    First-time gotcha session 3: `wrangler d1 execute --local`
+    targets a local SQLite file in .wrangler/state/v3/d1/, NOT
+    the remote D1 in OC. When local dev first runs against a
+    fresh local DB, it has no tables. Fix: apply schema.sql with
+    the --local flag once after a fresh clone or .wrangler/
+    wipe. (Migrations 001/002 are baked into schema.sql, so
+    applying them again to local fails with "duplicate column"
+    — harmless, skip them for local.)
+    The /server/README.md (tile 1.3) should document the
+    fresh-clone setup sequence so this doesn't bite future-Morgan
+    on a new machine.
 
 (empty otherwise — items added as they come up during the port)
 
@@ -701,5 +806,23 @@ honesty):
 
 Session 2 total: ~10h.
 
-Running project total: ~18.75h across 17 completed tiles + tile 1.2
-pre-code work + session 2 architectural design + repo admin.
+SESSION 3 — Tile 1.2 read endpoints (partial tile 1.2 close-out)
+[~] 1.2  (continued)     Read endpoints — GET /pair/:key,           ~3h
+                         POST /resolve. Full curl-verified across
+                         200/400/404 paths each. Envelope helpers
+                         (ok / err / jsonResponse) extracted.
+                         derivePairKey helper extracted for tile 1.3
+                         reuse. Day-history cap (calendar year +
+                         previous year) implemented. Tile 1.2 remains
+                         [~] — write endpoints still TODO.
+
+Plus housekeeping:
+- /resolve URL correction (no :key) + leaderboard reposition       ~15min
+  (moved to new tile 4.13a)
+- Year-end keepsake export feature captured                        ~10min
+- Local D1 seeded, test pair flow worked out, conventions logged   ~30min
+  (curl.exe, --data-binary @file, wrangler dev --local)
+
+Session 3 total: ~4h.
+
+Running project total: ~22.75h.
