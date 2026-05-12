@@ -1,0 +1,1 @@
+drafting history for the privacy policy. live caonical version lives at pickle-moon-public/privacy_policy.md

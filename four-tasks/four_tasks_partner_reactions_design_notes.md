@@ -1,0 +1,227 @@
+# Partner Reactions — Design Notes
+
+**Status:** LOCKED for v1.x. Architecture baked into schema and tile 1.3
+defensive write rules from session 2 so the feature can ship later
+without retrofitting.
+
+**Implementation timing:** post-v1.0. Schema reserves the columns;
+endpoints (tile 1.2/1.3) handle reads; UI build is v1.x.
+
+---
+
+## The idea
+
+A pair of users using Four Tasks should be able to *react* to each
+other's days — small expressive markers dropped on what your partner
+wrote or how their day went. Hearts on a good MOTD, an angry-but-loving
+face on a 1-task slog day, celebration on a green four-tasker.
+
+This is the first feature where one user legitimately writes data
+attached to the other user's row. Every other write so far has been
+"user writes to their own slot." Reactions break that symmetry and
+introduce **field-level write permissions** as a concept.
+
+Capturing the architecture now (session 2) means tile 1.3 (defensive
+write rules) can be built with field-level rules in mind from day one
+rather than retrofitted after launch.
+
+## Locked product decisions
+
+**Two reaction targets per day:**
+- **MOTD reaction** — reacting to the *content* of partner's diary text.
+- **Task tray reaction** — reacting to the *performance* of partner's day.
+
+These serve different emotional functions:
+- MOTD reaction = reacting to what they said.
+- Tray reaction = reacting to how the day went.
+
+iMessage doesn't separate these; pairing them in Four Tasks is part of
+what makes the app's emotional vocabulary richer than a generic chat app.
+
+**Post-seal only, immutable once placed:**
+- Reactions cannot be dropped on a live day. Picker is hidden / disabled
+  on the current day's UI.
+- Once the nightly cron seals a day, reactions become possible — partner
+  browses back via past-day-tray and drops reactions on sealed days.
+- Each reaction column accepts exactly ONE write per day per target.
+  Server enforces: if `motd_reaction` is non-NULL, reject further writes
+  to that column with 404. Same for `tray_reaction`.
+- This means the partner gets ONE shot per target per day. Two reactions
+  total per day (MOTD + tray), both permanent once placed.
+
+**Picker UX with confirmation gate:**
+- Tap MOTD area (or tray area) on partner's sealed day → reaction picker opens
+- Long-press / hover emojis to **preview locally** (no server write, local UI tint only)
+- Tap one to select → preview locks in
+- Tap confirm or close picker → **confirmation popup interrupts**:
+    "react with ❤️ on this day? you can't change this later"
+    [Yes] [No] [ ] don't show this again
+- "Yes" → single server write, reaction permanent
+- "No" → return to picker
+- Each target (MOTD, tray) shows its own popup first time
+- "Don't show again" — single dismissal kills the popup for BOTH MOTD and
+  tray reactions across all future days. Harsh but low blast radius —
+  the lesson learned on one reaction applies to all of them.
+
+The popup is client-side user education. The server is the authoritative
+gate (it'll reject the second write to a non-NULL column regardless of
+whether the popup fired).
+
+**Surfacing reactions to the receiver:**
+- Push-based. When partner reacts to one of your days, your app shows
+  a small notification/badge somewhere visible (exact UI location is
+  Phase 4 work).
+- Receiver sees partner's reaction by either tapping the notification
+  OR scrolling back to the day in past-day-tray.
+- Notification dismissal logic deferred to v1.x UI work — open question
+  whether visiting the day-with-reaction implicitly clears the badge,
+  or whether explicit dismissal is required.
+
+**The day's two phases:**
+- **Live phase**: each user lives their own day. Tick tasks, write MOTD,
+  set rest. Self-focused. No noise from partner.
+- **Post-seal phase**: day becomes history for both. Reactions are the
+  language of "I saw your day, here's how I felt about it."
+
+The temporal separation is part of what makes the gesture meaningful —
+you're appreciating something complete, not interrupting something in progress.
+
+## Picker UX
+
+See "Picker UX with confirmation gate" above under "Locked product
+decisions" for the full flow. Key points:
+
+- Mirrors the emoji-picker pattern from `four_tasks_pair_key_v2_design_notes.md`
+  for the preview-on-press / commit-on-exit shape.
+- Adds a one-time-per-user confirmation popup ("you can't change this
+  later") because reactions are immutable and the user needs to know
+  before locking in.
+- Popup is dismissible forever via a "don't show again" checkbox.
+- Once dismissed, the picker write goes straight through.
+
+## Schema (locked)
+
+**Four columns on `days`** (the reactions themselves):
+
+```sql
+motd_reaction          TEXT,        -- emoji char, NULL = no reaction
+motd_reaction_at       INTEGER,     -- unix ts of placement
+tray_reaction          TEXT,        -- emoji char, NULL = no reaction
+tray_reaction_at       INTEGER      -- unix ts of placement
+```
+
+All four nullable. All four are PARTNER-writable, OWNER-readable.
+Each column accepts exactly ONE write — server rejects subsequent writes
+if the column is already non-NULL.
+
+**One column on `users`** (the popup-dismissal preference):
+
+```sql
+reaction_confirm_dismissed INTEGER NOT NULL DEFAULT 0
+```
+
+Owner-writable (each user manages their own preference). Not a migration
+trigger. 0 = show the confirmation popup, 1 = user has dismissed it
+forever.
+
+## Field-level write rules (impacts tile 1.3)
+
+The defensive write rules for `days` get a layer of field-level
+granularity, additionally gated by sealed-state.
+
+### Live day (sealed_at IS NULL)
+
+| Field            | Owner can write | Partner can write |
+|------------------|-----------------|-------------------|
+| tasks_done       | yes             | no                |
+| diary            | yes             | no                |
+| stamp            | yes             | no                |
+| rest_day         | yes             | no                |
+| sealed_at        | yes (cron)      | no                |
+| motd_reaction    | no              | **no** (sealed-only) |
+| motd_reaction_at | no              | **no** (sealed-only) |
+| tray_reaction    | no              | **no** (sealed-only) |
+| tray_reaction_at | no              | **no** (sealed-only) |
+
+### Sealed day (sealed_at IS NOT NULL)
+
+| Field            | Owner can write | Partner can write             |
+|------------------|-----------------|-------------------------------|
+| tasks_done       | no              | no                            |
+| diary            | no              | no                            |
+| stamp            | no              | no                            |
+| rest_day         | no              | no                            |
+| sealed_at        | no              | no                            |
+| motd_reaction    | no              | **yes, only if currently NULL** |
+| motd_reaction_at | no              | **yes, only if motd_reaction is NULL** |
+| tray_reaction    | no              | **yes, only if currently NULL** |
+| tray_reaction_at | no              | **yes, only if tray_reaction is NULL** |
+
+Implementation pattern for tile 1.3:
+- The PUT endpoint for a day takes a JSON body with only the fields
+  being changed.
+- Server inspects which fields the body is trying to write.
+- Server computes:
+  - the role of the caller (owner or partner)
+  - the sealed state of the day
+- For each field in the body: check the lookup table above. Reject the
+  *entire* request with 404 if any field is unauthorised (per the auth
+  conversation — no 403s, "permission denied" folds into "not found").
+- For reaction writes: additionally check that the column is currently
+  NULL. Reject with 404 if non-NULL (immutability enforcement).
+- Once authorised, apply the writes in a single SQL statement.
+
+The server is the authoritative immutability gate. The client-side
+confirmation popup is user education on top of that.
+
+### `users.reaction_confirm_dismissed`
+
+Separate writability rule on the users table:
+- Owner can write to their own row's `reaction_confirm_dismissed`
+- Not a migration trigger (changing it doesn't rewrite pair-key)
+- Always 0 (default) or 1 — toggleable in principle but the popup never
+  re-appears once dismissed, so the toggle is effectively one-way
+
+## Stamp vs tray reaction — coexistence
+
+The day's `stamp` column and the `tray_reaction` are similar in spirit
+(both express "how did this day go") but serve different roles:
+
+- **Stamp** = mechanical, auto-set based on number of tasks completed.
+  Visual outcome marker. Owned by the row's user.
+- **Tray reaction** = emotional, deliberate, set by the partner.
+  Affectionate or sympathetic response to the outcome.
+
+They render together but are not in tension. Stamp says "you did 3 of 4
+today"; reaction says "and that's still beautiful." Or "wuss." Up to the
+partner.
+
+Tile 4.7 (stamp slap animation) and the not-yet-numbered tray-reaction
+tile both render onto the same physical area of the calendar cell.
+Layout will need to position them as complementary, not competing.
+
+## Open work (for the v1.x implementation tile)
+
+- New tile in Phase 4 area (call it 4.16): "Reaction picker UI and
+  Backend hookup."
+- Endpoint signatures:
+    - `PUT /pair/:key/users/:partner_name/day/:date/reaction`
+      where `:partner_name` is the row being reacted *to* (the partner)
+      and the caller is the row's owner... wait, actually it's the
+      other way around. Re-read the field-level table above:
+        - row is `(pair_key, user_name=A, date)` — i.e. A's day
+        - the *partner* (B) writes the reaction
+        - so URL has A as `:user_name` (the target), and B is the
+          caller (identified per auth conversation)
+    - Body: `{"motd_reaction": "❤️"}` or `{"tray_reaction": "🔥"}` or both.
+    - Setting to null = removing the reaction.
+- Tile 4.16 NOT in v1.0 ship scope. UI work + endpoint, both v1.x.
+
+## Cross-references
+
+- `four_tasks_pair_key_v2_design_notes.md` — picker UX pattern this
+  feature inherits.
+- `four-tasks/server/schema.sql` — concrete columns.
+- Roadmap tile 1.3 — field-level defensive writes need to ship with v1
+  even though the *feature* is v1.x.
+- Future roadmap tile 4.16 (TBD) — reaction picker UI build.

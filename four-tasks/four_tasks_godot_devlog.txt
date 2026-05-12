@@ -1,0 +1,718 @@
+FOUR TASKS — Godot Devlog
+==========================
+Last updated: May 2026 (session 2)
+Engine: Godot 4.x
+Studio: THE PICKLE MOON
+Target stores: Google Play, Apple App Store
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AI READING GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This devlog is the primary context document for continuing development of the
+Four Tasks Godot port. Read it fully before writing any code.
+
+The web build (single HTML file at fourtasks.morgan91ryan.workers.dev) is
+historical reference — it is frozen and not actively developed except for
+critical patches affecting current users (mum, Ayshi, friends). Its devlog
+and todo (`four_tasks_devlog.txt`, `four_tasks_todo.txt`) are reference docs
+for the port, not active working documents.
+
+Design notes (read whichever is relevant to the tile being worked on):
+  - `four_tasks_pair_key_identity_design_notes.md`  — v1 identity sketch
+    from session 13. Background only.
+  - `four_tasks_pair_key_v2_design_notes.md`        — LOCKED v2 identity
+    model. Six-value pair-key, partner-app-mediated recovery, migration
+    semantics. Refines v1; supersedes on recovery story. (Session 2)
+  - `four_tasks_partner_reactions_design_notes.md`  — LOCKED partner
+    reactions design. Schema reserved v1.0; feature ships v1.x. First
+    feature with field-level write rules (partner writes other user's
+    row). (Session 2)
+  - `four_tasks_coin_name_design_notes.md`          — LOCKED coin name
+    generator design. Server-side rule-driven affix system that
+    transforms username into flavoured coin economy name. Schema
+    reserved v1.0; feature ships v1.x. (Session 2)
+  - `four_tasks_staggered_disclosure_design_notes.md` — LOCKED meta-
+    principle. Features reveal over days/weeks, not at onboarding.
+    Schema (tutorial_progress) reserved v1.0; coordinator + reveal
+    content land in Phase 4. (Session 2)
+  - `four_tasks_theme_design_notes.md`              — palette system.
+  - `four_tasks_monetisation_position.md`           — subscription model
+    + tone position. (Session 1)
+
+The two planning documents are:
+  - `four_tasks_godot_port_plan.md`  — the master architectural read-through.
+                                        Stable. Updated rarely, only when an
+                                        architectural decision changes.
+  - `four_tasks_godot_roadmap.md`    — the phased tile list. Updated rarely;
+                                        tiles complete via the todo, not here.
+
+When starting a fresh session:
+  1. Ask Morgan to upload the current Godot project as a zip.
+  2. Read this devlog and `four_tasks_godot_todo.txt`.
+  3. Consult the port plan section relevant to the tile being worked on.
+  4. Use str_replace for code patches — never rewrite whole files unless asked.
+  5. Verify changes before reporting them complete.
+
+Morgan's preferences:
+  - Full explanation before writing code.
+  - Confirm understanding, then write.
+  - One tile per session. Discipline > total motion.
+  - No partial snippets — output complete patched files when patching.
+  - Concise, no filler.
+  - Don't use Australian slang.
+  - Morgan has no prior coding experience; all code is written by Claude
+    via step-by-step guidance. GDScript is being learned alongside the port.
+  - Break information into one decision at a time. Don't pile multiple
+    options on screen; walk through them sequentially. (Session 2)
+  - Architectural preference: Four Tasks is low-throughput. When a
+    design choice is between correctness/legibility/robustness and
+    performance/cleverness, prefer the former. The clever option is
+    reserved for cases where performance is genuinely constrained.
+    This rule pre-empts a class of premature-optimisation debates.
+    (Session 2; see port plan for canonical statement.)
+
+Convention (set session 2): every tile entry in this devlog AND in the
+todo gets a "Time: ~Xh" or "Time: ~Xmin" log on its title line. Times
+are approximate, rounded to the nearest useful chunk. The data feeds
+back into realistic estimation for future tiles.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Native rebuild of the Four Tasks habit tracker for Google Play and Apple App
+Store. Two-user pair model. No third-party login, no email collection.
+Pair-key identity (see v2 design notes). Hand-painted assets. Curated palette
+themes. 1080×2400 portrait.
+
+Backend: Cloudflare Worker + D1 (locked decision, see port plan 2.2).
+Identity: pair-key v2 (locked decision, see v2 design notes).
+Theme: curated lookup table tier (b) (locked decision, see port plan 2.4).
+Assets: hand-drawn / hand-painted by Morgan (see port plan 2.5).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT STRUCTURE (canonical)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+res://
+├── scenes/          — all .tscn files
+├── scripts/         — all .gd files (autoloads + non-scene helpers)
+├── assets/
+│   ├── icons/       — hand-painted emoji icons (calendar + picker sizes)
+│   ├── stamps/      — hand-painted stamp variants (complete/rest/partial-N)
+│   └── ui/          — chrome, buttons, popup borders, dividers
+├── data/            — Resource files (palette table, etc.)
+└── server/          — Cloudflare Worker source code (TypeScript)
+    ├── src/
+    │   └── index.ts
+    ├── schema.sql
+    ├── wrangler.toml
+    ├── package.json
+    └── package-lock.json
+
+Outside the Godot project (gitignored):
+  source_assets/     — raw Aseprite / etc. files
+  server/node_modules/  — npm dependencies (reproducible from package.json)
+  server/.wrangler/     — Wrangler local cache
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ARCHITECTURE (reference — fuller detail in port plan section 4)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Top-level scene tree:
+  Main (Node)
+  ├── Backend (Autoload — singleton)        — server I/O, signals
+  ├── State (Autoload — singleton)          — in-memory mirror of pair data
+  ├── ThemeManager (Autoload — singleton)   — palette swap, theme_changed signal
+  ├── Audio (Autoload — singleton, v1.x)    — slot ticks, coin sounds, stamp thump
+  ├── Loader (Scene)                        — identity check, pair-key resolve
+  ├── Onboarding (Scene)                    — name, tasks, slot intro, emoji pick
+  ├── App (Scene)                           — main two-panel UI
+  └── DevKit (Scene, debug-only)            — bug inbox, seed tools
+
+Source of truth: server. State is a mirror.
+Write flow: UI → State.set_*() → Backend.save() → server confirms
+            → State emits signal → UI updates from signal.
+Optimistic local updates with rollback on server reject.
+
+Server architecture (locked session 2):
+  - Cloudflare Worker (TypeScript) at four-tasks-api.thepicklemoon.workers.dev
+  - D1 SQL database (Oceania region) bound as env.DB
+  - Four tables: pairs, users, days, bug_reports
+  - Pair-key migrations are re-entrant + transaction-wrapped
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 1 (May 2026) — Project bootstrap
+[x] Tile 0.1 — Create the Godot project. Time: ~1h.
+  - Godot 4.x project named four-tasks created with Mobile renderer.
+  - Local path: C:\Users\Necruccio\Documents\four-tasks\
+  - Folder structure: scenes/, scripts/, assets/{icons,stamps,ui}/, data/,
+    server/. source_assets/ outside the project, gitignored.
+  - Git initialised on main branch.
+  - .gitignore extended from Godot's default to also cover /ios/, *.import,
+    /source_assets/, OS files (.DS_Store, Thumbs.db), editor backups.
+  - Godot's auto-created files captured in initial commit: .editorconfig,
+    .gitattributes, .gitignore, icon.svg, project.godot.
+  - Initial commit d25ad2f pushed to private GitHub repo:
+    https://github.com/thepicklemoon/four-tasks
+  - GitHub username: thepicklemoon (separate account on THE PICKLE MOON gmail).
+
+[x] Tile 0.2 — Project settings. Time: ~1h.
+  - Display → Window → Size: Viewport 1080×2400.
+  - Display → Window → Stretch: mode canvas_items, aspect keep_height.
+  - Display → Window → Handheld → Orientation: portrait (locked).
+  - Input Devices → Pointing: emulate_touch_from_mouse + emulate_mouse_from_touch
+    both enabled (touch-first dev workflow on desktop).
+  - Application → Config → Name: "Four Tasks". Description set.
+  - Rendering → Textures → Canvas Textures → Default Texture Filter: Nearest
+    (critical for crisp pixel-art icons / stamps).
+  - All settings saved to project.godot, verified by quit + reopen.
+  - Commit c049d24 pushed.
+
+[x] Tile 0.3 — Font choice (working set imported, decision deferred to context). Time: ~1h.
+  - Two free-licensed fonts imported into assets/fonts/:
+    - Departure Mono (departuremono.com, OFL) — distinctive pixel monospace.
+    - JetBrains Mono Regular + Bold (jetbrains.com/lp/mono, OFL) — clean
+      modern monospace, glitch role fallback.
+  - License files (OFL.txt / LICENSE.txt / AUTHORS.txt / README.md) kept
+    alongside font files for license compliance on redistribution.
+  - Web format files (.woff, .woff2) and unused weights stripped — only
+    the .otf/.ttf we'll ship are committed.
+  - Body font NOT chosen yet. Departure Mono pulls strong as a candidate
+    for body (whole-app pixel monospace, identity-forward) but legibility
+    at body size on mum's iOS PWA is a real concern. Decision deferred to
+    Phase 2/3 when scenes exist and the fonts can be compared in context.
+  - Dengxian was investigated as a third candidate. Dropped — likely
+    licensed by Founder for Microsoft and not freely redistributable
+    even though aggregator sites label it "free for commercial." Red
+    herring; not worth the licensing dig at decision-time.
+  - Commit bd08906 pushed.
+
+[x] Tile 0.4 — Devkit skeleton. Time: ~30min.
+  - scenes/devkit.tscn — empty Control-rooted scene.
+  - scripts/devkit.gd — minimal script extending Control, _ready prints
+    "[DevKit] loaded" as a sanity check.
+  - Verified the scene runs: F6 in Godot opens a blank tall portrait
+    window, console prints the load message.
+  - NOT yet gated to debug-only loading. That's tile 5.2 in Phase 5 —
+    depends on a real Main scene existing first (Phase 2). For now the
+    scene is standalone and only runs when explicitly opened in Godot.
+  - Initial commit e0258c2 used "dev_kit.tscn" filename — corrected to
+    "devkit.tscn" in 06796ec to match script naming and Godot single-word
+    convention. Commit message typo "Tie" instead of "Tile" left in
+    history (rewriting git history not worth it for a typo).
+
+[~] Tile 0.5 — ABN registration + accountant consult. Time: ~30min.
+  - ABN registered as Sole Trader at abr.gov.au.
+  - Main business activity: Software Publishing (except Customised
+    Software Publishing) — ANZSIC 5910.
+  - Position held: Sole Trader.
+  - Business start date: today (May 2026).
+  - GST registration declined (turnover well below $75k threshold).
+  - ABN should be live on ABN Lookup within an hour of submission.
+  - Accountant consult portion of this tile still outstanding — book
+    a one-hour with a WA small business accountant familiar with
+    Division 35 / non-commercial losses / creative industries.
+    Tile remains open until that part lands.
+
+[x] Tile 0.9 — Monetisation strategy discussion. Time: ~1.5h.
+  - Tile pulled forward in session 1 because the privacy policy draft
+    couldn't be finalised without the monetisation question answered
+    (privacy policy v2's "the app is free" line was wrong).
+  - Locked direction: subscription model. $1/week or $4/month.
+    30-day free trial → 30-day half price → full price.
+  - Founders model for prototype-era users (permanent free access
+    via baked-in flag, not redemption codes).
+  - Pair pricing structure deferred — Morgan wants longer to think
+    on whether one-pays-both-get-access vs each-pays-individually
+    vs user-choice. Notes captured in position doc.
+  - Full written position doc saved as
+    four_tasks_monetisation_position.md alongside other planning
+    artefacts. Becomes the stable reference for monetisation
+    decisions; privacy policy v3 will reference it.
+  - The conviction line that anchors all future monetisation
+    decisions: "nothing turns me off faster than the greed i see in
+    the mobile app market. i want to exist where being patient and
+    respectful of their money is legible." Quoted directly in the
+    position doc as the brand check.
+
+SESSION 1 CONTINUED (11 May 2026) — Phase 0 finished
+[x] Tile 0.5 — ABN active + accountant consulted. Time: ~1.5h total.
+  - ABN issued 92 231 512 645, sole trader, Software Publishing.
+  - Free accountant consult on 11 May confirmed business expenses do
+    NOT offset personal (BHP) income. Expenses accumulate against
+    future THE PICKLE MOON revenue, deducted on the first business
+    return that shows earnings. Division 35 / Commissioner's discretion
+    only becomes relevant once there's a business return with a loss
+    — future-Morgan problem.
+  - The 30 June tax-year pressure is therefore gone entirely. No urgency
+    around the Mac purchase. Records still matter (tile 0.11) so
+    expenses are deductible whenever revenue eventually lands.
+  - Accountant didn't have a view on the business-name registration
+    question — "not their area." Tile 0.7 became a standalone decision.
+
+[x] Tile 0.6 — myGovID + RAM linked. Time: ~25min.
+  - myGovID app installed, identity verified.
+  - RAM linked to ABN 92 231 512 645 via info.authorisationmanager.gov.au.
+    Sole trader = principal authority automatically.
+  - Now ready for Apple Developer business identity verification
+    (Phase 5) and any ATO interactions going forward.
+
+[x] Tile 0.7 — Business name registered. Time: ~20min.
+  - THE PICKLE MOON registered as a business name via ASIC Connect.
+    3-year registration, $104 AUD by credit card. Transaction ref
+    1-Z7CGQ6B. Renewal due 11 May 2029.
+  - All studio prose normalised to THE PICKLE MOON across devlog,
+    todo, monetisation doc, and privacy policy in one batch. gmail
+    address, GitHub handle, and example domain (pickle-moon.com) left
+    untouched — those are literal identifiers, not display strings.
+  - First real business expense. Logged in tile 0.11.
+
+[x] Tile 0.8 — Mac access strategy resolved (by removal of constraint).
+  - Accountant outcome removed the only forcing function for buying
+    a Mac before 30 June. Pure business-need decision now: needed in
+    Phase 5 for iOS submission, ~6 months out.
+  - Deferred to Phase 5. Logged as a >>> BUY A FUCKIN MAC <<< reminder
+    at the top of that phase in the todo so future-Morgan can't miss it.
+
+[x] Tile 0.10 — Privacy policy under version control. Time: ~30min.
+  - Privacy policy iterated up to v7 across the session (ABN fold-in,
+    monetisation reflection, studio-name normalisation, business name
+    fold-in).
+  - Created second private GitHub repo on thepicklemoon:
+    https://github.com/thepicklemoon/pickle-moon-public
+  - v7 dropped in as privacy_policy.md (version now lives in git
+    history + the doc's own metadata, not in filenames). README.md
+    added to explain the repo's purpose, contents, and conventions.
+  - Initial commits c13b2e2 + cc7bb53 (README rename — accidentally
+    landed as ledger_README.md, fixed with git mv).
+  - Cloudflare Pages hosting deferred to Phase 5 — the doc will rot
+    if hosted before store submission needs the live URL.
+  - Slotted tile 5.9a into Phase 5: Terms of Service drafting + hosting.
+    Optional for store submission but worth having before paying users
+    exist. Sits next to the privacy-policy-hosting tile.
+
+[x] Tile 0.11 — Record-keeping structure live. Time: ~45min.
+  - Decision: git repo, plain CSV + receipts folder. Punk, free,
+    survives any vendor outliving us. Re-evaluate at >50 entries or
+    when revenue starts.
+  - Created third private GitHub repo on thepicklemoon:
+    https://github.com/thepicklemoon/pickle-moon-ledger
+  - Structure: README.md (conventions + rationale), ledger.csv (single
+    source of truth — date, vendor, amount_aud, category, description,
+    receipt_file, notes), receipts/ folder. Annual summary files
+    (summary_FY2025-26.md etc.) to be generated at end of each
+    Australian financial year (30 June; first one covers FY2025-26).
+  - First ledger row: $104 AUD to ASIC, 11 May 2026, business name
+    registration. All four supporting docs in receipts/:
+    payment-confirmation.png, record-of-registration.pdf,
+    cover-letter.pdf, application.pdf.
+  - ASIC key (1-76631528107) stored separately in password manager,
+    not in the repo. Repo is private but credentials don't belong in
+    plain-text CSV either way.
+  - Commits 19e88a6 (scaffold), 4645430 (receipts), fc67261 (ledger row).
+  - First commit message dropped the "$104" — PowerShell expands "$1"
+    as a variable. Fixed by escaping with backtick or using single
+    quotes. Won't rewrite history for it; new commit has the clean
+    message. Lesson logged.
+
+PHASE 0 COMPLETE. Every tile landed:
+  0.1 Godot project    0.5 ABN + accountant     0.9  Monetisation
+  0.2 Settings         0.6 myGovID + RAM        0.10 Privacy policy in git
+  0.3 Fonts (decided)  0.7 Business name        0.11 Ledger live
+  0.4 Devkit           0.8 Mac → Phase 5
+
+NOTES FOR NEXT SESSION:
+  - Three GitHub repos exist now on thepicklemoon:
+      four-tasks            — the Godot project (private)
+      pickle-moon-public    — privacy policy + future public docs (private)
+      pickle-moon-ledger    — expense ledger + receipts (private)
+  - All three use the same THE PICKLE MOON gmail identity. Reuse for
+    Cloudflare (Phase 1) and store accounts (Phase 5).
+  - The end-of-session git workflow now lives in three repos; remember
+    to commit + push each one that received work in a session.
+  - PowerShell gotcha: $ in commit messages expands as a variable.
+    Always escape with backtick (`$104) or wrap the message in single
+    quotes. Affects any command with literal dollar signs.
+  - Body font decision (Departure for everything vs Departure for
+    headings only) is still open — pick up in Phase 2/3.
+  - Phase 1 starts fresh next session: Cloudflare account creation,
+    then Worker scaffold + D1 schema (tile 1.1).
+
+[x] Tile 1.0 — Cloudflare account live. Time: ~10min.
+  - Signed up at dash.cloudflare.com using thepicklemoon@gmail.com
+    (same identity as the three GitHub repos).
+  - Email verified. Onboarding domain/DNS push skipped — we're here
+    for Workers + D1, not the CDN product.
+  - 2FA enabled via authenticator app (not SMS). Recovery codes saved
+    to password manager.
+  - Account ready to receive Wrangler CLI logins and host the Worker
+    + D1 backend in tile 1.1.
+
+[x] Tile 1.0a — Domain decision + registration. Time: ~30min.
+  - DECISION: thepicklemoon.com via Cloudflare Registrar. Single studio
+    domain. Subdomains for project-specific URLs (planned:
+    fourtasks.thepicklemoon.com, api.fourtasks.thepicklemoon.com).
+  - Considered .dev seriously — would have signalled indie-developer
+    identity to peers and gained free enforced HTTPS. .com won as more
+    legible to non-technical users (mum, customers reading the privacy
+    policy URL, app store reviewers). The brand-side identity outweighs
+    the dev-side signal.
+  - Registered via Cloudflare Registrar at cost (no markup, no upsells).
+    Account type set to Personal — correct for sole trader (no separate
+    legal entity; Morgan Ryan is the legal person, THE PICKLE MOON is
+    just the registered business name he trades under).
+  - WHOIS contact details match ASIC public register (already public
+    information, no privacy concern).
+
+[x] Tile 1.0b — Toolchain prep. Time: ~25min.
+  - Node.js v24.15.0 LTS installed via the official Windows .msi
+    installer. Standard defaults, "Tools for native modules" left
+    unchecked (Chocolatey + Python + VS build tools not needed for
+    Wrangler). Required PowerShell restart for PATH to pick up.
+  - Wrangler 4.90.0 installed globally via npm install -g wrangler.
+  - OAuth auth flow failed first attempt — Cloudflare auth hiccup
+    immediately after account creation. Re-logged into dashboard,
+    retried, succeeded.
+  - wrangler whoami confirms thepicklemoon@gmail.com account,
+    Account ID a0e8193e760facf82a31c6d3992cd7c9, broad permission
+    scope. Account ID saved to password manager for use in Worker
+    configs.
+  - Tile 1.1 (Worker scaffold) now starts at code rather than
+    toolchain setup.
+
+PHASE 0 + Phase 1 OPENING + Toolchain prep COMPLETE.
+
+(Session 1 closed. Phase 0 in the bag. Phase 1 ready to write code.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 2 (12 May 2026) — Worker scaffold + D1 schema, identity v2 lock-in
+
+Two threads ran today: a ledger admin tidy at the start, and tile 1.1
+in earnest after that. The schema design conversation surfaced a
+significant refinement to the locked pair-key identity model, which
+got written up as its own design doc (v2 notes) rather than ballooning
+the devlog.
+
+LEDGER ADMIN (pre-tile work, ~30min):
+  - Aseprite receipt logged. itch.io order #34095350, 5 March 2026,
+    USD $20.99 → A$30.06 (card statement confirmed). Pre-ABN expense,
+    deductible against future PICKLE MOON revenue (accountant's
+    guidance from session 1).
+  - Inserted as new earliest ledger row. Existing ledger was found
+    to be unordered — Morgan spotted that line 4 (Anthropic Pro,
+    1 March) was older than the ASIC row but appearing later in
+    the file. Sorted chronologically in a separate commit, then
+    added Aseprite row above the existing March 1 Anthropic entry.
+  - Commits in pickle-moon-ledger:
+      0050652  Add receipt: 2026-03-05 itch.io Aseprite license
+      ed23b94  Sort ledger chronologically and add expense
+  - Filename convention held: 2026-03-05_itch-io_aseprite-license.pdf
+  - Note: PowerShell $ gotcha caught at commit-message time. Used
+    single quotes per session 1 lesson — worked correctly.
+
+[x] Tile 0.12 — Dev environment setup. Time: ~15min (mid-tile-1.1).
+  - Retroactively added after the cost of working in Notepad became
+    obvious during tile 1.1 file editing. Tile 1.1 needed an editor
+    and didn't have one budgeted; this tile fills that gap and lives
+    in Phase 0 for ordering correctness.
+  - VS Code installed via official .msi from code.visualstudio.com.
+    Standard defaults. "Add to PATH" left enabled so `code .` works
+    from any PowerShell directory.
+  - GitHub integration connected (signed in via VS Code's built-in
+    GitHub auth flow). Future repo work can use VS Code's source
+    control panel as an alternative to PowerShell git commands.
+  - No extensions installed preemptively. Will add Even Better TOML,
+    Godot Tools, etc. as needs surface naturally during work.
+  - Built-in terminal (Ctrl + backtick) replaced standalone PowerShell
+    windows for the rest of the session. Two-terminal pattern (one
+    for dev server, one for curl) supported via the + icon in the
+    terminal panel.
+  - Noted: VS Code ships with a Copilot-style "Chat / Sessions" panel
+    on the right. Disabled for now to avoid two AIs editing the same
+    files without coordination. Re-evaluate if Copilot becomes useful.
+
+[x] Tile 1.1 — Cloudflare Worker scaffold + D1 schema. Time: ~3h.
+
+  Worker side (part 1):
+  - server/package.json created. Three dev dependencies:
+    @cloudflare/workers-types, typescript, wrangler 4.90.0.
+    npm install pulled 36 packages, zero vulnerabilities.
+  - server/wrangler.toml created. Worker name "four-tasks-api",
+    main = "src/index.ts". Compatibility date set initially to
+    2026-05-12, hit error "compatibility date in the future and
+    unsupported" because wrangler 4.90.0 shipped before that date
+    in its release-included runtime catalogue. Pinned to 2026-01-01
+    which is within the 4.90.0 release window. Will bump forward on
+    future wrangler upgrades.
+  - server/src/index.ts created. Single /health endpoint returning
+    JSON. Helper jsonResponse() for consistent envelope. Env
+    interface defined but DB binding commented out until D1 created.
+  - npx wrangler dev confirmed locally — Ready on 127.0.0.1:8787,
+    curl returned {"status":"ok","service":"four-tasks-api"}.
+  - npx wrangler deploy succeeded. First-deploy prompted for
+    workers.dev subdomain — chose "thepicklemoon". URL now live at
+    https://four-tasks-api.thepicklemoon.workers.dev. This subdomain
+    is account-wide and will be reused for any future Workers.
+  - Live verification: initial curl hit a TLS handshake error
+    (SEC_E_ILLEGAL_MESSAGE on Windows curl) — DNS/edge cert lag.
+    Browser succeeded immediately, curl caught up after ~30min.
+    Worker side proven end-to-end.
+
+  Identity model refinement (mid-tile):
+  - When walking the schema, Morgan flagged that my initial sketch
+    underspecified the pair-key system. The v1 design (session 13)
+    treated the pair-key as just a hash of two names; Morgan's
+    actual mental model includes username and icon as part of the
+    recovery credential, with the partner's app acting as the
+    visible source of truth.
+  - Long design conversation that surfaced and locked:
+      • Six-value pair-key (name+username+icon × 2 users)
+      • Name immutable, username + icon freely mutable
+      • Username and icon changes trigger pair-key migration
+      • Migration is re-entrant by design, wrapped in D1 transactions
+      • Emoji picker uses preview-on-press / commit-on-close to
+        collapse the race-condition window
+      • Pair-key stored as SHA-256 truncated to 16 hex chars
+  - Full write-up: four_tasks_pair_key_v2_design_notes.md. The
+    v1 doc remains for background but is superseded on recovery
+    semantics by v2.
+  - This was the right level of design conversation to have *before*
+    cementing the schema. Worth the time. Pattern to repeat: when
+    a schema or interface decision touches identity/recovery, slow
+    down and write the design out fully.
+
+  Schema side (part 2):
+  - server/schema.sql created. Four tables: pairs, users, days,
+    bug_reports. One index on days (pair_key, user_name, date DESC).
+    Long comment block at the top of the file captures every locked
+    decision from the v2 design conversation inline so future-Claude
+    reading the file gets the design intent without needing to find
+    the separate doc.
+  - Filename typo caught: created as "scheme.sql", renamed to
+    "schema.sql" via VS Code. Caught when ls showed the typo before
+    `wrangler d1 execute` ran against it. Five-message-long design
+    discussion about *the schema* had been mis-spelled the whole time
+    on disk — easy miss, easy fix.
+  - D1 database created: `npx wrangler d1 create four-tasks` →
+    database_id 439855c8-e0cc-4241-bbdc-5a0a00e0f681, region OC
+    (Oceania — closest to WA, lowest latency for live users).
+  - wrangler.toml updated with the [[d1_databases]] binding active.
+    Wrangler suggested binding name "four_tasks"; overrode to "DB"
+    by convention (env.DB.prepare(...) reads cleaner than
+    env.four_tasks.prepare(...)).
+  - Schema applied: `npx wrangler d1 execute four-tasks --remote
+    --file=schema.sql` — 5 commands executed (4 CREATE TABLE +
+    1 CREATE INDEX), 14 rows written, 0.05 MB DB size.
+  - Verification query against sqlite_master returned all four
+    expected tables plus sqlite_sequence (AUTOINCREMENT helper)
+    and _cf_KV (Cloudflare internal bookkeeping, harmless).
+  - Worker redeployed to pick up the D1 binding. Output now confirms
+    "env.DB (four-tasks) D1 Database" in bindings list. /health
+    still responds correctly post-redeploy.
+
+  Git work:
+  - .gitignore extended for Node/TypeScript: node_modules/, *.log,
+    .wrangler/, dist/. Verified with git check-ignore before
+    adding server/ to the stage.
+  - Five commits on main in four-tasks repo:
+      (previous)  Extend .gitignore for Node/TypeScript
+      (previous)  Scaffold Cloudflare Worker with /health endpoint
+      fa0e618     Add D1 schema: pairs, users, days, bug_reports
+      f103435     Wire D1 binding in wrangler.toml
+
+NOTES FOR NEXT SESSION (written mid-session 2 after tile 1.1 only —
+SUPERSEDED by the UPDATED NOTES FOR NEXT SESSION block at the end of
+this session 2 entry below):
+  - All servers live: Worker, D1 binding, /health proven end-to-end
+    via curl. Ready for tile 1.2 (Worker endpoints v1).
+  - The schema's identity model documentation is the source of
+    truth for tile 1.3's defensive write rules — re-read both the
+    schema comments AND four_tasks_pair_key_v2_design_notes.md
+    before writing migration logic.
+  - Tile 4.14 (theme manager) now has UX hooks defined for the
+    picker. Implementation can refer to the v2 doc's
+    "Emoji picker UX" section.
+  - Outstanding ledger items for when receipts/statements land:
+      • Cloudflare domain (thepicklemoon.com) — invoice IN-64839053,
+        USD $10.46, expected ~A$16-17, paid 11 May. Card statement
+        will confirm AUD figure. Receipt files already saved to
+        pickle-moon-ledger/receipts/.
+      • Bitwarden — subscription starts after trial, ~1 week from
+        end of session 2. New software_subscription expense incoming.
+  - VS Code in regular use now. Future tiles will use Source Control
+    panel + integrated terminal rather than separate PowerShell
+    windows. Workflow is meaningfully faster.
+  - PowerShell single-quote pattern for $-containing commit messages
+    is now second nature. No further reminders needed.
+
+END-OF-SESSION REVIEW NOTE:
+  After the planning docs were drafted, ran a five-point concerns check.
+  Morgan signed off on four of them as "deal with it when we get there"
+  (schema-username untested in production, recovery UI undrawn, collision
+  popup copy unwritten, bug_reports deletion strategy). One produced a
+  real design contribution: the morning sequence's coin-payout animation
+  doubles as a natural migration window. UI non-interactive for the
+  duration = server gets uninterruptible time for the day's biggest
+  writes. Folded into v2 design notes and tile 4.6. Tile 1.3 also
+  gained an explicit note about HTTP 409 stale-pair-key handling for
+  the rarer intra-day collision case.
+
+  LATER IN SESSION: started tile 1.2 (Worker endpoints v1) — the
+  three pre-code decisions surfaced two more architectural additions.
+
+  (1) Locked the response envelope shape: uniform {ok, data} / {ok, error}
+  on every endpoint. Kills the inconsistent-error-handling bug class
+  that hurt the web build.
+
+  (2) Locked a meta-rule: "clarity over cleverness." Four Tasks is a
+  low-throughput calendar app; when a design choice is between
+  correctness/legibility and performance/cleverness, prefer the former.
+  Added to Morgan's preferences in this devlog AND the port plan as
+  section 2.0. Pre-empts a class of premature-optimisation debates.
+
+  (3) Mid-decision, Morgan flagged a feature that hadn't been discussed:
+  partner reactions on MOTD and task tray. This is the first feature
+  where one user writes data attached to the other's row, breaking the
+  "owner-only writes" symmetry baked into the original schema. Stopped
+  tile 1.2 to bake reactions into the schema before any endpoints
+  reference it. After several iterations the locked model is:
+    • Two reaction targets per day (MOTD + tray)
+    • Reactions ONLY land on SEALED days (post-midnight)
+    • Each reaction is IMMUTABLE once placed (server-enforced — reject
+      writes to non-NULL reaction columns with 404)
+    • Client-side confirmation popup on first reaction per user, with
+      "don't show this again" checkbox (single dismissal kills the
+      popup forever for both MOTD and tray)
+    • Surfacing to the receiver is push-based (small notification/badge)
+    • Two phases to a day: live (own focus) + post-seal (mutual
+      appreciation). The temporal split is the design.
+  Full design captured in four_tasks_partner_reactions_design_notes.md.
+  Schema gained five columns total: four reaction columns on `days`,
+  one popup-dismissal flag on `users`. Migration script
+  migration_001_partner_reactions.sql created to bring the live D1 up
+  to date (since the v1 schema was already applied). Tile 1.3 expanded
+  to handle the immutability gate and the post-seal/live-day field
+  permissions table. New tile 4.16 added to Phase 4 for the v1.x picker
+  UI with confirmation popup.
+
+  This conversation took multiple iterations to settle — initial sketch
+  had reactions on live days, freely changeable. Working through it
+  landed somewhere quite different and (Morgan and I both agreed) much
+  better: the "two phases of a day" model gives reactions emotional
+  weight they wouldn't have as casual real-time gestures.
+
+  (4) Then Morgan opened phone notes and surfaced TWO more design
+  reservations to bake into the schema in the same session:
+
+  COIN NAME GENERATOR. Currently coins are flat "[username]-coins"
+  (e.g. "morgan-coins"). Replacement: a server-side rule-driven affix
+  system that transforms username into something with flavour
+  ("morgan" -> "morginks", "lara" -> "larinos"). Rule table lives
+  server-side, generator is deterministic by (username, reroll_count),
+  rerolls cost coins with doubling progression. Three offensive-output
+  mitigations: curated affix pool, server-side blocklist auto-reroll
+  loop, user-facing paid reroll. Plus leaderboard censorship layer for
+  outputs visible to non-partners. Schema reservation: two columns on
+  users (coin_name + coin_name_reroll_count). Full design captured in
+  four_tasks_coin_name_design_notes.md. Future tile 4.17 (generator)
+  + 4.18 (reroll UI).
+
+  STAGGERED FEATURE DISCLOSURE. Surfaced while discussing when the
+  coin-reroll feature should appear to users — Morgan flagged that
+  it shouldn't land day 1, and that this is a broader principle
+  applying to many features (rest day intro, coin tutorial,
+  subscription nudge, leaderboard, etc.). Locked as a meta-principle:
+  features reveal over days/weeks of use, not all at onboarding. Each
+  user has a tutorial_progress JSON column on users tracking which
+  reveals they've seen. A TutorialCoordinator autoload (future tile
+  4.19) picks the next eligible reveal per session boot. Trigger-
+  gated reveals (partner reaction first-seen, etc.) wired via signals.
+  Devkit gets a skip-all-reveals toggle for Morgan's own testing.
+  Schema reservation: one column on users (tutorial_progress JSON).
+  Full design captured in four_tasks_staggered_disclosure_design_notes.md.
+
+  Both additions applied to live D1 via migration_002_coin_name_and_tutorial.sql
+  in the same session as migration_001. Three users columns added,
+  zero days columns. Combined commit covers schema.sql + migration_002.
+
+  Pattern emerging across session 2 (cementing now): when a feature
+  or interface decision has architectural shadow, capture the full
+  design in its own doc rather than burying it in todo lines. FIVE
+  design docs now exist for what would have been five throwaway
+  paragraphs in earlier sessions. The total time spent on design
+  capture this session is genuinely high — comparable to the time
+  spent on code — and worth it. Better to write the design once,
+  carefully, when fresh than retrofit a half-baked design at
+  implementation time.
+
+  (5) Finally, returned to tile 1.2 and locked the third pre-code
+  decision: AUTH. Caller named in the URL (Option A) rather than a
+  separate request header. Self-writes have the caller's name as
+  the path segment. Cross-user writes (the reaction case) append
+  ?caller=name as a query param. No 403s in our model — "permission
+  denied" semantics fold into 404. Tile 1.3 description updated to
+  capture the full defensive-write decision flow.
+
+  All three pre-code locks for tile 1.2 now in place:
+    • Response envelope: uniform {ok, data} / {ok, error}
+    • HTTP status codes: 200/400/404/409/500
+    • Auth: caller in URL, ?caller= for cross-user writes
+
+  D1 MIGRATIONS APPLIED THIS SESSION:
+    • migration_001 (partner reactions) — 4 columns on days + 1 on users.
+      Initial run hit a Cloudflare auth blip (error code 10000) on the
+      D1 import endpoint despite the OAuth token still being valid for
+      most operations. `wrangler logout` + `wrangler login` cleared it;
+      retried successfully. Worth noting: D1 import is a separate API
+      surface that can have token-refresh issues independent of the
+      main account auth. Re-auth fixes it cleanly.
+    • migration_002 (coin name + tutorial progress) — 3 columns on users.
+      Clean execution after the re-auth.
+  Both verified via PRAGMA table_info() on days and users. Final
+  column counts: days 12, users 11.
+
+  GIT COMMITS THIS SESSION (four-tasks repo, on top of session-1 history):
+    (.gitignore) Extend .gitignore for Node/TypeScript
+    (scaffold)   Scaffold Cloudflare Worker with /health endpoint
+    fa0e618      Add D1 schema: pairs, users, days, bug_reports
+    f103435      Wire D1 binding in wrangler.toml
+    c8a79f0      Reserve partner-reaction schema (reactions + popup dismissal)
+    84a7694      Reserve coin name + tutorial progress schema
+
+  pickle-moon-ledger repo:
+    0050652      Add receipt: 2026-03-05 itch.io Aseprite license
+    ed23b94      Sort ledger chronologically and add expense
+
+UPDATED NOTES FOR NEXT SESSION (supersedes the older "next session" block above):
+  - Tile 1.2 fully unlocked for code. Three pre-code decisions locked
+    (envelope, status codes, auth). Endpoint walkthroughs start with
+    GET /pair/:key as the canonical example, then /resolve as the
+    first real test of the v2 identity model end-to-end.
+  - Realistic session-3 scope: read endpoints only
+    (GET /pair/:key, POST /pair/:key/resolve, GET /leaderboard).
+    Writes wait for session 4 — they're tied to tile 1.3 defensive
+    logic and warrant their own focused session.
+  - The five design docs in four-tasks-notes/ need to be read in this
+    order if returning cold: v2 identity → partner reactions → coin
+    names → staggered disclosure. The v1 identity doc is background only.
+  - four-tasks-notes/ folder is currently NOT under version control.
+    Worth deciding session 3 whether to bring it under git (probably
+    a new private repo "pickle-moon-design-notes" alongside the
+    existing three) so design history survives device failure.
+  - Schema is comprehensively reserved through v1.x for partner
+    reactions, coin names, tutorial progress. No more migrations
+    expected before tile 1.2 endpoints land. The "we keep finding
+    more architectural reservations" wave appears to have settled
+    after the schema absorbed everything from session 2's phone notes.
+  - Outstanding ledger items:
+      • Cloudflare domain (thepicklemoon.com) — invoice IN-64839053,
+        USD $10.46, expected ~A$16-17, paid 11 May. Card statement
+        will confirm AUD figure.
+      • Bitwarden — subscription starts after trial, ~1 week from
+        end of session 2. New software_subscription expense incoming.
+  - Wrangler D1 token-refresh quirk now documented. If a D1 import
+    fails with "Authentication error [code: 10000]" first try
+    `wrangler logout` + `wrangler login` before assuming worse.
