@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Devlog
 ==========================
-Last updated: May 2026 (session 2, closed)
+Last updated: May 2026 (session 4, closed)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -38,6 +38,12 @@ Design notes (read whichever is relevant to the tile being worked on):
   - `four_tasks_architectural_preference.md`        — LOCKED meta-rule.
     Clarity over cleverness for Four Tasks' low-throughput load
     profile. (Session 2)
+  - `four_tasks_write_rules_design_notes.md`        — LOCKED write
+    rules for tile 1.3. Field-level permissions, validation, state
+    preconditions, migration semantics, rejection codes for all
+    three write endpoints (POST bug_report, PUT day, PUT user).
+    Design closed session 4; implementation lands in a future
+    session against this spec.
   - `four_tasks_theme_design_notes.md`              — palette system.
   - `four_tasks_monetisation_position.md`           — subscription model
     + tone position. (Session 1)
@@ -924,3 +930,277 @@ NOTES FOR NEXT SESSION:
 
 SESSION 3 CLOSED. Total session time: ~4h (mostly endpoint
 walkthrough + curl verification; modest amount of doc updates).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 4 (May 2026) — Tile 1.3 design close
+[~] Tile 1.3 — Worker defensive write rules. DESIGN CLOSED, implementation
+  remains for a future session. Time: ~3h.
+  - Realised at session open that the session 3 close pitched tile
+    1.3 as "design + three write endpoints in one session." On
+    fresh inspection that bundling is the trap session 2 explicitly
+    warned against: the write endpoints depend on a rule-table
+    design that doesn't exist yet, and the migration logic on PUT
+    user is dense enough to merit its own design conversation.
+    Followed the architectural-shadow pattern: capture the design
+    in its own doc, lock it, defer implementation.
+  - One ledger expense logged before code work: Bitwarden Premium
+    annual subscription (A$30.26, 11 May 2026). Standard one-commit-
+    per-expense flow, no friction. Ledger now at 10 entries.
+
+  POST /pair/:key/bug_report (specced):
+  - URL kept under /pair/:key/ despite earlier consideration of an
+    anonymous /bug_report flat URL. Reasoning shifted during the
+    conversation — initial lean was anonymous (less data, simpler),
+    but the correlation argument (filed reports become actionable
+    when you can see the reporting pair's actual DB state) carried
+    the day. Privacy cost is small and easily disclosed in the
+    bug-report UI.
+  - Bug reports are paired-only: onboarding-stage users can't reach
+    the bug button. The `pair_key` column in `bug_reports` remains
+    nullable as a zero-cost hedge for future "stuck-on-loader bug
+    report" flows; v1.0 never writes a NULL there.
+  - Body: { message (non-empty, max 2000 chars), app_version
+    (optional, no format check) }. app_version is for human eyes,
+    not structured query — format checking would be theatre.
+  - Server fills id, submitted_at, pair_key (from URL). Response
+    returns just { id } on success.
+  - NO pair-existence check before INSERT. This was the most
+    instructive sub-decision in the bug_report design. Morgan
+    initially asked "what's the cost?" — answer: practically
+    nothing (one indexed SELECT). But the conversation turned on
+    a different axis: the existence check would create a SECOND
+    pair-key oracle beyond GET /pair/:key. Pair-keys are 64-bit
+    credentials; the fewer endpoints that disclose "this key is
+    real" via their response code, the better. Junk-in-the-table
+    is the wrong problem to solve at the endpoint layer; rate
+    limiting at Cloudflare's edge is the right tool. Captured
+    "rate limiting design" as a separate ACTIVE todo.
+
+  PUT /pair/:key/users/:target/days/:date (specced):
+  - URL: nested path (users/:target/days/:date) over flat
+    alternatives. Mirrors schema hierarchy, reads cleanly in logs,
+    URL length doesn't matter in this codebase. The cross-write
+    case uses ?caller=name per the locked session 2 auth
+    convention.
+  - Day rows auto-create on first write. Considered the
+    alternative of "create-on-app-open" (Morgan's instinct) at
+    length — it had appeal but doesn't solve the midnight-rollover
+    bug (which is client-side date-tracking, present in either
+    model) and would produce empty rows for non-acting users.
+    Auto-create on first write keeps reads pure (GET stays a GET,
+    not a write-in-disguise), produces zero empty rows, and
+    matches HTTP PUT's "create or update" semantics naturally.
+  - Body is partial: client sends only changing fields. Tap a
+    task → send { tasks_done: [...] } only. Important for the
+    most common write (single task toggle) — a full payload on
+    every tick/untick/edit would be wasteful and force the client
+    to track values it shouldn't need to know.
+  - Field-level rules: owner writes tasks_done, diary, rest_day
+    (unsealed only); partner writes motd_reaction, tray_reaction
+    (sealed only AND currently NULL). Stamp is server-only — IT
+    LANDS DURING THE MORNING PAYOUT, not user-written. Morgan
+    surfaced this mid-conversation: stamps are part of the
+    nightly-close ritual, with tier 1-4 (completed tasks count)
+    determining colour and message pool. The clarification
+    reshaped the rule table cleanly.
+  - Reaction immutability: the four reaction columns each accept
+    exactly one write. Subsequent writes to a non-NULL reaction
+    column reject with 409 reaction_already_set. Matches the
+    partner-reactions design doc.
+  - diary column is the MOTD (legacy name from web build), not
+    free-text. Generated by the slot-machine spinner (adverb +
+    verb + noun + emoji), client-side wordlists, commit-on-exit
+    pattern matching the emoji picker. Server trusts the
+    committed string — duplicating ~300 words server-side would
+    create two sources of truth that drift. Validation is
+    non-empty + max 200 chars (DoS guard).
+  - Rejection codes: 400 for input/shape issues (including
+    server-only column in body, redundant ?caller=, etc), 404
+    for missing pair/user/target AND for permission denied
+    (locked convention), 409 for state conflicts (day_sealed,
+    day_not_sealed, reaction_already_set).
+
+  PUT /pair/:key/users/:target (specced):
+  - Always self-write, no ?caller. Partner writes never touch
+    the users table.
+  - Owner-writable (no migration): task_labels, reaction_confirm_
+    dismissed, tutorial_progress.
+  - Owner-writable (triggers pair-key migration): username, emoji.
+  - Server-only: name (immutable!), coins, streak, coin_name,
+    coin_name_reroll_count, morning_payout_due_for. Coins and
+    reroll_count look user-controlled but are actually side-
+    effects of dedicated endpoints (morning claim, reroll). PUT
+    user keeps the column closed.
+  - emoji column clarification: despite the column name, content
+    is a short string ID for a hand-painted icon asset (e.g.
+    "frog_01"), NOT a unicode emoji codepoint. The picker (tile
+    4.14 / 3.7) presents hand-painted images. Column name not
+    renamed (cosmetic, would require migration). Captured in the
+    design doc.
+  - task_labels: 4 strings, each max 49 chars (Morgan's choice,
+    "because I said so"). UX cap will be tighter in input field.
+  - tutorial_progress: JSON object, MERGED into stored value (not
+    replaced). The state is accretive; merge avoids clobbering
+    parallel-client updates. Unique to this column.
+
+  SCHEMA ADDITION SURFACED DURING DESIGN — morning_payout_due_for:
+  - Mid-conversation, Morgan flagged that the layer we were
+    designing was the natural home for the firebase prototype's
+    `morningDue` concept — the flag indicating "this user has a
+    pending morning payout to receive on next app open."
+    Considered three options for where the state should live:
+    derived from days.sealed_at + days.stamp (clever but conflates
+    visual stamp with payout-received state), explicit days column
+    (bloats the high-volume table for per-user UX state), or new
+    users column. Locked on the third: nullable TEXT column on
+    users, set to YYYY-MM-DD by nightly cron when sealing days,
+    cleared by a dedicated morning-payout claim endpoint.
+  - The claim endpoint is its own thing — atomic transaction that
+    stamps the day (server-side, based on tasks_done tier),
+    deducts/credits coins, updates streak, clears morning_payout_
+    due_for. Deferred to its own design conversation; blocks tile
+    4.6 (morning sequence animation) which needs the response
+    shape. Captured in design doc "Deferred / parked items".
+  - Schema change captured as migration_003_morning_payout.sql:
+    ALTER TABLE users ADD COLUMN morning_payout_due_for TEXT;
+
+  MIGRATION LOGIC — the dense part of PUT user:
+  - When username or emoji changes, the pair-key changes.
+    Migration is the re-entrant, transaction-wrapped flow already
+    sketched in v2 design notes. This session locked the response
+    shape, collision handling, and client-side defensive write
+    requirements.
+  - Atomic transaction inside a D1 batch(): re-derive new key,
+    INSERT new pair row, INSERT both users under new key, COPY
+    all days rows under new key, DELETE old days/users/pair rows.
+    Insert-new-then-delete-old rather than UPDATE pair_key in
+    place — D1 (SQLite) doesn't handle primary-key column updates
+    cleanly; copy-then-delete is the natural fit.
+  - Response shape locked: always includes `migrated` boolean,
+    always returns full pair payload. When migrated: true, also
+    includes new_pair_key. Same shape regardless of path so the
+    client always branches on data.migrated, no special case for
+    "did the response include a new key?"
+  - Collision (1-in-5-billion hash collision): server lets the
+    INSERT into pairs fail naturally with primary-key violation,
+    transaction rolls back, returns 409 pair_key_collision.
+    Client surfaces as "that username is taken, sorry try
+    another" — same UX as onboarding collision. No pre-emptive
+    check. Discussed the information-leak angle: pre-checking
+    would leak "this exact six-tuple combination is taken," but
+    the leak is near-zero since the attacker would need the
+    partner's full six-tuple to construct a collision, at which
+    point they already have recovery credentials. Decision was
+    "let it fail" for simplicity, not security.
+  - PARTNER EXPERIENCE during migration is silent and automatic.
+    Their next poll on the old key returns 404, client recovery
+    path re-derives the new key from the six values they still
+    hold (five visible on screen + own name), client updates
+    stored identity and re-polls. No popup, no error, just a
+    re-themed partner panel. The 404 recovery is the same code
+    path that handles any stale-key situation, not migration-
+    specific.
+  - CLIENT-SIDE DEFENSIVE WRITES required to avoid lockout from
+    in-flight failure. The conversation surfaced four
+    requirements: persist pending change to identity.cfg before
+    sending, use pending values during 404 recovery, clear
+    pending slot on confirmed success, retry against new key
+    on concurrent-migration race. These are picked up by tile
+    1.7 (Godot identity layer) and tiles 4.14 / 4.15 (emoji and
+    username edit flows). Captured in design doc as a section.
+  - NICE-TO-HAVE captured for tile 4.15: small dismissible
+    popup on username change ("changes may take a minute to
+    take effect", "don't show again"). UX layer over the
+    defensive writes, not a correctness layer.
+
+  KEY ARCHITECTURAL CALLS THIS SESSION:
+
+  1. "Oracle" discussion on bug_report existence check. Adding
+     the check would have created a second pair-key disclosure
+     endpoint. Pair-keys are the credential; oracling them on
+     a write endpoint for no functional benefit is a free-cost
+     security mistake. Resolved by deferring spam defence to
+     the rate-limit layer (its own future design).
+
+  2. diary content validation: trust the client + length cap,
+     not mirror the wordlists. The architectural preference
+     doc's "clarity over cleverness" rule applied directly —
+     two sources of truth for the same 300-word lists would
+     drift. Defence-in-depth at /resolve made sense (small
+     ruleset, security-sensitive); defence-in-depth on MOTD
+     wordlists doesn't (large ruleset, low security stakes).
+
+  3. Strict input validation across the board. Redundant
+     ?caller= rejected with 400, server-only columns in body
+     rejected with 400. Client bugs surface early.
+     Strict-not-lenient pattern; the cost is zero in a single-
+     client codebase.
+
+  4. morning_payout_due_for as a new column rather than derived
+     state. Per-user UX state belongs on users; per-day state
+     belongs on days. Conflating "visual stamp" with "payout
+     received" would have broken future features (year-end
+     keepsake decoration of old days, etc.).
+
+  5. Migration logic stays inside the existing 404 recovery
+     path on the client. Don't invent a "migration in progress"
+     state machine — the existing recovery code already does
+     the right thing when the key it has stops working, for
+     any reason. Re-use over reinvention.
+
+  Doc consequences:
+  - four_tasks_write_rules_design_notes.md written (594 lines).
+    Specifies all three write endpoints in full, captures
+    rejection-code reference table, schema delta (migration_003),
+    and four deferred items: rate limiting, migration UX popup,
+    morning-payout claim endpoint, future enum tightening.
+  - Tile 1.2 remains [~] (write endpoints still TODO, blocked
+    on tile 1.3 implementation tile).
+  - Tile 1.3 status: design closed, implementation pending.
+    Will reference the new design doc when the implementation
+    tile lands. Likely a session in its own right.
+  - Schema change captured: migration_003_morning_payout.sql
+    pending application to local + remote D1 alongside the
+    tile 1.3 implementation.
+
+  Design-vs-implementation split mirrors the session 2 pattern
+  (partner reactions, coin names, staggered disclosure all
+  captured as design-only docs while schema was reserved). The
+  split keeps tile boundaries clean: design tile produces a
+  doc, implementation tile produces code against the doc.
+  Pre-empts the "wait, what did we decide about X?" mid-
+  implementation tax.
+
+GIT COMMITS THIS SESSION (planned at session-close batch):
+  pickle-moon-design-notes repo:
+    (will commit)  Session 4 update: tile 1.3 design close, new
+                   write_rules design doc, devlog + todo updates,
+                   schema migration_003 captured.
+  pickle-moon-ledger repo:
+    (committed)    Add expense: 2026-05-11 Bitwarden $30.26
+                   password manager annual.
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.3 implementation tile is the obvious next thing.
+    Reference the new design doc; the rule tables are
+    enumerated and ready to translate into endpoint code.
+    Likely scope: all three endpoints + migration_003.sql
+    applied to local + remote D1 + curl-verification across
+    every rejection path.
+  - Rate limiting design is now an ACTIVE-tier todo. Not
+    blocking tile 1.3 implementation. Belongs in its own
+    short design conversation after a few more write
+    endpoints exist.
+  - Morning-payout claim endpoint design is its own future
+    conversation. Blocked on migration_003 landing (which
+    happens with tile 1.3 implementation). Blocks tile 4.6
+    (morning sequence animation).
+  - Phase 3 onboarding tiles (3.3 / 3.3a / 3.7) now also
+    need to enforce username max 40 chars, emoji asset-ID
+    max 50 chars, task_labels max 49 chars per label. These
+    are the SERVER caps from the design doc; the UX caps in
+    onboarding will be tighter.
+
+SESSION 4 CLOSED. Total session time: ~3h (one tile design, no
+implementation work). One ledger expense logged as a warm-up.
