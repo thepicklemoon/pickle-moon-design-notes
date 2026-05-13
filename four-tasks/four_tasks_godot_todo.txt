@@ -940,6 +940,22 @@ is up. Four Tasks is on stores (from Phase 5). Both products in market.
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+[ ] Update devlog AI Reading Guide for new repo-fetching workflow.
+    Surfaced inter-session admin (13 May 2026 evening). The reading
+    guide currently instructs Claude to "ask Morgan to upload any
+    changed files" at session start. That instruction is now stale
+    — the design notes repo (pickle-moon-design-notes) is public,
+    Claude fetches files via raw GitHub URLs, and pickle_moon_repo_index.md
+    at repo root is the canonical file map.
+    Rewrite step 1 of the session-start checklist: "Ask Morgan which
+    docs have changed since last session and fetch fresh via raw URL
+    (see pickle_moon_repo_index.md at repo root for the file map)."
+    Also add one line elsewhere in the reading guide pointing to the
+    repo index as the canonical reference for fetchable files across
+    all PICKLE MOON repos.
+    Small but careful edit — laptop job, not mobile. Lands next time
+    Morgan is at the home office before starting a code session.
+
 [ ] Log Cloudflare domain receipt in ledger once AUD figure lands.
     thepicklemoon.com registration via Cloudflare Registrar paid
     11 May 2026. Invoice IN-64839053, USD $10.46. Paid by Visa —

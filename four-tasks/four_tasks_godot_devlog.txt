@@ -1815,3 +1815,53 @@ reframes locked (APPtrioc fork-point, morning sequence as
 overlay-on-top). Six existing design docs updated for
 consistency.
 Running project total: ~32.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INTER-SESSION ADMIN (13 May 2026, evening) — Mobile workflow setup. Time: ~1.5h.
+
+  Standalone session between session 5 and session 6. No tile work,
+  no design work. Pure tooling.
+
+  Problem: keeping Project files synced with the repo across two
+  machines (laptop + mobile) was friction-heavy, especially during
+  FIFO shifts where mobile is the only available context. Project
+  files were drifting from repo state, and updates required laptop
+  access.
+
+  Fix:
+  - `pickle-moon-design-notes` repo made PUBLIC. Content is design
+    notes with no secrets; competitor risk is zero. Trade-off
+    accepted for fetch convenience.
+  - GitSync installed on Android, authed via GitHub OAuth (scoped
+    initially, broadened to all-repos after the scoped token hit
+    403 on push — issue was missing write scope on the secondary
+    metadata endpoint, not the contents endpoint).
+  - Repo cloned to `/storage/emulated/0/pickle-moon-design-notes/`.
+    Edits land there, sync pushes to GitHub.
+  - Claude can now `web_fetch` files directly from raw GitHub URLs.
+    Per-session permission quirk: the first fetch in a session
+    needs a user-pasted URL; subsequent siblings can be derived.
+
+  New canonical doc: `pickle_moon_repo_index.md` at repo root.
+  Lists every file across all four PICKLE MOON repos with a
+  one-line description each. Claude reference doc — "fetch the
+  marketing notes" resolves to a specific raw URL via this index.
+
+  Project files trimmed to three: devlog, todo, prototype index
+  (HTML reference for porting). All design docs removed from
+  Project — fetched from repo as needed during sessions.
+
+  Lessons:
+  - GitSync scoped permissions are fiddly; all-repos is the
+    pragmatic default for a solo-dev account where every repo is
+    yours anyway.
+  - GitHub raw URL CDN has propagation lag of ~1-3min after push.
+    Don't panic when an immediate fetch 404s.
+  - Auto-generated commit messages ("Last Sync: <timestamp>
+    (Mobile)") are noise. Configure GitSync to prompt for commit
+    message per push.
+
+  Running project total: ~33.75h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
