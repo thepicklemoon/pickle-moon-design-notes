@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Devlog
 ==========================
-Last updated: May 2026 (session 5, closed)
+Last updated: May 2026 (session 6, partial)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -67,6 +67,14 @@ Design notes (read whichever is relevant to the tile being worked on):
     streamer outreach economics, long-tail community plan, open
     questions, journal section. Updated as marketing thinking
     arrives. Required reading before Phase 5b work.
+  - `four_tasks_rate_limiting_design_notes.md`      — LOCKED (session 6)
+    rate limiting strategy. Two-tier structure (pair-keyed for paired
+    endpoints, IP-keyed for /resolve). Per-endpoint limits derived
+    from (realistic peak × 1.2) for pair-keyed and (peak × 2 × 1.2)
+    for IP-keyed. Edge-not-Worker (Cloudflare rules). 429 allowed
+    as an exception to the locked status code list, narrow scope
+    (edge only; Worker still returns 200/400/404/409/500). Cloudflare
+    config is the next home-office task; no Worker code changes.
   - `four_tasks_monetisation_position.md`           — subscription model
     + tone position. (Session 1)
 
@@ -93,12 +101,8 @@ never written — every architectural decision lives in a focused design
 doc instead, and the phased tile list lives in `four_tasks_godot_todo.txt`.
 
 When starting a fresh session:
-  1. Ask Morgan which docs have changed since the last session. Fetch
-     fresh versions via raw URL from the public `pickle-moon-design-notes`
-     repo. See `pickle_moon_repo_index.md` at the repo root for the
-     canonical file map across all PICKLE MOON repos. For files in
-     private repos (four-tasks code, schema, ledger), ask Morgan to
-     paste them in chat.
+  1. Ask Morgan to upload any changed files (devlog, todo, schema.sql,
+     index.ts) since the last session.
   2. Read this devlog and `four_tasks_godot_todo.txt`.
   3. Consult the design doc relevant to the tile being worked on (see list above).
   4. Use str_replace for code patches — never rewrite whole files unless asked.
@@ -1867,5 +1871,113 @@ INTER-SESSION ADMIN (13 May 2026, evening) — Mobile workflow setup. Time: ~1.5
     message per push.
 
   Running project total: ~33.75h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 6 (May 2026, partial) — Rate limiting design close. Time: ~1.5h.
+
+  Nightshift, mobile-only. No code work possible (Wrangler / curl /
+  local D1 are home-office tools). Used the time to close out the
+  rate limiting ACTIVE-tier item that's been parked since session 4.
+
+  Context test for the new mobile workflow: this is the first
+  substantive design conversation conducted entirely on mobile via
+  fetched-from-repo docs. Worked cleanly — the per-session permission
+  quirk (first fetch needs user-pasted URL) was the only friction,
+  and one paste each for the repo index, write rules doc, and
+  architectural preference doc was enough to seed everything else.
+
+  THE RATE LIMITING DESIGN (locked):
+  - Two tiers: pair-keyed for /pair/:key/* endpoints, IP-keyed for
+    POST /resolve. GET /health unlimited.
+  - Per-endpoint numbers:
+      GET /pair/:key                   40/min  (pair-keyed)
+      PUT day / PUT user / bug_report  15/min  (pair-keyed, shared)
+      POST /resolve                    10/min  (IP-keyed)
+  - Sizing rule: (realistic peak × 1.2) for pair-keyed limits,
+    (realistic peak × 2 × 1.2) for IP-keyed limits. The ×2 on IP
+    is for shared-household cases (two pairs on same wifi, or one
+    user on phone + tablet). Doesn't apply to pair-keyed limits
+    since the pair_key already represents both users collectively.
+    The ×1.2 is universal headroom.
+  - Edge-not-Worker. Cloudflare's rate limiting rules at the
+    platform layer, not in-Worker counters. Blocked requests never
+    hit the Worker — no D1 reads, no CPU spent on attack traffic.
+  - 429 allowed as an exception to the locked status code list
+    (200/400/404/409/500). Narrow scope: edge rate limiting only.
+    The Worker still returns 200/400/404/409/500 and nothing else.
+
+  THE 429 EXCEPTION — historical-context flag:
+  - Session 2 locked the status code list with "no 401/403/429"
+    but the recorded reasoning only covers 401/403 (folded into
+    404 by the auth model). 429's exclusion has no preserved
+    reasoning. The architectural preference (clarity over
+    cleverness, locked session 2) and the rate-limiting question
+    both arrived after that initial lock; the conflict surfaced
+    in this session.
+  - The decision to allow 429 was made fresh against current
+    principles because the original reasoning couldn't be
+    recovered. Documented in the rate limiting doc and flagged
+    here so future-Morgan / future-Claude knows this was a
+    deliberate re-derivation, not an oversight.
+  - LESSON: locked decisions should record reasoning per
+    component, not just the resulting list. When a locked list
+    and an active principle produce different answers later, the
+    only safe path is to surface what the original lock was
+    actually defending against. Without that record, the
+    re-derivation is the best you can do — but it leaves a small
+    epistemic gap that compounds across sessions.
+
+  WHAT GOT LOCKED PHILOSOPHICALLY:
+  1. User-level rate limiting is already inherent to the UX.
+     Emoji picker preview-on-commit, morning sequence
+     unreplicatable-per-day, task ticks gated to 4/day. The
+     real threat model isn't "user spam through the app" — it's
+     "attacker bypassing the client to call the API directly,"
+     and that's what the edge rules defend against.
+  2. Pair-keyed limits are stronger than IP limits against a
+     determined attacker, because pair-keys are hard to obtain
+     (six-value derivation model). An attacker who somehow
+     holds a pair-key is locked to that pair's budget no matter
+     how many IPs they rotate through.
+  3. The architectural preference quietly resolved the
+     edge-vs-Worker question. In-Worker rate limiting is the
+     clever option (counter store, increment logic, expiry,
+     key derivation — all code that can break). Edge rules are
+     the boring option (zero code, Cloudflare maintains it).
+     Boring wins; no concrete reason exists to choose clever.
+
+  DOC CONSEQUENCES:
+  - NEW: four_tasks_rate_limiting_design_notes.md.
+    Full design captured. Closes the ACTIVE-tier rate limiting
+    item parked since session 4 and the deferred-from-write-
+    rules-doc reference.
+  - UPDATED: AI Reading Guide gets rate limiting entry above.
+  - UPDATED: todo ACTIVE-tier rate limiting item moves from
+    [ ] open to [~] design closed, body replaced with pointer
+    to the new doc.
+
+GIT COMMITS THIS SESSION (planned at next laptop access):
+  pickle-moon-design-notes repo:
+    (pending) Session 6 rate limiting design: new doc +
+              devlog/todo sync + AI reading guide update.
+
+NOTES FOR NEXT SESSION:
+  - Cloudflare rate limiting config is the next home-office
+    task. Dashboard configuration against the locked numbers
+    in the new doc. Should take 30-60 minutes once the
+    Cloudflare dashboard is in front of you.
+  - Tile 1.3 implementation is STILL the next code thing
+    after rate limiting config. None of this session's design
+    work changes that priority.
+  - Rate limit rules will need to be configured AGAIN for the
+    APPtrioc Worker when Phase 5b lands. Same principles, but
+    different threat profile (public web app, no pair-key for
+    most endpoints). Apply the design doc's rule structure,
+    re-derive numbers from APPtrioc's interaction model.
+
+SESSION 6 (PARTIAL) CLOSED. Total session time: ~1.5h on mobile.
+First design close conducted entirely via fetched-from-repo docs;
+workflow validates. Running project total: ~35.25h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

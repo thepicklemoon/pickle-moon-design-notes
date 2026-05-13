@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Todo
 ========================
-Last updated: May 2026 (session 5, end)
+Last updated: May 2026 (session 6, partial)
 
 This list is driven by the roadmap (`four_tasks_godot_roadmap.md`). All tiles
 from the roadmap are seeded below as `[ ]` items, organised by phase. Tick
@@ -1096,21 +1096,25 @@ ACTIVE — ad-hoc items found during the port
     README.md (when written in tile 1.3) should follow these
     conventions in its examples.
 
-[ ] Rate limiting design — Cloudflare layer, generous limits.
-    Surfaced session 4. The bug_report and migration-triggering
-    write endpoints both raised spam/abuse concerns during tile 1.3
-    design. Right layer for this is Cloudflare's rate limiting
-    (Workers Rate Limiting API or per-IP at the platform edge),
-    NOT per-endpoint existence checks or per-write counters.
-    Generous limits — real users hitting catastrophic bugs may
-    legitimately file three reports in five minutes; real users
-    adjusting username may try a few combinations before settling.
-    Limits should protect against floods, not annoy real usage.
-    Applies to all write endpoints once they exist. Belongs in
-    its own short design conversation after tile 1.3 implementation
-    lands and a few more endpoints exist to protect collectively.
-    NOT blocking tile 1.3 implementation. Applies to APPtrioc
-    Worker too (separate config but same principles).
+[~] Rate limiting design — DESIGN CLOSED session 6.
+    Surfaced session 4, parked through session 5, designed in full
+    on a nightshift mobile session. See
+    four_tasks_rate_limiting_design_notes.md for the locked spec.
+    Summary: two tiers (pair-keyed for /pair/:key/*, IP-keyed for
+    /resolve), per-endpoint limits derived from (peak × 1.2) for
+    pair-keyed and (peak × 2 × 1.2) for IP-keyed. Edge-not-Worker
+    via Cloudflare rules. 429 allowed as exception to status code
+    list, narrow scope (edge only).
+    Per-endpoint numbers locked:
+      GET /pair/:key                   40/min  (pair-keyed)
+      PUT day / PUT user / bug_report  15/min  (pair-keyed, shared)
+      POST /resolve                    10/min  (IP-keyed)
+      GET /health                      unlimited
+    Implementation = Cloudflare dashboard config (no Worker code
+    changes). Slated for the next home-office session as the first
+    item; 30-60 minutes expected. Applies to APPtrioc Worker too
+    (separate config, same principles, numbers re-derived from
+    APPtrioc's threat model when Phase 5b lands).
 
 [~] Morning-payout claim endpoint design — DESIGN CLOSED session 5.
     Surfaced session 4, designed in full session 5 as part of the
@@ -1378,3 +1382,36 @@ roster. No implementation; pure design work captured in three
 substantive docs (theme, marketing, morning sequence).
 
 Running project total: ~32.25h.
+
+INTER-SESSION ADMIN (13 May 2026) — Mobile workflow setup.    ~1.5h
+                          Repo made public, GitSync on Android,
+                          repo index doc created, Project files
+                          trimmed to three. First mobile design
+                          conversation enabled by this work.
+
+SESSION 6 — Rate limiting design close (mobile, partial)
+[~] design closed         Rate limiting design                      ~1.5h
+                          (four_tasks_rate_limiting_design_notes.md).
+                          Two tiers (pair-keyed for paired endpoints,
+                          IP-keyed for /resolve). Per-endpoint
+                          numbers locked: GET /pair 40/min, writes
+                          combined 15/min, /resolve 10/min. Sizing
+                          rule formalised (peak × 1.2 pair-keyed,
+                          peak × 2 × 1.2 IP-keyed). Edge-not-Worker
+                          via Cloudflare rules. 429 allowed as
+                          narrow exception to locked status code
+                          list (edge layer only; Worker still
+                          returns 200/400/404/409/500). Historical
+                          gap flagged: session 2's 429 exclusion
+                          had no preserved reasoning, decision
+                          re-derived against current principles.
+                          Closes the rate limiting ACTIVE-tier item
+                          parked since session 4. Cloudflare config
+                          is next home-office task; no Worker code
+                          changes required.
+
+Session 6 (partial) total: ~1.5h on mobile during nightshift.
+First substantive design conversation conducted entirely via
+fetched-from-repo docs; mobile workflow validated.
+
+Running project total: ~35.25h.
