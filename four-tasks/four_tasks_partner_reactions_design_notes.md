@@ -68,14 +68,53 @@ gate (it'll reject the second write to a non-NULL column regardless of
 whether the popup fired).
 
 **Surfacing reactions to the receiver:**
-- Push-based. When partner reacts to one of your days, your app shows
-  a small notification/badge somewhere visible (exact UI location is
-  Phase 4 work).
-- Receiver sees partner's reaction by either tapping the notification
-  OR scrolling back to the day in past-day-tray.
-- Notification dismissal logic deferred to v1.x UI work — open question
-  whether visiting the day-with-reaction implicitly clears the badge,
-  or whether explicit dismissal is required.
+
+LOCKED SESSION 5 (supersedes earlier push-based draft):
+Reactions are TIME-AGNOSTIC and surface via benign visual
+indicators on past-day cells, in BOTH directions. No push
+notifications, no animation, no urgent badges.
+
+  Direction 1 — your view of partner's panel:
+    Partner's sealed days that you have NOT YET reacted to get
+    a small ambient marker. Soft, not urgent. (Visual style
+    TBD at tile 4.16 implementation — a small lit corner,
+    subtle glow, tiny dot in soft colour. NOT a red dot, NOT
+    a notification-spam "1" badge.) Marker means "you can do
+    something here if you want." Marker clears when you react
+    or explicitly skip.
+
+  Direction 2 — your view of your own panel (reactions you've
+    received from partner):
+    Your past-day cells that have RECEIVED a reaction get a
+    marker drawing your eye to them. Marker clears after
+    you've viewed it. The reaction itself stays visually on
+    the day forever.
+
+Both directions use the same indicator pattern. Symmetric
+vocabulary. Neither direction gets ceremonial moment treatment.
+
+Possible dual-indicator state: a cell can simultaneously have
+"you haven't reacted yet" AND "partner reacted to this." UI
+needs to read cleanly when both are present. Detail for tile
+4.16 implementation.
+
+WHY THIS MODEL (and not push):
+  Reactions don't have a 24-hour engagement window. Partner can
+  react now, in an hour, in three days, or never. The feature is
+  a backlog, not a stream. Push notifications would force the
+  wrong tempo onto a feature that's deliberately relaxed. The
+  benign indicator matches the actual rhythm — you see it when
+  you happen to look at the partner panel, you engage if you
+  want to, you don't if you don't.
+
+DISCOVERY:
+  Tutorial reveal at day 4 (preferred) or day 6 (backup) — see
+  four_tasks_staggered_disclosure_design_notes.md and
+  four_tasks_morning_sequence_design_notes.md "Partner reaction
+  surfacing (Q7)" section for the full rationale.
+
+The morning_sequence doc captures this in more depth — when
+reading either doc, the surfacing model is the same.
 
 **The day's two phases:**
 - **Live phase**: each user lives their own day. Tick tasks, write MOTD,
@@ -214,13 +253,21 @@ Layout will need to position them as complementary, not competing.
         - so URL has A as `:user_name` (the target), and B is the
           caller (identified per auth conversation)
     - Body: `{"motd_reaction": "❤️"}` or `{"tray_reaction": "🔥"}` or both.
-    - Setting to null = removing the reaction.
+    - Once placed, reactions are IMMUTABLE. The server rejects any
+      write to a non-NULL reaction column with 404. (The original
+      "setting to null = removing the reaction" framing from an
+      early draft is superseded — reactions cannot be removed once
+      placed, per the locked immutability rule above.)
 - Tile 4.16 NOT in v1.0 ship scope. UI work + endpoint, both v1.x.
 
 ## Cross-references
 
 - `four_tasks_pair_key_v2_design_notes.md` — picker UX pattern this
   feature inherits.
+- `four_tasks_morning_sequence_design_notes.md` — Q7 surfacing
+  model fully detailed there.
+- `four_tasks_staggered_disclosure_design_notes.md` — day 4
+  scheduled reveal lives there.
 - `four-tasks/server/schema.sql` — concrete columns.
 - Roadmap tile 1.3 — field-level defensive writes need to ship with v1
   even though the *feature* is v1.x.

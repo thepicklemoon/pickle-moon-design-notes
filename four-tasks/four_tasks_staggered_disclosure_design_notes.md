@@ -44,16 +44,24 @@ tuned in Phase 4 / Phase 5.
 | 1    | Stamp animation + coins drop in morning sequence          |
 | 2    | Coins tutorial popup (what they're for, how they spend)   |
 | 3    | Rest day intro ("did you know — long-press a future cell") |
+| 4    | Partner reactions intro (you can react to each others sealed days) |
 | 5    | Streak milestone popup (first 5-day streak)               |
-| 7    | Theme picker hint (tap your emoji to swap)                |
+| 7    | Theme picker hint (long-press your sticker, pick leader or palette) |
 | 14   | Coin name reroll unlocks (first time enough coins exist)  |
 | 21   | Subscription nudge (trial about to end / value summary)   |
 | 30   | Leaderboard offer ("want to compete?")                    |
 
 Some features are *triggered* not *scheduled* — e.g. partner reaction
-appears the first time partner actually reacts to a sealed day. The
-schedule above is for time-gated reveals; trigger-gated reveals fire
-when the relevant event happens.
+trigger-gated REAFFIRMATION can fire if a partner reaction lands
+before day 4 in the user's life. But the PRIMARY teaching moment for
+partner reactions is the day-4 scheduled reveal, so users have
+vocabulary to notice the indicator before reactions start appearing.
+This was a session-5 refinement (Q7); the earlier framing of partner
+reactions as purely trigger-gated has been superseded.
+
+The schedule above is for time-gated reveals; pure trigger-gated
+reveals (e.g. first-coin-payout, first-top-10-on-leaderboard) fire
+when the relevant event happens regardless of day count.
 
 ## Architectural implications
 
@@ -112,12 +120,21 @@ Tiles that should be designed with staggered disclosure in mind:
 - **Tile 4.6 (Morning sequence)** — natural surfacing window for
   scheduled reveals. "Yesterday wrapped + here's the new thing."
 - **Tile 4.5 (MOTD reroll)** — Reroll is a power feature. Could be
-  introduced day 5+ rather than day 1.
+  introduced day 5+ rather than day 1. (Cost model superseded session
+  5 — see four_tasks_morning_sequence_design_notes.md Q8 section.)
 - **Tile 4.11 (Help menu)** — exists for users who want everything at
   once. Always-available escape hatch from the staggered approach.
-- **Tile 4.16 (Partner reactions)** — trigger-gated reveal (first time
-  partner reacts).
-- **Future coin name reroll tile** — example time-gated reveal.
+- **Tile 4.14a (Basic sticker picker — pre-fork)** — pool toggle is
+  available immediately, no reveal needed.
+- **Tile 4.14b (Sticker picker context menu — post-fork, Four Tasks
+  only)** — the long-press context menu (calendar leader + palette
+  source) is a scheduled reveal at day 7+. APPtrioc never gets this
+  surface; APPtrioc users see the picker without the context menu.
+- **Tile 4.16 (Partner reactions)** — day-4 scheduled reveal (primary
+  teaching) + trigger-gated reaffirmation (if partner reacts earlier).
+  Session 5 refinement; see Q7 section in morning sequence design doc.
+- **Tile 4.18 (Coin name reroll)** — example time-gated reveal,
+  unlocks first time user has enough coins.
 
 ## Open questions
 
@@ -135,8 +152,12 @@ Tiles that should be designed with staggered disclosure in mind:
 
 - `four_tasks_coin_name_design_notes.md` — feature that *requires*
   this principle to land well (reroll unlocking later).
-- `four_tasks_partner_reactions_design_notes.md` — trigger-gated
-  reveal example.
+- `four_tasks_partner_reactions_design_notes.md` — day-4 scheduled
+  reveal (per Q7 session 5 refinement).
+- `four_tasks_morning_sequence_design_notes.md` — Q7 partner
+  reaction surfacing model + the day-4 vs day-6 timing rationale.
+- `four_tasks_theme_design_notes.md` — sticker picker context menu
+  is a post-fork (Four Tasks only) reveal at day 7.
 - Tile 4.11 (help menu) — the "show me everything" escape valve.
 - Future tile: TutorialCoordinator autoload + tutorial_progress
   schema reservation on `users`.

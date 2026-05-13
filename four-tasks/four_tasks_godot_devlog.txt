@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Devlog
 ==========================
-Last updated: May 2026 (session 4, closed)
+Last updated: May 2026 (session 5, closed)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -44,9 +44,47 @@ Design notes (read whichever is relevant to the tile being worked on):
     three write endpoints (POST bug_report, PUT day, PUT user).
     Design closed session 4; implementation lands in a future
     session against this spec.
-  - `four_tasks_theme_design_notes.md`              — palette system.
+  - `four_tasks_theme_design_notes.md`              — LOCKED (session 5)
+    theme + sticker system. Three independent levers (pool / leader
+    / palette source). Palette-agnostic art rule. Folder-per-sticker
+    file architecture. Picker UX with long-press context menu.
+    Coverage gradient and staggered-disclosure overlay. The OLD
+    one-line "palette system" entry is superseded by this fuller
+    session-5 doc; the original was lost from the repo. Required
+    reading before tile 4.14a (basic picker) and tile 4.14b (theme
+    manager + context menu).
+  - `four_tasks_morning_sequence_design_notes.md`   — LOCKED (session 5)
+    full design of the morning ritual / daily ceremony. 12 beats,
+    rest-day variant, partner panel visibility model, crash-resistance,
+    claim endpoint architecture, MOTD reroll cost change (supersedes
+    doubling). Eight design questions (Q1-Q8) landed answers here.
+    Required reading before tile 4.6 (morning sequence coordinator),
+    tile 4.4 (slot machine), tile 4.5 (MOTD reroll), tile 4.7 (stamp
+    slap), tile 4.8 (rest day), tile 4.16 (partner reactions
+    surfacing).
+  - `four_tasks_marketing_notes.md`                 — RUNNING DOC
+    (started session 5). APPtrioc launch play, 9 subculture targets,
+    streamer outreach economics, long-tail community plan, open
+    questions, journal section. Updated as marketing thinking
+    arrives. Required reading before Phase 5b work.
   - `four_tasks_monetisation_position.md`           — subscription model
     + tone position. (Session 1)
+
+THE APPTRIOC FORK ARCHITECTURE (locked session 5):
+  APPtrioc is no longer a marketing fork of the prototype. It is a
+  Godot HTML5 export from a snapshot of Four Tasks at the moment
+  tile 4.14a is closed (basic picker, pre-context-menu). The fork
+  point sits between tile 4.14a (pre-fork, APPtrioc inherits) and
+  tile 4.14b (post-fork, Four Tasks exclusive — theme depth
+  features). Launch is SEQUENCED, not simultaneous: Four Tasks ships
+  to stores first (Phase 5), APPtrioc is built+deployed afterward
+  (Phase 5b), the atrioc video drops once both are live.
+  See top of `four_tasks_godot_todo.txt` for the full fork
+  architecture and launch sequence. Both backends (Four Tasks +
+  APPtrioc) run on Cloudflare in separate Workers + D1 instances
+  in the same Cloudflare account — Firebase considered and rejected
+  for APPtrioc; separate-Workers-in-one-account gives isolation
+  without the two-vendor tax.
 
 The design docs above collectively serve as both port plan and roadmap.
 Earlier session 1 docs referenced standalone `four_tasks_godot_port_plan.md`
@@ -96,7 +134,9 @@ themes. 1080×2400 portrait.
 
 Backend: Cloudflare Worker + D1 (locked decision, session 1; D1 region OC).
 Identity: pair-key v2 (locked decision, see v2 design notes).
-Theme: curated lookup table tier (b) (locked decision, session 1; see theme design notes).
+Theme: per-sticker palette.tres + folder-per-sticker assets, retint at
+render time (locked session 5; see theme design notes — supersedes
+prior "curated lookup table tier (b)" framing).
 Assets: hand-drawn / hand-painted by Morgan.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1204,3 +1244,574 @@ NOTES FOR NEXT SESSION:
 
 SESSION 4 CLOSED. Total session time: ~3h (one tile design, no
 implementation work). One ledger expense logged as a warm-up.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 5 — Away-time planning + theme + marketing + APPtrioc architecture
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTEXT:
+  Morgan heading FIFO. Limited home-office access for the next
+  stretch — phone-during-job, laptop-in-quarters (Aseprite +
+  scratchy mouse). Tile 1.3 implementation needs the home setup
+  (Wrangler dev loop, curl, local D1), so it's parked for the
+  next roster off. Session 5 scoped to: figure out how to spend
+  away-time well, then use the remaining bandwidth on design
+  conversations that don't need code-execution tooling. Father
+  unwell — family takes precedence over launch timing.
+
+AWAY-TIME PLAN ESTABLISHED:
+  Three threads:
+    1. Marketing-insight capture (phone, anywhere). Running doc
+       in pickle-moon-design-notes; collects positioning thoughts,
+       taglines, channels, anti-patterns as they arrive.
+    2. Design framing conversations (laptop, focused). Higher-
+       leverage than implementation work for away-time, because
+       design docs pay back across many future tiles.
+    3. Art (laptop, when in a making mood rather than thinking
+       mood). Aseprite work on stickers + theme art. Blocked on
+       asset dimensions being locked.
+
+THEME SYSTEM — DESIGN FOUNDATION:
+  Morgan flagged that the original four_tasks_theme_design_notes.md
+  referenced in the AI Reading Guide is missing from the repo —
+  either lost or never committed. Status confirmed unclear; doc was
+  described as "centrifugal" so the absence is non-trivial. Decision:
+  treat the new doc as canonical; if the original surfaces, cross-
+  reference rather than merge.
+
+  THE PROTOTYPE'S SYSTEM (read and confirmed):
+    One source emoji per user (headerEmoji), defaulting to 🐸.
+    Picker opens via long-press on top-left emoji. In the picker,
+    tap toggles pool membership (activeEmojis), long-press sets as
+    headerEmoji and triggers applyAppPalette() — canvas pixel
+    extraction at 60ms setTimeout, RGB quantisation, greedy
+    contrast search picks 3 colours, surfaces to bgMine (gradient)
+    + streak bar (tinted). That's it. Everything else (day cells,
+    task list, popups, util bar, calendar grid) hardcoded slate/zinc.
+    Clever for prototype scope; small in actual reskin reach.
+
+  THE GODOT PORT'S SYSTEM (locked this session):
+    Three INDEPENDENT levers, all from the same picker grid:
+      LEVER 1 — Pool membership (tap, identical to prototype).
+      LEVER 2 — Calendar leader (long-press → 📅 in context menu).
+      LEVER 3 — Palette source (long-press → 🎨 in context menu).
+    None constrains the others. A sticker can be all three, two,
+    one, or none.
+    The context menu replaces the prototype's "long-press = set as
+    header" which conflated leader and palette into one action.
+    Splitting them is the substantive UX change.
+
+  THE PALETTE-AGNOSTIC ART RULE:
+    All theme art (including the sticker itself) painted in a
+    canonical reference palette. Each sticker ships palette.tres
+    mapping reference colours to that sticker's natural-state RGB.
+    At render time, the engine substitutes the reference palette
+    for the active palette source's tagged colours.
+    Consequences: one source of truth per sticker (no "sticker
+    frog" + "theme frog" duplication); cross-theme clash solves
+    itself (lily pads retint when vampire becomes palette source,
+    no bright-green-on-black-and-red clash).
+    Exception: the picker grid renders each sticker in ITS OWN
+    palette, not the active palette source's, otherwise every
+    sticker looks identical in the picker. Picker preserves
+    visual identity for choosing.
+
+  FILE ARCHITECTURE — FOLDER PER STICKER:
+    res://assets/stickers/<id>/ contains sticker.png + palette.tres
+    minimum, plus optional theme art files (cell_unmarked.png,
+    grid_tile.png, flourish_name.png, etc.). The engine discovers
+    sticker capability by which optional files exist. No separate
+    manifest.
+    Sprite-sheet-per-sticker considered and rejected — sprite
+    sheets force a fixed slot layout up front, gap-handle poorly
+    when stickers want different theme pieces. Folder-per-sticker
+    matches Aseprite's one-project-per-sticker workflow.
+
+  THEME COVERAGE GRADIENT:
+    Not every sticker ships with a theme art set. Tier 1 (full
+    theme), Tier 2 (partial), Tier 3 (palette only). Launch
+    catalogue skews Tier 3 with a small set of Tier 1 showpieces.
+    Each new themed sticker over time is a content drop, marketing
+    beat, reason to revisit the picker. Themed stickers visually
+    MARKED in the grid (style TBD — glint, badge, border).
+
+MARKETING NOTES DOC — STARTED:
+  Morgan dumped a substantial marketing plan: atrioc-themed gift
+  app (APPtrioc), simultaneous launch via 10-minute YouTube video,
+  password hidden in atrioc's chat 1-2 weeks pre-launch, default
+  partner = atrioc, three-button onboarding (atrioc / Ari / everyone
+  else), subculture seeding across ADHD / wellness / productivity /
+  indie dev / FIFO / couples / LGBT, paid streamer reads (GinoMachino,
+  IronPineapple) as Phase 2 once revenue allows. Added by Claude:
+  recovery/sobriety and long-distance friendships as two more
+  subculture targets, channel triage (YouTube primary, Reddit if
+  subculture native, defer Discord), collaboration template
+  thinking for future artist/musician partnerships, natural
+  marketing beats baked into the product (NYE keepsake, monthly
+  theme-seal, sticker drops).
+
+  Iterated through 10 structured questions to lock decisions:
+    - Web-only APPtrioc, NO Capacitor (PWA install ceiling).
+    - Three-button onboarding with two hidden passwords.
+    - Unilateral pairing (users see atrioc's calendar, he doesn't
+      see theirs; Ari is the bilateral exception).
+    - 5-8 stickers in APPtrioc, mix of inside-joke specific and
+      palette-only.
+    - Chain-import sweetener for atrioc.
+    - Self-shot video, voice-over, hard 20h edit budget, no
+      licensed music.
+    - July 2026 launch ideal, slips OK (family priority).
+    - Streamer outreach scoping pre-revenue without commitment.
+    - Tip jar dropped entirely (clean gift framing).
+
+THE APPTRIOC FORK-POINT ARCHITECTURE (the session 5 capstone):
+  Late-session conversation rewrote the APPtrioc plan structurally.
+  The original frame ("clone the web prototype, skin it for atrioc,
+  ship it") had two problems:
+    1. The prototype is "barebones and buggy" by Morgan's own
+       admission. Shipping a buggy gift makes the "by the way, the
+       full version is on stores" pitch feel like a bait-and-switch,
+       not a sample.
+    2. Maintaining two backend stacks (Firebase for APPtrioc,
+       Cloudflare for Four Tasks) doubles operational complexity
+       for zero benefit.
+
+  Morgan's reframe: "build the full build in Godot, and as we reach
+  the point where we'd add the contextual menu and theme system,
+  STOP. Ship that snapshot as APPtrioc, work out its backend, then
+  go back into Godot and keep pushing to finish line."
+
+  This is structurally cleaner than anything previously proposed.
+  APPtrioc becomes:
+    - A snapshot of the Four Tasks Godot project at a defined
+      tile boundary (4.14a closed, 4.14b not yet started)
+    - Exported via Godot's HTML5 target
+    - Deployed to Cloudflare Pages (NOT app stores, no Capacitor)
+    - Pointed at its own Worker + D1 (separate from Four Tasks,
+      same Cloudflare account, full isolation between products)
+    - Skinned with atrioc-community theming (5-8 stickers)
+    - Configured for unilateral pairing with atrioc as default
+      partner + three-button password-gated onboarding
+
+  Tile 4.14 SPLIT into two:
+    - 4.14a (PRE-FORK): basic sticker picker — tap toggles pool
+      membership only. Long-press does nothing. APPtrioc inherits
+      this. Themed-sticker marker rendered but inert in APPtrioc
+      (creates conversion pull toward Four Tasks).
+    - 4.14b (POST-FORK): long-press context menu, theme manager,
+      preview-on-press / commit-on-close, palette source switching,
+      retint mechanism. Four Tasks exclusive.
+
+  NEW PHASE 5b created for the fork+ship workflow: snapshot, repo
+  setup (pickle-moon-apptrioc), APPtrioc Worker + D1, themed
+  sticker painting, skin/config code changes, chain-import sweetener,
+  HTML5 export, Cloudflare Pages deploy, password leak, video
+  recording, launch.
+
+  LAUNCH SEQUENCE CHANGED from simultaneous to sequenced:
+    Phase 5: Four Tasks ships to stores. Quiet launch via
+             subculture seeding.
+    Phase 5b: APPtrioc gets built, deployed. Video drops alongside.
+    The atrioc beat is now a FORCE MULTIPLIER on an already-shipped
+    product, not the launch driver. Reduces risk significantly —
+    if atrioc never engages, Four Tasks is already launched and
+    finding its audience through other channels.
+
+  CLOUDFLARE-FOR-BOTH CONFIRMED:
+    Morgan suggested Firebase for APPtrioc ("just because I thought
+    Firebase was the play for a PWA"). Clarified: PWA is a browser
+    concept independent of backend. Firebase Spark tier (50k reads
+    / 20k writes daily) caps out fast against potential atrioc
+    audience (~100k); Blaze tier has unbounded billing risk.
+    Cloudflare Workers free tier 100k requests/day with $5/month
+    paid tier for 10M — predictable cost ceiling, hard-cappable bill.
+    Same Cloudflare account, different Workers, different D1
+    databases = full operational isolation between products without
+    the two-vendor mental tax. The "easier to clone the prototype"
+    instinct is correct for the frontend (it's a Godot-snapshot,
+    not a prototype-clone, but same idea — fork an existing thing
+    rather than rewrite); the Firebase backend that prototype
+    happens to use is incidental and gets replaced.
+
+KEY ARCHITECTURAL CALLS THIS SESSION:
+
+  1. Hand-tagged palette over runtime extraction. The prototype's
+     canvas-pixel-sampling has no Godot equivalent and was fragile
+     even in the browser (setTimeout, alpha-channel hacks, font-
+     rendering dependence). Replacing it with palette.tres per
+     sticker is the architectural-preference-doc move applied to
+     theming: clarity over cleverness for a problem solvable at
+     art time.
+
+  2. One file per sticker, not duplication. Morgan independently
+     arrived at the right answer mid-conversation: ship the frog
+     palette-agnostic with a palette key, code handles retint, vs
+     ship sticker-frog and theme-frog as two files. Authoring
+     discipline + mental model simplicity + code simplicity all
+     point the same direction.
+
+  3. Folder-per-sticker over sprite-sheet-per-sticker. Gap-handling
+     in sprite sheets and the impossibility of knowing in advance
+     which theme pieces each sticker will want make folders
+     strictly better. Aseprite workflow matches.
+
+  4. Three levers, fully independent. Pool / leader / palette
+     source don't constrain each other. Simplest model. Casual
+     users pick one sticker for all three; advanced users decouple.
+
+  5. Retint mechanism deferred. Three viable approaches (shader,
+     pre-bake, indexed-palette). Decision needs prototyping data
+     and theme-art-count data; can't be made in pure design
+     conversation. Authoring workflow is invariant across the
+     three options, so art work can start with dimensions locked
+     even before retint mechanism is chosen.
+
+  6. APPtrioc as a snapshot, not a fork-and-diverge. APPtrioc
+     development stops at the fork point. After Phase 5b ships
+     APPtrioc, that codebase is frozen. Post-fork Four Tasks
+     features (theme depth, contextual menu, palette source) are
+     NEVER backported to APPtrioc. This is the conversion mechanic
+     working as designed — users who want depth go to Four Tasks.
+     Discipline on this prevents APPtrioc-as-parallel-development-
+     track which would re-introduce the operational-burden problem.
+
+  7. Sequenced launch over simultaneous. Force-multiplier framing
+     of the atrioc beat allows Four Tasks to launch on its own
+     merits. Reduces fragility of the launch plan; the atrioc beat
+     is upside, not dependency.
+
+  8. Cloudflare-for-both at the architecture level, full isolation
+     at the operational level. Same toolchain, same conventions,
+     same brain — but completely separate Workers and D1 instances
+     so an outage on one cannot touch the other.
+
+DOC CONSEQUENCES:
+  - four_tasks_theme_design_notes.md created (~250 lines). Captures
+    the three levers, palette-agnostic art rule, folder-per-sticker
+    architecture, picker UX with context menu, coverage gradient,
+    schema implications, related-doc cross-refs. Explicitly leaves
+    items open for the implementation session.
+  - four_tasks_marketing_notes.md created (~480 lines). Top-of-doc
+    snapshot reflects sequenced launch (was simultaneous in first
+    draft). APPtrioc spec section captures unilateral pairing as
+    real architectural divergence. Chain-import sweetener captured
+    as part of video plan. Open questions list seeded with deferred
+    items.
+  - Both new docs added to AI Reading Guide. The prior one-line
+    "palette system" entry is superseded.
+  - PROJECT block theme line updated: "per-sticker palette.tres +
+    folder-per-sticker assets, retint at render time" replaces the
+    old "curated lookup table tier (b)" framing.
+  - Tile 4.G SUPERSEDED entirely (per-sticker palette.tres replaces
+    central palette_table.tres).
+  - Tile 4.14 SPLIT into 4.14a (pre-fork) and 4.14b (post-fork).
+  - Tile 4.D rephrased — 86 emoji figure dropped, replaced with
+    "small set of tier-1 + larger set of tier-3, final count by
+    painting budget."
+  - Tile 4.E annotated for theme participation vs sacred semantics.
+  - NEW PHASE 5b section added — full APPtrioc fork+ship workflow
+    in 11 tiles.
+  - Phase 5 GATE rewritten to reflect quiet launch (no atrioc
+    beat).
+  - APPTRIOC FORK ARCHITECTURE section added to TOP of todo so
+    future-Claude reads it first.
+  - DEFERRED section pruned — "theme tier (c)" line removed as it
+    belonged to a prior smaller theme system that's been
+    superseded.
+  - Several new ACTIVE-tier items added: marketing notes (status
+    [~] running doc), theme system implementation prep, APPtrioc
+    backend prep, APPtrioc-to-Four-Tasks keepsake export.
+
+GIT COMMITS THIS SESSION (planned at session-close batch when
+Morgan is next at laptop):
+  pickle-moon-design-notes repo:
+    (pending)  Session 5 update: theme system design doc created,
+               marketing notes doc created, devlog + todo updates
+               (APPtrioc fork architecture, Phase 5b created, tile
+               4.14 split, theme-related tile annotations).
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.3 implementation is still the obvious "back at the
+    home office" next code thing. The session 5 design work
+    doesn't change tile 1.3 priority.
+  - Theme system implementation prep is the obvious "at the
+    laptop with Aseprite open" thing. Locks the open items in
+    four_tasks_theme_design_notes.md that block tile 4.14b
+    AND first sticker paint (tile 4.D).
+  - Marketing notes doc is now a running doc. New entries land
+    in the journal section as marketing thoughts arrive. Re-shape
+    when critical mass justifies it.
+
+CROSS-REFERENCE VERIFIED THIS SESSION:
+  The theme design doc references "ThemeManager.preview_emoji() /
+  commit_emoji() hooks" from four_tasks_pair_key_v2_design_notes.md
+  "Emoji picker UX" section. Verified accurate against v2 doc this
+  session — v2 spec lines 161-181 do define these exact hooks.
+  Small naming evolution noted: the v2 doc uses preview_emoji /
+  commit_emoji (when icon was a single concept); the session-5
+  theme doc introduces preview_palette / commit_palette and
+  preview_leader / commit_leader because the new system splits
+  what was one concept into two independent levers. Functionally
+  consistent; just renamed for clarity. Worth a small doc-sync
+  pass at tile 4.14b implementation time.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 5 EXTENDED — Morning sequence design closeout
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTEXT:
+  Slow shift at work. Morgan in good headspace for design
+  conversation between calls — phone-friendly cognitive load.
+  Used the time to chew through eight discrete design questions
+  about the morning sequence, the daily ritual that the devlog
+  has been calling "the centrepiece" since session 1 but had
+  never fully documented.
+
+  The morning sequence kept being referenced in other design
+  conversations (the "natural migration window" property in v2
+  identity notes, the claim endpoint sketch in write rules doc,
+  scattered comments in tile 4.6's todo entry) but no single
+  doc captured what the sequence actually IS. This session
+  fixes that with a focused design doc that answers eight real
+  questions and consolidates the scattered references.
+
+PROTOTYPE SCREENSHOT PROVIDED:
+  Morgan uploaded an iPhone screenshot of the prototype showing
+  the calendar view with "eerily ignored the mind 👽" circled
+  in red — the MOTD's permanent header position. Several days
+  on the calendar visible with completed-day stickers
+  (alternating alien faces and pixel-art space invaders). This
+  was the first time the morning sequence's *output* (the daily
+  fingerprint) was rendered in concrete form for Claude to read
+  against. The screenshot drove several of the locked
+  decisions, notably Q1 (MOTD is four spinners) and the
+  alternation-bug-to-fix in tile 4.4.
+
+EIGHT DESIGN QUESTIONS LOCKED:
+
+  Q1 — THE MOTD STRUCTURE.
+    The MOTD is FOUR spinners (adverb + verb + noun + emoji),
+    not three. The emoji slot reads from the SAME pool the user
+    has curated as Lever 1 pool membership in the sticker
+    picker. Single source of truth — change your pool, your MOTD
+    emoji vocabulary changes with it.
+    PROTOTYPE BUG: spinners alternate visibly rather than
+    randomising truly. Fix at tile 4.4 implementation (true
+    independent randomisation per slot).
+    SUPERSEDES: implicit assumption in theme doc that the pool
+    was only for day-cell stickers. Theme doc now updated to
+    note the dual purpose.
+
+  Q2 — CRASH RESISTANCE.
+    The morning sequence is PURELY COSMETIC. Server-side, coins
+    are updated as a number by the nightly cron and the claim
+    endpoint, not derived from animation events. Crash mid-
+    sequence has three cases:
+      (a) Before claim fires: replay on next open. No loss.
+      (b) After claim, before animation completes: skip on next
+          open (server flag cleared). User missed the ceremony
+          but data correct.
+      (c) Network/server failure on claim: retry on next open
+          via still-set flag. Robust.
+    The "infinite coins" failure mode is structurally impossible
+    because the claim endpoint is atomic and idempotent.
+
+  Q3 — BASE STATE IS ALWAYS CALENDAR-FLAT.
+    When the user opens the app, the first frame is the calendar
+    in its normal state. No trays open, no animations in progress.
+    Then the morning sequence fires (if a payout is pending) as
+    an OVERLAY-ON-TOP, not as a boot mode.
+    Implications: Loader scene (tile 2.1) doesn't check for
+    pending payout — that's App scene's job after it boots. Same
+    code path always; sequence is an interaction layered on the
+    calendar.
+
+  Q4 — PARTNER PANEL VISIBILITY MODEL.
+    Your morning sequence is PRIVATE. Partner doesn't see it.
+    More importantly: the partner panel reflects YOUR yesterday
+    as UNSTAMPED until you've claimed. Your claim is the moment
+    state becomes visible to your partner.
+    The "dead until they've claimed" property is intentional
+    design, not a limitation. Makes the connection feel alive —
+    state moves when partner moves it, not when the server
+    seals it. The textural moment of "I see their stamp appear
+    live on my partner panel because they just opened their app"
+    is the connection mechanic. iMessage-like quality.
+    Polling (tile 2.8, 30s cadence) catches the change. Tile
+    2.8 must refresh day-cell state, not just metadata.
+    CRITICAL BUG TO AVOID: the prototype had a "prestamped"
+    bug where days appeared stamped before claim. Morgan
+    identified and fixed. The Godot port enforces this through
+    the claim endpoint being the moment of state-becomes-visible.
+
+  Q5 — NO MULTI-DAY BACKLOG.
+    "What if user is away a week?" → at most ONE pending payout.
+    Data model enforces it for free: payout requires tasks_done
+    > 0, which requires the app open that day, which requires
+    the user's engagement. Days between the last-played day and
+    today are EMPTY days — no payout earned, no ceremony due.
+    The walkback algorithm finds the most recent unclaimed-but-
+    completed day and plays sequence for that. Streak breaks
+    naturally during absence (no four-of-four days), resets
+    silently — no special "you broke your streak" announcement.
+
+  Q6 — REST DAY VARIANT.
+    Rest day plays the SAME morning sequence. NOT a separate
+    sequence. Same beat structure, same timing, same lockout —
+    just different content slots:
+      - Tasks typewriter-glitch into rest-vocabulary phrases
+        ("relaxed", "had a cheat meal", "unworried", etc.) over
+        the user's original labels.
+      - Checkboxes get purple ticks/hearts instead of green/red.
+      - No coins fly out (rest cost was paid in advance at
+        rest-day designation, tile 4.8).
+      - Stamp is purple with a rest-pool message ("good on you
+        for the rest", "earned", "well-deserved", "soft day,
+        well chosen").
+    Single parameterised animation — cleaner than two parallel
+    sequences. New content pools needed: rest-day task labels
+    (~15-30 phrases) and rest-day stamp messages (small pool
+    with affirmation tone).
+
+  Q7 — PARTNER REACTION SURFACING.
+    Reactions are TIME-AGNOSTIC, not event-driven. Surface via
+    benign visual indicators on past-day cells in BOTH
+    directions. No push notifications, no animation, no urgent
+    badges.
+      Direction 1 (your view of partner's panel): partner's
+        sealed days you haven't reacted to yet get an ambient
+        marker. Clears on react-or-skip.
+      Direction 2 (your view of your own panel): your past-day
+        cells that received a reaction get a marker drawing
+        eye to them. Clears on view.
+    Same indicator pattern in both directions. Symmetric
+    vocabulary.
+    Tutorial reveal at day 4 (preferred) or day 6 (backup) per
+    staggered disclosure schedule. Discovery is taught BEFORE
+    a reaction necessarily arrives, so users have the vocabulary
+    to notice the indicator when one does.
+    SUPERSEDES: four_tasks_partner_reactions_design_notes.md
+    "Surfacing reactions to the receiver" section which had
+    described push-based surfacing. Push is no longer the
+    model.
+    SUPERSEDES: staggered disclosure framing of partner
+    reactions as purely trigger-gated. Scheduled day-4 reveal
+    is now the primary teaching moment; trigger-gated reaffirm
+    can fire if a reaction lands before that.
+
+  Q8 — MOTD REROLL COST.
+    Substantive change from prototype.
+    PROTOTYPE: day-1 free, day-2+ DOUBLING cost from 1 coin.
+    PROBLEM: doubling uncapped means user not paying attention
+    could blitz through tens of thousands of saved coins in
+    ~12 presses (cost goes 1, 2, 4, 8, 16... reaches 4096 at
+    press 13). A casual aesthetic preference becomes a major
+    economic event. Wrong mechanic for casual reroll.
+    LOCKED: flat random range 90-110 coins per press, no
+    escalation. Approximately 1/10 of an unmultiplied daily
+    task payout. The 90-110 range (vs flat 100) creates a
+    small textural moment of uncertainty per press.
+    Architectural principle that fell out: doubling-cost
+    belongs on features where the user output should ESCALATE
+    in significance (coin name reroll = persistent identity,
+    keep doubling). Flat-cost belongs on features that should
+    stay CASUAL (MOTD reroll = transient aesthetic, drop
+    doubling).
+    MOTD reroll is a coin economy VENT, not a sink. Real sinks
+    are emoji packs (planned 1-3x rest day cost) and rest days
+    themselves.
+    SUPERSEDES: tile 4.5's prior description (doubling cost)
+    and the prototype's mechanic.
+
+KEY ARCHITECTURAL CALLS THIS EXTENDED SESSION:
+
+  1. The morning sequence is an overlay-on-top of calendar
+     base state, not a boot mode. Same code path always.
+
+  2. Server is the source of truth for coin balance, stamp,
+     streak; animation is the user's EXPERIENCE of these, not
+     the data itself. Decouples robustness from animation
+     correctness.
+
+  3. Claim endpoint atomically updates server state at the
+     START of the sequence. Server response drives the rest
+     of the animation. Animation never plays content the
+     server might disagree with.
+
+  4. Partner panel state lags behind the user's own panel by
+     "until the user claims." This is connection-making, not
+     latency.
+
+  5. Rest day = same sequence, parameterised content. One
+     animation maintained, not two. Clarity over cleverness.
+
+  6. Time-agnostic features (partner reactions) get ambient
+     visual indicators, not push or animation. Surface
+     vocabulary follows feature rhythm.
+
+  7. Doubling-cost vs flat-cost reroll mechanic is determined
+     by whether the feature should feel ESCALATING vs CASUAL.
+     This is now a general principle in the project.
+
+  8. Migration time budget is the morning sequence duration
+     (~15-30s), not "indefinite." Real upper bound. Operations
+     that exceed it need to split pre/post-claim or accept
+     follow-up sync.
+
+DOC CONSEQUENCES:
+  - NEW: four_tasks_morning_sequence_design_notes.md (~640
+    lines). Captures Q1-Q8 in dedicated sections, plus claim
+    endpoint architecture, interruption model, migration
+    window budget, related tiles, what's left open.
+  - UPDATED: four_tasks_partner_reactions_design_notes.md.
+    "Surfacing reactions to the receiver" section rewritten
+    per Q7. "Setting to null = removing the reaction" line
+    fixed (contradicted immutability rules). Cross-reference
+    to morning sequence doc added.
+  - UPDATED: four_tasks_staggered_disclosure_design_notes.md.
+    Example schedule adds day-4 partner reactions reveal.
+    Cross-cutting hooks section reflects tile 4.14 split.
+    Cross-references to morning sequence + theme docs added.
+  - UPDATED: four_tasks_theme_design_notes.md. Header tile
+    references updated (4.14 → 4.14a + 4.14b). APPtrioc fork
+    note added at top. Q1 pool-sharing note added to Lever 1
+    description. Cross-reference to morning sequence doc
+    added.
+  - UPDATED: AI Reading Guide gets morning sequence entry.
+  - UPDATED: todo tile 4.4 (alternation bug fix), tile 4.5
+    (Q8 supersedes doubling), tile 4.6 (full design doc
+    reference), tile 4.7 (rest pool authoring), tile 4.8
+    (rest task label pool authoring), tile 4.16 (Q7 surfacing
+    model).
+  - UPDATED: ACTIVE-tier "Morning-payout claim endpoint
+    design" item from "open" to "[~] design closed" — design
+    pulled into morning sequence doc.
+
+GIT COMMITS THIS EXTENDED SESSION (planned at next laptop
+access):
+  pickle-moon-design-notes repo:
+    (pending) Session 5 morning sequence design: new doc +
+              updates to partner reactions, staggered
+              disclosure, theme docs + devlog/todo sync.
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.3 implementation is STILL the next code thing when
+    at the home office. None of this session's design work
+    changes that priority.
+  - When tile 1.3 implementation lands, the claim endpoint
+    can land alongside (or immediately after) since it shares
+    write-rules patterns and the migration_003 column it
+    consumes.
+  - When tile 4.6 implementation lands, the morning sequence
+    doc has the full beat-by-beat and the claim endpoint
+    contract ready to code against.
+  - Marketing notes journal entries can land any time. Slow
+    shifts at work are good for them.
+
+SESSION 5 (FULL) CLOSED. Total session time: ~6.5h across
+multiple sub-sessions over the FIFO roster. Three design docs
+created (theme, marketing, morning sequence). Two architectural
+reframes locked (APPtrioc fork-point, morning sequence as
+overlay-on-top). Six existing design docs updated for
+consistency.
+Running project total: ~32.25h.
