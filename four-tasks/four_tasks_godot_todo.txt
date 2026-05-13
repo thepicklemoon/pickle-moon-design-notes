@@ -558,13 +558,19 @@ section at top of this file.
 [ ] 4.7 [CODE] Stamp slap animation. Scale + rotation tween with overshoot.
     Stamp colour matches tier: red (1 task), orange (2), yellow (3),
     green (4), purple (rest day). Each tier has its own message pool
-    drawn during the morning sequence — content authoring for these
-    pools lands with this tile or tile 4.6. Estimated 10-20 messages
-    per tier, tone matched: woops/uh-oh for red, affirmation for
-    purple, celebration for green.
-    See four_tasks_morning_sequence_design_notes.md "Rest day
-    variant (Q6)" and "Beat-by-beat (Q1)" sections for full content
-    requirements.
+    drawn during the morning sequence.
+    FULL STRUCTURAL DESIGN: four_tasks_stamp_tier_design_notes.md
+    (session 6). Locked: server-side TypeScript constants for pool
+    storage, simple random pick, no anti-repeat tracking, pool size
+    targets (red/orange/yellow 5-10 each, green 40+, purple 20),
+    tone targets per tier as authoring guidance, streak-aware
+    stamping explicitly deferred. Stub pools (1-2 placeholders per
+    tier) allow this tile to ship before real content authoring.
+    Content authoring against the locked structure is a separate
+    later task — see stamp tier doc "Tone targets" for the
+    authoring spec.
+    See also four_tasks_morning_sequence_design_notes.md "Rest day
+    variant (Q6)" and "Beat-by-beat (Q1)" for animation context.
 [ ] 4.8 [CODE] Rest day system. Long-press future cell, confirm, refund.
     The rest day plays the SAME morning sequence as a worked day —
     one parameterised animation, content swaps for the rest variant.
@@ -587,19 +593,30 @@ section at top of this file.
     treats them as their own thing, not pair-attached data. See
     pair_key_v2 design notes "Bug reports — out-of-band lifecycle".
 [ ] 4.13a [CODE] Leaderboard endpoint — GET /leaderboard.
-    Moved from tile 1.2 in session 3. The endpoint was originally
-    bundled into the read-endpoints group but couldn't ship there:
-    its shape (which metric? top N? filter? opt-out flag?) and its
-    interactions with the coin-name censorship layer (tile 4.17)
-    aren't specced yet. Needs a focused design conversation before
-    code, then a small implementation tile. Sits next to 4.13
-    because they ship as a pair (UI + endpoint). Schema impact
-    likely small: maybe one opt-out flag on users, decided at design
-    time.
-[ ] 4.13 [CODE] Leaderboard UI — popup, top 10, opt-out flow.
-    Client-side popup, render top-10 list, opt-out toggle wired
-    through to server. Depends on tile 4.13a (the endpoint) landing
-    first.
+    Moved from tile 1.2 in session 3. Design closed session 6 —
+    see four_tasks_leaderboard_design_notes.md for the locked
+    spec. Endpoint shape sketched (GET /leaderboard?around=<pair_key>&self=<name>
+    for centred-on-self view; GET /leaderboard?top=20 for top-of-
+    board view). One leaderboard ranked by users.lifetime_coins,
+    current streak as a secondary number per row. Schema delta
+    is migration_004_lifetime_coins.sql (separate ACTIVE-tier
+    item below). Coin names censored via tile 4.17 censorship
+    layer before return. Rate limit tier choice (paired tier,
+    likely shared with GET /pair budget or 10-15/min standalone)
+    needs ~30min future pass before implementation. The "ship
+    no leaderboard at all" option remains live — final decision
+    deferred to tile-adjacent time.
+[ ] 4.13 [CODE] Leaderboard UI — popup, opt-out flow.
+    Long-press the coin display in util bar to open. Popup centred
+    on self, ten rows above and below visible. Each row shows coin
+    name + lifetime_coins (primary rank) + current streak
+    (secondary number). Top-of-board reachable by scroll.
+    Empty/opted-out state design TBD per leaderboard doc deferred
+    items. Reveal threshold (gating new users from seeing the
+    surface until they're competitive) ties to staggered
+    disclosure schedule. Depends on tile 4.13a + migration_004.
+    See four_tasks_leaderboard_design_notes.md for the locked
+    structural design + deferred-items list.
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY.
     Picker grid renders all stickers from res://assets/stickers/<id>/
     folders. Tap toggles a sticker in/out of the active pool (Lever 1
@@ -1149,6 +1166,20 @@ ACTIVE — ad-hoc items found during the port
     Apply to local AND remote D1, in that order, with verification
     between.
 
+[ ] Schema migration_004 application.
+    Captured in four_tasks_leaderboard_design_notes.md.
+    Migration content:
+      ALTER TABLE users ADD COLUMN lifetime_coins INTEGER NOT NULL DEFAULT 0;
+    Monotonic accumulator — set to 0 at user creation, incremented
+    by the same delta as users.coins on every payout, never
+    decremented. The morning-payout claim endpoint will write both
+    users.coins and users.lifetime_coins with the same delta.
+    Has uses beyond the leaderboard (yearly keepsake totals,
+    future achievements), so apply even if the leaderboard ship
+    decision goes to "no leaderboard." Apply to local AND remote
+    D1 alongside or after migration_003. Order doesn't matter
+    between the two — independent ALTERs on the same table.
+
 [ ] Phase 3 onboarding — additional length caps to enforce.
     Surfaced session 4 during PUT user validation rule lock.
     Server caps locked in design doc; UX caps in onboarding will
@@ -1389,7 +1420,7 @@ INTER-SESSION ADMIN (13 May 2026) — Mobile workflow setup.    ~1.5h
                           trimmed to three. First mobile design
                           conversation enabled by this work.
 
-SESSION 6 — Rate limiting design close (mobile, partial)
+SESSION 6 — Three design closures (mobile, nightshift)
 [~] design closed         Rate limiting design                      ~1.5h
                           (four_tasks_rate_limiting_design_notes.md).
                           Two tiers (pair-keyed for paired endpoints,
@@ -1409,9 +1440,43 @@ SESSION 6 — Rate limiting design close (mobile, partial)
                           parked since session 4. Cloudflare config
                           is next home-office task; no Worker code
                           changes required.
+[~] design closed         Leaderboard design                        ~1h
+                          (four_tasks_leaderboard_design_notes.md).
+                          Leans toward restraint: one leaderboard,
+                          ranked by users.lifetime_coins (new
+                          monotonic column, migration_004), current
+                          streak as a secondary number per row.
+                          Long-press coin display to open. Schema
+                          delta + endpoint sketch captured.
+                          Rejected alternatives preserved with
+                          reasoning: install-date clustering,
+                          swipeable multi-metric popup, streak-as-
+                          primary rank, no-leaderboard-at-all. The
+                          last remains live as an option if tile
+                          4.13 lands and the design still feels off.
+                          Principle locked from the conversation:
+                          "engineering cost is cheap; user attention
+                          and emotional energy are not." Tiles 4.13
+                          and 4.13a updated to reference the doc.
+[~] design closed         Stamp tier design                         ~30min
+                          (four_tasks_stamp_tier_design_notes.md).
+                          Structural design locked: server-side
+                          TypeScript constants for pool storage,
+                          simple random pick from per-tier pools,
+                          no anti-repeat tracking. Pool size targets
+                          (red/orange/yellow 5-10 each, green 40+,
+                          purple 20), tone targets locked per tier
+                          as authoring guidance. Streak-aware
+                          stamping deferred — backward-compatible
+                          to add later. Stub-pool strategy means
+                          tile 1.3 / 4.6 / 4.7 implementation isn't
+                          blocked on content authoring. Tile 4.7
+                          updated to reference the doc.
 
-Session 6 (partial) total: ~1.5h on mobile during nightshift.
-First substantive design conversation conducted entirely via
-fetched-from-repo docs; mobile workflow validated.
+Session 6 (partial) total: ~3h on mobile during nightshift, across
+three design conversations. The mobile workflow set up between
+sessions 5 and 6 was decisive — three substantive design closures
+happened entirely via fetched-from-repo docs with zero laptop access.
+The pattern is repeatable and the right move for FIFO away-time.
 
-Running project total: ~35.25h.
+Running project total: ~36.75h.

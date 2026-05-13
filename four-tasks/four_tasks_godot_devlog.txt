@@ -75,6 +75,22 @@ Design notes (read whichever is relevant to the tile being worked on):
     as an exception to the locked status code list, narrow scope
     (edge only; Worker still returns 200/400/404/409/500). Cloudflare
     config is the next home-office task; no Worker code changes.
+  - `four_tasks_leaderboard_design_notes.md`        — LEANING TOWARD
+    RESTRAINT (session 6). One leaderboard, ranked by lifetime_coins,
+    current streak as a secondary number per row. Long-press the coin
+    display to open. Schema adds users.lifetime_coins (monotonic, never
+    decremented on spend). Full rejected-alternatives section
+    preserves install-date clustering, swipeable multi-metric popup,
+    streak-as-primary, and no-leaderboard-at-all with reasoning.
+    Final ship decision deferred until tile 4.13 is adjacent; option
+    of shipping no leaderboard remains live.
+  - `four_tasks_stamp_tier_design_notes.md`         — LOCKED (session 6)
+    structural design for stamp tier message pools. Server-side
+    TypeScript constants, simple random pick from per-tier pools.
+    Pool size targets: red/orange/yellow 5-10 each, green 40+,
+    purple 20. Tone targets locked per tier. Streak-aware stamping
+    explicitly deferred. Consumed by morning-payout claim endpoint
+    + tile 4.7 stamp slap animation.
   - `four_tasks_monetisation_position.md`           — subscription model
     + tone position. (Session 1)
 
@@ -1976,8 +1992,198 @@ NOTES FOR NEXT SESSION:
     most endpoints). Apply the design doc's rule structure,
     re-derive numbers from APPtrioc's interaction model.
 
-SESSION 6 (PARTIAL) CLOSED. Total session time: ~1.5h on mobile.
-First design close conducted entirely via fetched-from-repo docs;
-workflow validates. Running project total: ~35.25h.
+SESSION 6 (PARTIAL) CLOSED. Total session time: ~3h on mobile during
+nightshift. Three design closures (rate limiting, leaderboard,
+stamp tier). First substantive design conversation conducted entirely
+via fetched-from-repo docs; mobile workflow validated. Running project
+total: ~36.75h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 6 PART 2 — Leaderboard design (mobile, partial)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTEXT:
+  Same nightshift, continuing mobile design work after rate limiting
+  closure. Morgan flagged leaderboard considerations: thought experiment
+  about install-date clustering to avoid the tenure-gap problem of
+  new users comparing against long-haul veterans. The conversation
+  surfaced the right question (how do you make global comparison
+  feel healthy for users at different tenure stages?) but the
+  initially-proposed answer (install-date clustering) had real
+  problems. The substantive design work was working through those
+  problems and landing on a healthier answer.
+
+KEY DESIGN MOVES:
+
+  1. Push back on install-date clustering. Real problems: arbitrary
+     social slicing of friends, thinned leaderboards in early app
+     life, lurker-rewarding semantics, install-date doesn't measure
+     what users assume it measures (engagement age is the honest
+     variable). The instinct behind it — "new users feeling
+     dispirited by tenure-driven leaderboards" — is real and worth
+     addressing, but not through clustering.
+
+  2. Lifetime coins as the rank metric. Strictly monotonic — never
+     decremented by spending. A user who rerolls aggressively is
+     identical on the leaderboard to a user who hoards. Captures
+     consistency of task completion (4-task days earn more than
+     1-task days, streak multipliers compound) not just consistency
+     of day completion. Tenure-aware in a healthy way: new users
+     see a visible climb, not an arbitrary gulf.
+
+  3. Current streak as a secondary number, not a primary rank.
+     Rejected streak-as-rank because one missed day tanks a user
+     from #5 to #500 overnight, creating unhealthy pressure to
+     never miss a day — opposite of the app's calm tone. Streak
+     stays visible on every row as a "what's this person doing
+     now" signal that humanises the row without changing rank.
+
+  4. Resisted the swipeable multi-metric popup. Engineering cost
+     would have been small (one endpoint shape, metric query
+     parameter, different ORDER BY clauses). Real cost is in
+     surface multiplication: each leaderboard is a thing that has
+     to feel good to be on, each metric shipped is one users are
+     implicitly told to optimise for (current coins would gut the
+     reroll economy by punishing spending publicly), app tone
+     doesn't support a busy comparison UI. "Engineering is cheap;
+     user attention and emotional energy aren't" — locked as a
+     general principle from this conversation.
+
+  5. Held open the option of shipping no leaderboard at all. The
+     partner panel covers local comparison; the leaderboard fills
+     the "I'm one of a real community doing this" gap but is the
+     single feature most likely to violate the calm low-pressure
+     tone if shipped badly. If tile 4.13 lands and the design
+     still feels off, ship without one. The lifetime_coins column
+     still gets added (yearly keepsake + future achievements both
+     use it independently).
+
+PRINCIPLE LOCKED THIS SESSION:
+
+  "Engineering cost is cheap; user attention and emotional energy
+  are not." Applied to the leaderboard but generalisable. When the
+  cost-benefit framing for adding a feature surface is "the
+  engineering is easy, why not give users the option," this is a
+  warning sign that the question is being weighed on the wrong
+  axis. Health > preference on recurring comparison surfaces.
+
+DOC CONSEQUENCES:
+  - NEW: four_tasks_leaderboard_design_notes.md (~370 lines).
+    Locks the recommendation (one leaderboard, lifetime_coins,
+    current streak as secondary number). Preserves all rejected
+    alternatives (install-date clustering, swipeable multi-metric,
+    streak-as-primary, no-leaderboard-at-all) with reasoning AND
+    the real concern each one tried to address. Schema delta
+    captured (users.lifetime_coins, migration_004 pending).
+    Endpoint shape sketched but not locked (rate limit tier and
+    around/top split need a small future pass).
+  - DEFERRED items recorded: opt-out flow design, censorship
+    fallback for coin names, reveal threshold, opt-in friend
+    leaderboards (v1.x), explicit re-evaluation thresholds for
+    the rejected alternatives if usage data demands.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 6 PART 3 — Stamp tier design (mobile, partial)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTEXT:
+  Final design pass of the nightshift. Stamp tier rules and message
+  pools were flagged in the write rules doc (session 4) as needing
+  their own design pass, blocking tile 4.6 morning sequence. The
+  tier-to-task-count mapping was already half-designed in the
+  prototype; what was open was pool structure, selection mechanism,
+  pool sizing, and tone targets.
+
+WHAT GOT LOCKED:
+
+  1. Tier mapping (already implied, now explicit):
+       1 task → red, 2 → orange, 3 → yellow, 4 → green,
+       rest day → purple, 0 tasks → no stamp (cell stays empty).
+
+  2. Pool storage: server-side TypeScript constants, mirroring the
+     MOTD wordlist pattern. Not D1. The "live editable without
+     redeploy" benefit of D1 isn't real at solo-dev scale (deploy
+     happens anyway for new content), and D1 adds schema cost for
+     no concrete benefit. Architectural preference applied directly.
+
+  3. Selection: pure random pick from the tier pool. No anti-repeat
+     tracking. Pool sizes are large enough that repeats are rare;
+     the architectural preference favours simple-correct over
+     clever-aesthetic; backward-compatible to add anti-repeat later
+     if real usage shows it's needed.
+
+  4. Pool size targets:
+       red/orange/yellow: 5-10 each
+       green: 40+
+       purple: 20
+     Size scales with frequency-of-display, not authoring budget.
+     Green is the most-seen tier; needs variety to avoid feeling
+     templated. Off-day tiers (red/orange/yellow) are infrequent;
+     small pools are fine.
+
+  5. Tone targets locked per tier. Red gentle-no-shame, orange
+     neutral-got-through-it, yellow light-affirmation, green
+     celebration-not-over-the-top, purple permission-giving for
+     the rest decision. Authoring guidance, not structural rules.
+
+  6. Streak-aware stamping deferred. The thought experiment was:
+     should green tier sub-divide into early-streak / mid / long-haul
+     pools so messages can scale tone? Three options considered
+     (single pool, sub-banded pools, single-pool-with-authoring-
+     awareness). Initial lean was option 3 (no engineering cost,
+     just authoring intent). On review, even the soft authoring
+     overhead didn't justify the "subtle flavour" benefit at v1.0.
+     Locked as deferred — revisit if real usage shows users would
+     benefit. Backward-compatible to move toward option 3 later.
+
+  7. Stub pools for early implementation. Pool files ship with
+     1-2 placeholder strings per tier so the claim endpoint and
+     tile 4.7 stamp slap animation can be implemented and tested
+     without blocking on content authoring. Real authoring happens
+     against this spec at any later point; no code changes needed.
+
+DOC CONSEQUENCES:
+  - NEW: four_tasks_stamp_tier_design_notes.md.
+    Locks the structural design. Captures tone targets per tier as
+    authoring guidance. Captures the deferred streak-awareness
+    decision with the option-3 thinking preserved for later
+    review. Stub-pool implementation strategy documented so tile
+    1.3 / tile 4.7 work isn't blocked on content writing.
+
+GIT COMMITS THIS SESSION (planned at next laptop access — single
+batch covering all three closures):
+  pickle-moon-design-notes repo:
+    (pending) Session 6 design close batch: rate limiting + leaderboard
+              + stamp tier docs created, devlog/todo sync, AI Reading
+              Guide updated for all three.
+
+NOTES FOR NEXT SESSION:
+  - Cloudflare rate limiting config is the first home-office task.
+    Dashboard configuration against locked numbers in the rate
+    limiting doc. 30-60 minutes.
+  - Tile 1.3 implementation is the second home-office task.
+    References write rules doc + stamp tier doc + morning sequence
+    doc for the claim endpoint that will land alongside.
+  - Schema delta queue: migration_003 (morning_payout_due_for) +
+    migration_004 (lifetime_coins) both need to land in roughly
+    this order. Both small, both backward-compatible additions.
+  - Theme implementation prep remains the obvious "Aseprite open"
+    task when in laptop+making mood.
+  - APPtrioc backend prep remains the obvious design conversation
+    when Phase 5b feels closer.
+  - Leaderboard endpoint shape needs a small future pass once
+    tile 4.13 is closer — rate limit tier choice + around/top
+    request split. ~30 minutes when relevant.
+
+SESSION 6 (FULL) CLOSED. Total session time: ~3h on mobile during
+nightshift, spread across three design conversations. The mobile
+workflow set up between sessions 5 and 6 was decisive — three
+substantive design closures happened entirely via fetched-from-repo
+docs with zero laptop access. The pattern is repeatable and the
+right move for FIFO away-time.
+
+Running project total: ~36.75h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
