@@ -93,8 +93,12 @@ never written — every architectural decision lives in a focused design
 doc instead, and the phased tile list lives in `four_tasks_godot_todo.txt`.
 
 When starting a fresh session:
-  1. Ask Morgan to upload any changed files (devlog, todo, schema.sql,
-     index.ts) since the last session.
+  1. Ask Morgan which docs have changed since the last session. Fetch
+     fresh versions via raw URL from the public `pickle-moon-design-notes`
+     repo. See `pickle_moon_repo_index.md` at the repo root for the
+     canonical file map across all PICKLE MOON repos. For files in
+     private repos (four-tasks code, schema, ledger), ask Morgan to
+     paste them in chat.
   2. Read this devlog and `four_tasks_godot_todo.txt`.
   3. Consult the design doc relevant to the tile being worked on (see list above).
   4. Use str_replace for code patches — never rewrite whole files unless asked.
