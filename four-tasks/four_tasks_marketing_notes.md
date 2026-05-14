@@ -65,6 +65,10 @@ deferred channel decisions (Discord vs subreddit), in-app news for
 theme/music/artist drops, NYE keepsake and monthly theme-seal moments
 as natural marketing beats.
 
+Subreddit subculture seeding is paired with TARGETED PROMO CODES
+offering 3-month free trials + soft landing into founders pricing.
+See Section 6 below for the locked promo code model (added session 7).
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SECTION 1 — APPTRIOC LAUNCH PLAY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -661,12 +665,225 @@ Things on the table that need more thinking, listed for revisit:
    trademarks (if any), Twitch ToS around derivative naming, and
    the broader vibe — "is this name funny enough to land?"
 
-10. Pricing for Four Tasks. Subscription? One-time purchase?
-    Free with a paid tier? Belongs in its own decision separate
-    from marketing but the monetisation position
-    (four_tasks_monetisation_position.md) needs to be confirmed
-    before launch. Mentioned here because the marketing copy
-    depends on the answer.
+10. Pricing for Four Tasks. RESOLVED in monetisation v2.0
+    (session 6 part 2). Subscription with bilateral library
+    sharing + small stacking coin bonus. Founders pricing tier
+    for launch cohort. Year-2 standard pricing +50% above
+    founders. See four_tasks_monetisation_position.md.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — PROMO CODES + SUBCULTURE TARGETED LAUNCH
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Added session 7 (mobile). Pairs the subculture seeding plan in
+Section 2 with a concrete promo code mechanism for acquisition.
+
+CORE MODEL: 3-MONTH FREE TRIAL → FOUNDERS PRICING SOFT LANDING.
+
+  Each promo code grants:
+    1. A 3-month free trial extension on top of the standard 30-day
+       trial. During this period, the user has subscription_active
+       = true server-side. Library sharing is INCLUDED — they get
+       the signature feature, not a peephole.
+    2. Choice of one TIER 1 starter pack from the existing launch
+       catalogue, attached to their account at redemption.
+    3. On trial expiry, the user lands automatically on the
+       FOUNDERS PRICING tier (locked rate until end of year 2).
+       Not a price cliff — a soft landing into the lowest rate the
+       studio commits to charging.
+
+  This stacks THREE psychological mechanics:
+    - Free period as acquisition lever (3 months is enough to
+      live multiple pack drops, build streak history, develop
+      habit dependency).
+    - Founders price lock as loyalty reward (permanent until
+      year 2 sunset).
+    - Future price hike for non-founders (+50% at year 2+)
+      activates as retroactive validation of early adoption.
+
+  All three reinforce the buddy-ware tone. No predatory pattern.
+  User feels rewarded for trusting the app early.
+
+WHY 3 MONTHS, NOT 12:
+  12 months was the initial sketch. Walked back because:
+    - 12 months commits us to losing a full year of revenue per
+      redemption.
+    - The founders pricing lock already does the "you got in
+      early" work — the trial extension doesn't need to be that
+      generous to land.
+    - 3 months is long enough for the user to fully internalise
+      the product. The "soft landing into founders rate" is the
+      sticky thing, not the trial length itself.
+
+WHY LIBRARY SHARING IS INCLUDED IN TRIAL:
+  Considered: "promo code gives you 90% of a sub but library
+  sharing is the paywall." Rejected. Library sharing is the
+  SIGNATURE feature of the v2.0 monetisation model. A trial that
+  withholds it isn't a trial of the product — it's a trial of the
+  unmonetised parts. The user can't develop attachment to the
+  feature they'd be paying for. We give them the real thing, then
+  ask them to pay for it after they've lived with it. Honest
+  funnel.
+
+CODE STRUCTURE PER SUBCULTURE:
+
+  Each subreddit gets its own code: FIFO50, ADHD100, INDIEDEV50,
+  RECOVERY50, etc. Naming convention: subculture identifier +
+  cap number.
+
+  Per-code constraints:
+    - Hard redemption cap (50-200 per code depending on sub size
+      / projected demand).
+    - Short expiry (14 days from posting).
+    - One redemption per user per code (server-enforced).
+    - Each code attaches a contextually-relevant starter pack
+      offer (FIFO → choice of TIER 1 pack with a marketing
+      nickname "FIFO pack" but underlying it's the existing
+      catalogue, e.g. "Swamp" branded for the campaign).
+    - Code is invalid once cap is hit OR expiry passes —
+      whichever first.
+
+  Cap is critical. Without it, codes leak to deal aggregator
+  subs and exposure is unbounded.
+
+RETARGETING MODEL — WAVE-BASED, NO WAITLIST:
+
+  When demand exceeds cap (tracked via attempted-redemption
+  logging), the same sub can be retargeted in subsequent waves:
+
+    Wave 1: SUB-50 (or whatever initial cap). 14-day expiry.
+            Trial extension offer.
+    Wave 2: SUB-50-WAVE2. Same offer. Posted 30+ days after
+            wave 1 if demand was over-cap. Acknowledges
+            previous overwhelm: "we saw last month's response,
+            here are more spots."
+    Wave 3: SUB-FOUNDERS. Larger pool. NO trial extension —
+            direct access to founders pricing instead. Frames
+            as: "this sub has been so responsive we want to
+            offer the cheapest possible long-term price to
+            everyone, not just first-N."
+
+  Wave 3 is the high-volume option — lower per-user cost to us
+  (no trial losses), still genuinely generous (founders pricing
+  is a lifetime perk), and respects the sub's interest without
+  picking favourites.
+
+  Waitlist mechanism was considered and REJECTED — psychologically
+  it's a queue, which is a control mechanism, which clashes with
+  the buddy-ware tone. Over-cap redeemers see "this code is
+  closed, watch this space for the next wave" instead of "you're
+  in line."
+
+OVER-CAP ATTEMPT TRACKING:
+
+  Every redemption attempt — successful or rejected — logs to a
+  `redemption_attempts` table. Schema sketch:
+    code TEXT, user_id TEXT, success BOOLEAN, timestamp INTEGER
+
+  Aggregate query per code gives the demand signal that informs
+  whether/when wave 2 is justified. Also useful for:
+    - Measuring code-level conversion 3 months post-redemption
+      (which subs convert into long-term subscribers best).
+    - Detecting bot/abuse patterns (same IP hammering codes).
+    - Attribution for retention analytics over time.
+
+STARTER PACK AT REDEMPTION:
+
+  Initial sketch was bespoke packs per cohort ("FIFO mining pack",
+  "ADHD fidget spinner pack"). Walked back — bespoke art is a
+  weekend's painting per pack and gating launch on cohort-bespoke
+  art doesn't scale.
+
+  Locked: redeemers get CHOICE of one existing TIER 1 pack from
+  the launch catalogue. The marketing copy can frame it
+  contextually ("FIFO redeemers get a free starter pack — try the
+  cooking pack or the swamp pack") but underlying it's the same
+  set. The interest hook ("free starter sticker pack") lands
+  without committing to per-cohort art.
+
+  Bespoke packs reserved for RETENTION drops, not acquisition.
+  E.g. a "1 year of FIFO redeemers" anniversary pack, after we've
+  confirmed FIFO is a sustained subscriber segment, becomes
+  worth the painting time.
+
+REDEMPTION SURFACE:
+
+  Onboarding: "Have a promo code?" text link on the welcome
+  screen (screen 1 of standard onboarding flow per the onboarding
+  doc). Goes to a small input screen, validates server-side,
+  applies extension + pack on success, falls back to standard
+  flow on failure.
+
+  Existing users: settings → "redeem code" entry. Same endpoint.
+  Same one-redemption-per-user enforcement.
+
+SERVER ENDPOINTS NEEDED (Phase 5 work):
+
+  POST /redeem
+    Body: { code: string }
+    Caller identified per standard auth model.
+    Logic:
+      1. Look up code in promo_codes table. 404 if not found.
+      2. Check redemptions_used < cap. 409 if cap hit.
+      3. Check expiry > now. 409 if expired.
+      4. Check this user hasn't redeemed this code already.
+         409 if duplicate.
+      5. Log attempt (regardless of outcome) to redemption_attempts.
+      6. On success: increment redemptions_used, set
+         users.trial_extension_days += 90, attach chosen starter
+         pack to user's owned packs, set
+         users.founders_rate_eligible = true (locks in founders
+         rate at trial expiry).
+      7. Return new state.
+
+  Schema additions (Phase 5 prep, NOT v1.0-blocker):
+    promo_codes table:
+      code TEXT PRIMARY KEY
+      cap INTEGER NOT NULL
+      redemptions_used INTEGER DEFAULT 0
+      trial_extension_days INTEGER
+      starter_pack_options TEXT (JSON array of pack IDs)
+      expires_at INTEGER (unix timestamp)
+      active BOOLEAN DEFAULT 1
+    redemption_attempts table:
+      code TEXT
+      user_id TEXT
+      success BOOLEAN
+      timestamp INTEGER
+    users additions:
+      trial_extension_days INTEGER DEFAULT 0
+      founders_rate_eligible BOOLEAN DEFAULT 0
+
+  Belongs in migration_006 (or whatever number is free at
+  Phase 5 entry).
+
+APPLE / GOOGLE POLICY COMPLIANCE:
+
+  Server-side trial extension does NOT touch Apple/Google's
+  subscription state. Users still progress through the store's
+  standard 30-day free trial flow at the store level. Our server
+  treats them as entitled for additional N days beyond the store
+  trial. Apple/Google get paid when the user converts to real
+  billing post-extension. No store-level policy violation.
+
+  The user's app-store subscription state is what
+  RevenueCat/store webhooks report. Our trial extension is an
+  ADDITIONAL flag we honour on top of the store state. If the
+  user's store trial ends and they don't convert, our server
+  still marks them as entitled for the remainder of their
+  extension period.
+
+ANTI-PATTERN: DON'T BLANKET-ISSUE CODES.
+
+  The codes are intentionally scarce + targeted. Don't:
+    - Issue a "WELCOME50" generic code that anyone can use.
+    - Share the codes in Four Tasks' own marketing channels
+      (defeats the per-subculture targeting).
+    - Run codes longer than 14 days (defeats the
+      scarcity-and-attention urgency).
+    - Skip the cap (defeats the bounded exposure rule).
+    - Make redemption easier than account creation (defeats
+      the "this is a real product" framing).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 JOURNAL — RAW ENTRIES AS THEY ARRIVE
@@ -849,3 +1066,70 @@ No action items from tonight that affect marketing doc structure.
 Just noting the morning sequence doc exists and these three
 copy-direction implications are worth folding into the eventual
 video script + store-listing copy work.
+
+[2026-05-14, session 7 — promo codes + subreddit targeting]
+Morgan joined a bunch of relevant subreddits at work today and
+started thinking about acquisition mechanics. Conversation
+resolved into Section 6 above as a locked design.
+
+Key thread: how to give subreddit cohorts a real welcome without
+either (a) committing to bespoke art per cohort (unsustainable),
+(b) leaking exposure via uncapped codes, or (c) gating the
+signature feature behind paywall (defeats the trial).
+
+Locked positions:
+  - 3-month free trial via promo codes (not 12 — would commit
+    a year of revenue per redeemer).
+  - Soft landing into founders pricing on expiry, not a price
+    cliff.
+  - Year-2+ standard pricing +50% above founders (Morgan's
+    initial instinct of 100% recognised as "latent greed" and
+    walked back).
+  - Caps small (50-200 per sub), expiry short (14 days).
+  - Over-cap attempts tracked, retargeted via wave 2 (same
+    offer, +30 days) and wave 3 (founders-only direct access,
+    larger pool).
+  - Waitlist mechanism REJECTED — psychologically a queue,
+    clashes with buddy-ware tone. Code-closed users see "next
+    wave coming" instead of "you're in line."
+  - Library sharing INCLUDED in trial. Not gated. The signature
+    feature must be lived during the trial or the trial isn't
+    real.
+  - Starter pack = choice of existing TIER 1 pack, not
+    bespoke. Bespoke packs reserved for retention drops, not
+    acquisition.
+  - Three psychological mechanics stacked: free trial (urgency)
+    + founders lock (loyalty) + future hike (retroactive
+    validation). All reinforce buddy-ware tone, none predatory.
+
+Server work needed for promo codes: new /redeem endpoint,
+promo_codes + redemption_attempts tables, two new users columns
+(trial_extension_days, founders_rate_eligible). Bundled into
+migration_006 at Phase 5 entry. NOT a v1.0 launch blocker for
+the store ship — but is a blocker for the first targeted post.
+The first promo code can't be issued until the redeem endpoint
+exists.
+
+Marketing pre-engagement note: Morgan joining subs today is the
+"belong before pitching" pattern. Genuine community membership
+before any code drops. Strategic posture is sound — observe tone,
+absorb pain points, eventually contribute, only then promote.
+The promo code becomes a way to thank a community you've already
+spent time in, not a cold pitch.
+
+Open from this conversation:
+  - Per-sub code naming conventions and starter pack defaults
+    (e.g. FIFO50 → defaults to swamp pack but redeemer can
+    choose? or no choice, FIFO redeemers get swamp specifically?).
+    Probably "choice" for flexibility. Lock at Phase 5 code
+    authoring.
+  - Wave timing rules — exactly when does wave 2 land? 30+
+    days is the floor; the ceiling depends on whether wave 1
+    sold out and how recently.
+  - Wave 3 mechanics — does "founders-only" mean a code that
+    skips the trial extension entirely, or a code that grants
+    a shorter trial (e.g. 30 days) plus founders rate? Probably
+    the former for cleanliness. Confirm at Phase 5.
+  - Attribution analytics dashboard — at what scale does this
+    matter? Probably wave 3+ before it's worth building UI.
+    Until then, raw queries against redemption_attempts.
