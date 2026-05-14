@@ -2,7 +2,9 @@
 
 **Status:** LOCKED for v1.x. Architecture baked into schema and tile 1.3
 defensive write rules from session 2 so the feature can ship later
-without retrofitting.
+without retrofitting. Surfacing model superseded session 5 (now time-
+agnostic visual indicators, not push). Cross-ref to renamed pair-key
+doc refreshed session 7.
 
 **Implementation timing:** post-v1.0. Schema reserves the columns;
 endpoints (tile 1.2/1.3) handle reads; UI build is v1.x.
@@ -41,11 +43,13 @@ what makes the app's emotional vocabulary richer than a generic chat app.
 **Post-seal only, immutable once placed:**
 - Reactions cannot be dropped on a live day. Picker is hidden / disabled
   on the current day's UI.
-- Once the nightly cron seals a day, reactions become possible — partner
-  browses back via past-day-tray and drops reactions on sealed days.
+- Once a day is sealed (lazy seal-on-open during the claim endpoint —
+  see timezone doc), reactions become possible. Partner browses back
+  via past-day-tray and drops reactions on sealed days.
 - Each reaction column accepts exactly ONE write per day per target.
   Server enforces: if `motd_reaction` is non-NULL, reject further writes
-  to that column with 404. Same for `tray_reaction`.
+  to that column with 409 `reaction_already_set`. Same for
+  `tray_reaction`.
 - This means the partner gets ONE shot per target per day. Two reactions
   total per day (MOTD + tray), both permanent once placed.
 
@@ -66,6 +70,17 @@ what makes the app's emotional vocabulary richer than a generic chat app.
 The popup is client-side user education. The server is the authoritative
 gate (it'll reject the second write to a non-NULL column regardless of
 whether the popup fired).
+
+**Note on UX pattern inheritance:**
+The reaction picker follows a *commit-on-close* pattern (preview locally,
+write on confirmation). This matches the identity picker pattern from
+the pair-key v2 doc (commit-on-close for migration-triggering changes)
+but is DISTINCT from the theme system's per-slot context menu (per the
+session 7 theme doc rewrite), which applies slot changes INSTANTLY with
+no commit step. The distinction is intentional: identity changes and
+reactions are both immutable/expensive operations that warrant a
+deliberate commit; theme slot changes are reversible and cheap, so they
+benefit from instant feedback to encourage exploration.
 
 **Surfacing reactions to the receiver:**
 
@@ -130,8 +145,10 @@ you're appreciating something complete, not interrupting something in progress.
 See "Picker UX with confirmation gate" above under "Locked product
 decisions" for the full flow. Key points:
 
-- Mirrors the emoji-picker pattern from `four_tasks_pair_key_v2_design_notes.md`
-  for the preview-on-press / commit-on-exit shape.
+- Mirrors the identity-picker pattern from
+  `four_tasks_pair_key_design_notes.md` for the preview-on-press /
+  commit-on-exit shape. (NOT to be confused with the theme system's
+  per-slot context menu, which is instant-commit — see above.)
 - Adds a one-time-per-user confirmation popup ("you can't change this
   later") because reactions are immutable and the user needs to know
   before locking in.
@@ -166,7 +183,9 @@ forever.
 ## Field-level write rules (impacts tile 1.3)
 
 The defensive write rules for `days` get a layer of field-level
-granularity, additionally gated by sealed-state.
+granularity, additionally gated by sealed-state. See
+`four_tasks_write_rules_design_notes.md` for the full table; the
+reactions-specific rules are summarised here.
 
 ### Live day (sealed_at IS NULL)
 
@@ -174,13 +193,14 @@ granularity, additionally gated by sealed-state.
 |------------------|-----------------|-------------------|
 | tasks_done       | yes             | no                |
 | diary            | yes             | no                |
-| stamp            | yes             | no                |
+| stamp            | server-only     | no                |
 | rest_day         | yes             | no                |
-| sealed_at        | yes (cron)      | no                |
-| motd_reaction    | no              | **no** (sealed-only) |
-| motd_reaction_at | no              | **no** (sealed-only) |
-| tray_reaction    | no              | **no** (sealed-only) |
-| tray_reaction_at | no              | **no** (sealed-only) |
+| sealed_at        | server-only     | no                |
+| day_theme_state  | server-only     | no                |
+| motd_reaction    | no              | **no (sealed-only)** |
+| motd_reaction_at | no              | **no (sealed-only)** |
+| tray_reaction    | no              | **no (sealed-only)** |
+| tray_reaction_at | no              | **no (sealed-only)** |
 
 ### Sealed day (sealed_at IS NOT NULL)
 
@@ -191,6 +211,7 @@ granularity, additionally gated by sealed-state.
 | stamp            | no              | no                            |
 | rest_day         | no              | no                            |
 | sealed_at        | no              | no                            |
+| day_theme_state  | no              | no                            |
 | motd_reaction    | no              | **yes, only if currently NULL** |
 | motd_reaction_at | no              | **yes, only if motd_reaction is NULL** |
 | tray_reaction    | no              | **yes, only if currently NULL** |
@@ -199,6 +220,8 @@ granularity, additionally gated by sealed-state.
 Implementation pattern for tile 1.3:
 - The PUT endpoint for a day takes a JSON body with only the fields
   being changed.
+- Cross-user writes use `?caller=` query param to identify the writer.
+  Self-writes have no `?caller` — caller is implicit.
 - Server inspects which fields the body is trying to write.
 - Server computes:
   - the role of the caller (owner or partner)
@@ -207,7 +230,10 @@ Implementation pattern for tile 1.3:
   *entire* request with 404 if any field is unauthorised (per the auth
   conversation — no 403s, "permission denied" folds into "not found").
 - For reaction writes: additionally check that the column is currently
-  NULL. Reject with 404 if non-NULL (immutability enforcement).
+  NULL. Reject with 409 `reaction_already_set` if non-NULL (immutability
+  enforcement — 409 because the column IS writable in principle but
+  the current state forbids it; 404 reserved for "this combination of
+  caller + column isn't a writable thing").
 - Once authorised, apply the writes in a single SQL statement.
 
 The server is the authoritative immutability gate. The client-side
@@ -243,31 +269,37 @@ Layout will need to position them as complementary, not competing.
 
 - New tile in Phase 4 area (call it 4.16): "Reaction picker UI and
   Backend hookup."
-- Endpoint signatures:
-    - `PUT /pair/:key/users/:partner_name/day/:date/reaction`
-      where `:partner_name` is the row being reacted *to* (the partner)
-      and the caller is the row's owner... wait, actually it's the
-      other way around. Re-read the field-level table above:
-        - row is `(pair_key, user_name=A, date)` — i.e. A's day
-        - the *partner* (B) writes the reaction
-        - so URL has A as `:user_name` (the target), and B is the
-          caller (identified per auth conversation)
+- Endpoint signatures (per `four_tasks_write_rules_design_notes.md`):
+    - `PUT /pair/:key/users/:target/days/:date?caller=:caller_name`
+      where `:target` is the row being reacted *to* (the partner whose
+      day is sealed) and `?caller` is the user dropping the reaction.
     - Body: `{"motd_reaction": "❤️"}` or `{"tray_reaction": "🔥"}` or both.
     - Once placed, reactions are IMMUTABLE. The server rejects any
-      write to a non-NULL reaction column with 404. (The original
-      "setting to null = removing the reaction" framing from an
-      early draft is superseded — reactions cannot be removed once
-      placed, per the locked immutability rule above.)
+      write to a non-NULL reaction column with 409
+      `reaction_already_set`. (The original "setting to null = removing
+      the reaction" framing from an early draft is superseded —
+      reactions cannot be removed once placed, per the locked
+      immutability rule above.)
 - Tile 4.16 NOT in v1.0 ship scope. UI work + endpoint, both v1.x.
+  Schema columns and write rules ARE in v1.0 (locked in tile 1.3).
 
 ## Cross-references
 
-- `four_tasks_pair_key_v2_design_notes.md` — picker UX pattern this
-  feature inherits.
+- `four_tasks_pair_key_design_notes.md` — identity picker UX pattern
+  this feature inherits (commit-on-close for immutable / migration-
+  triggering operations).
+- `four_tasks_theme_design_notes.md` — contrast point: the theme
+  system's per-slot context menu uses INSTANT commit, not the
+  preview-on-press / commit-on-exit pattern. Different feature, different
+  UX rules.
+- `four_tasks_write_rules_design_notes.md` — full schema + field-level
+  rules + reaction endpoint shape lives there.
 - `four_tasks_morning_sequence_design_notes.md` — Q7 surfacing
   model fully detailed there.
-- `four_tasks_staggered_disclosure_design_notes.md` — day 4
-  scheduled reveal lives there.
+- `four_tasks_staggered_disclosure_design_notes.md` — day-4 scheduled
+  reveal lives there.
+- `four_tasks_timezone_and_sealing_design_notes.md` — sealing is lazy-
+  on-open during claim endpoint, no nightly cron.
 - `four-tasks/server/schema.sql` — concrete columns.
 - Roadmap tile 1.3 — field-level defensive writes need to ship with v1
   even though the *feature* is v1.x.

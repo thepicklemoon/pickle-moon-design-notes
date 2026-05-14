@@ -5,21 +5,26 @@ defensive write rules for tile 1.3 — the field-level write permissions,
 state preconditions, validation logic, migration semantics, and rejection
 codes for every write endpoint in the Four Tasks API.
 
-**Implementation timing:** tile 1.3 implements these rules. Tile 1.4
-(nightly cron) and the morning-payout claim endpoint depend on the
-schema additions captured here.
+**Implementation timing:** tile 1.3 implements these rules. The morning-
+payout claim endpoint depends on the schema additions captured here.
 
 **Supersedes:** session 3's closing note that bundled tile 1.3 design
 with write-endpoint implementation. This doc is the design half; the
 endpoints land in a separate implementation tile against this spec.
 
 **References:**
-- `four_tasks_pair_key_v2_design_notes.md` — pair-key identity model,
+- `four_tasks_pair_key_design_notes.md` — pair-key identity model,
   migration semantics, partner-app-mediated recovery
 - `four_tasks_partner_reactions_design_notes.md` — field-level write
   permissions concept, immutability gate, post-seal-only rules
 - `four_tasks_architectural_preference.md` — clarity-over-cleverness
   rule that governs the design choices below
+- `four_tasks_timezone_and_sealing_design_notes.md` — sealing is
+  lazy-on-open in the claim endpoint, NOT via nightly cron. Tile 1.4
+  was reframed in session 6.
+- `four_tasks_theme_design_notes.md` — `active_leader` is the
+  migration-triggering identity field; the rest of theme state lives
+  in JSON columns that do NOT migrate.
 
 ---
 
@@ -124,6 +129,11 @@ and then applies the partial update.
 | `tasks_done`  | Unsealed only       | JSON array of exactly 4 booleans                            |
 | `diary`       | Unsealed only       | Non-empty string, max 200 chars                             |
 | `rest_day`    | Unsealed only       | Integer 0 or 1                                              |
+| `local_date`  | Always              | YYYY-MM-DD string matching :date param                      |
+
+Note: `local_date` is sent with writes alongside other fields to support
+the timezone localisation model (see timezone doc). Server validates
+±4hr plausibility against current UTC. Used by the seal-on-open logic.
 
 **Partner-writable** (caller != target, `?caller=` present):
 
@@ -140,7 +150,8 @@ with `Date.now()`. Same for `tray_reaction` / `tray_reaction_at`.
 | Column              | Filled by                                         |
 |---------------------|---------------------------------------------------|
 | `stamp`             | Morning payout (server-side, derived from tasks_done tier + message pool) |
-| `sealed_at`         | Nightly cron (tile 1.4)                           |
+| `sealed_at`         | Lazy seal-on-open during claim endpoint transaction (per timezone doc) |
+| `day_theme_state`   | Written at seal time — JSON snapshot of active theme slots |
 | `motd_reaction_at`  | Server, when partner writes `motd_reaction`       |
 | `tray_reaction_at`  | Server, when partner writes `tray_reaction`       |
 
@@ -149,9 +160,11 @@ with `Date.now()`. Same for `tray_reaction` / `tray_reaction_at`.
 `diary` stores the MOTD (Message Of The Day) — a space-delimited string
 in the shape `"${adverb} ${verb} ${noun} ${emoji}"` built by the client
 from four wordlists. The wordlists live client-side (mirror of the web
-build's `MSG_ADVERBS` / `MSG_VERBS` / `MSG_NOUNS` constants). The picker
-follows the same preview-on-press / commit-on-exit pattern as the emoji
-picker.
+build's `MSG_ADVERBS` / `MSG_VERBS` / `MSG_NOUNS` constants), with the
+emoji slot drawn from the user's active sticker pool per morning sequence
+doc Q1. The picker follows the same preview-on-press / commit-on-exit
+pattern as the v2 identity picker (NOT the theme slot picker, which is
+instant-commit).
 
 The server does not validate `diary` content against wordlists. The
 defence-in-depth argument that justified server-side validation of
@@ -230,24 +243,26 @@ Body is partial. Send only fields being changed.
 | `task_labels`                | JSON array of exactly 4 strings, each non-empty, each max 49 chars  |
 | `reaction_confirm_dismissed` | Integer 0 or 1                                                      |
 | `tutorial_progress`          | JSON object, MERGED into stored value (not replaced), overall max 4000 chars |
+| `timezone`                   | IANA timezone string (e.g. 'Australia/Perth')                       |
+| `active_theme`               | JSON map of slot → sticker ID for non-leader theme slots            |
+| `active_stickers`            | JSON array of sticker IDs (pool members)                            |
 
 **Owner-writable (triggers pair-key migration):**
 
-| Column      | Validation                                                  |
-|-------------|-------------------------------------------------------------|
-| `username`  | Non-empty string, max 40 chars, no `\|`, no `__`            |
-| `emoji`     | Non-empty string, max 50 chars, no `\|`, no `__`            |
+| Column           | Validation                                                  |
+|------------------|-------------------------------------------------------------|
+| `username`       | Non-empty string, max 40 chars, no `\|`, no `__`            |
+| `active_leader`  | Sticker ID string, max 50 chars, no `\|`, no `__`           |
 
-The `emoji` column is misnamed historically — its actual content is a
-short string identifier for a hand-painted icon asset (e.g. `"frog_01"`),
-not a unicode emoji codepoint. The picker (tile 4.14 / 3.7) presents
-hand-painted images, user taps one, the identifier is committed. Column
-name not renamed (cosmetic, would require migration); design doc
-clarification suffices.
+`active_leader` (renamed from prototype-era `emoji` / `icon`) is the
+chosen visual identity sticker. It participates in the pair-key
+identity hash — changing it triggers migration. All other theme slots
+(palette, background, cell treatments, effects, audio) live in the
+`active_theme` JSON map and are non-identity writes.
 
-The `|` and `__` restrictions on `username` and `emoji` mirror the
-canonical-form rules at `/resolve`. They cost nothing and protect the
-pair-key derivation from ambiguous inputs.
+The `|` and `__` restrictions on `username` and `active_leader` mirror
+the canonical-form rules at `/resolve`. They cost nothing and protect
+the pair-key derivation from ambiguous inputs.
 
 **Server-only** (rejected with 400 if present in body):
 
@@ -255,10 +270,10 @@ pair-key derivation from ambiguous inputs.
 |------------------------------|------------------------------------------------------------|
 | `name`                       | Set at creation only — immutable per identity model        |
 | `coins`                      | Morning payout + reroll endpoint + future subscription     |
-| `streak`                     | Computed by nightly cron from days table                   |
-| `coin_name`                  | Server-derived from username via generator (tile 4.17)     |
-| `coin_name_reroll_count`     | Changed via separate reroll endpoint (tile 4.18)           |
-| `morning_payout_due_for`     | Set by nightly cron; cleared by morning-payout claim endpoint |
+| `streak`                     | Computed server-side from days table at seal time          |
+| `coin_name`                  | Server-derived from username via generator (post-v1.0)     |
+| `coin_name_reroll_count`     | Changed via separate reroll endpoint (post-v1.0)           |
+| `morning_payout_due_for`     | Set during seal-on-open; cleared by morning-payout claim   |
 
 Name immutability is **server-enforced**, not just an onboarding
 convention. It is the foundation of partner-side migration recovery
@@ -288,27 +303,28 @@ Reasons:
 
 ### Pair-key migration
 
-When `username` or `emoji` changes, the pair-key changes. The migration
-is the dense part of this endpoint.
+When `username` or `active_leader` changes, the pair-key changes. The
+migration is the dense part of this endpoint.
 
 #### Trigger detection
 
 After validation, server reads current user state, compares submitted
-`username` / `emoji` against stored values. If either differs, migration
-is needed. If neither differs (or neither was in the body), no migration.
+`username` / `active_leader` against stored values. If either differs,
+migration is needed. If neither differs (or neither was in the body),
+no migration.
 
 #### Atomic transaction shape
 
 Inside a single D1 transaction:
 
 1. Re-derive new pair-key from post-write six-tuple
-   `(name_A, username_A, emoji_A, name_B, username_B, emoji_B)` sorted
-   by name lexicographically. Uses the same `derivePairKey()` function
-   `/resolve` uses.
+   `(name_A, username_A, active_leader_A, name_B, username_B,
+   active_leader_B)` sorted by name lexicographically. Uses the same
+   `derivePairKey()` function `/resolve` uses.
 2. INSERT into `pairs` (new_key, copied `created_at` and `tutorial_done`
    from old row).
 3. INSERT into `users` for both users under new_key (target user with
-   new username/emoji values; partner copied unchanged).
+   new username/active_leader values; partner copied unchanged).
 4. INSERT into `days` — copy every existing days row from old_key to
    new_key for both users.
 5. DELETE from `days` WHERE pair_key = old_key.
@@ -342,8 +358,8 @@ rolls back automatically.
 
 Response: 409 `pair_key_collision`. Client surfaces this as a routine
 "that username is taken, sorry try another" — the same UX as a
-username-collision in onboarding (tile 3.4). The user has no need
-to know about the underlying hash-collision event.
+username-collision in onboarding. The user has no need to know about
+the underlying hash-collision event.
 
 No pre-emptive collision check is performed. Letting the INSERT fail
 naturally saves a query and is information-theoretically cleaner
@@ -399,11 +415,11 @@ The migration is **silent and automatic** from the partner's perspective:
    from the six values it already holds (the five visible values plus
    the partner's own name).
 3. Re-derived key is the new one. Client updates its stored identity,
-   re-polls, gets the updated state including new username/emoji.
-4. UI re-themes seamlessly because the new emoji is in the response.
+   re-polls, gets the updated state including new username/active_leader.
+4. UI re-themes seamlessly because the new active_leader is in the response.
 
 No popup. No error. The partner experiences this as: brief poll fail
-→ automatic recovery → updated partner panel with new name/theme.
+→ automatic recovery → updated partner panel with new name/identity.
 
 This is the same code path that handles any 404 on a stored pair-key,
 not a migration-specific recovery flow. The robustness was already
@@ -415,15 +431,15 @@ exercise it.
 The server-side rules above guarantee state integrity under any
 sequence of failures. But the client must hold up its half of the
 contract to avoid lockout scenarios. These requirements apply to
-tile 1.7 (Godot identity layer) and tiles 4.14 / 4.15 (emoji and
-username edit flows):
+tile 1.7 (Godot identity layer) and tiles 4.14 / 4.15 (active_leader
+and username edit flows):
 
 **Requirement 1 — persist pending change before sending request.**
 
 Before sending a migration-triggering PUT request, the client writes
-the new username/emoji to a "pending" slot in `user://identity.cfg`.
-This slot persists across crashes, app kills, OS terminations, and
-device reboots.
+the new username/active_leader to a "pending" slot in
+`user://identity.cfg`. This slot persists across crashes, app kills,
+OS terminations, and device reboots.
 
 **Requirement 2 — recover from pending state on 404.**
 
@@ -463,20 +479,41 @@ design.
 
 ## Schema deltas captured
 
-The design above requires one new column. Migration script
-`migration_003_morning_payout.sql`:
+Three migrations land alongside tile 1.3 implementation. Commutative —
+apply in any order.
 
+**migration_003_morning_payout.sql:**
 ```sql
 ALTER TABLE users ADD COLUMN morning_payout_due_for TEXT;
 ```
 
 NULL = no payout pending. `"YYYY-MM-DD"` = payout pending for that
-date, set by nightly cron when sealing days, cleared by the morning-
-payout claim endpoint.
+date, set during seal-on-open in the claim endpoint, cleared at the
+end of that same transaction.
 
-The column itself supports a feature whose endpoint design is **deferred**
-out of tile 1.3 — see "Deferred / parked items" below for the
-morning-payout claim endpoint.
+**migration_004_user_timezone.sql** (from session 6 part 1 timezone doc):
+```sql
+ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';
+```
+
+User's IANA timezone string. Mutable, not in pair-key hash. Used by
+the seal-on-open logic to determine the user's local "yesterday."
+
+**migration_005_theme_state.sql** (from session 7 theme doc rewrite):
+```sql
+ALTER TABLE users ADD COLUMN active_leader TEXT;
+ALTER TABLE users ADD COLUMN active_theme TEXT;       -- JSON map
+ALTER TABLE users ADD COLUMN active_stickers TEXT;    -- JSON array
+ALTER TABLE days ADD COLUMN day_theme_state TEXT;     -- JSON map
+```
+
+Per-user theme state + per-day theme snapshot. `active_leader`
+participates in pair-key hash. The rest are JSON for flexibility —
+adding new theme slots later does not require schema migrations.
+
+If the prototype-era `users.icon` column still exists, drop it — its
+role is now split across `active_leader` and the `active_theme` JSON's
+`palette` key.
 
 ---
 
@@ -502,40 +539,35 @@ exist to protect collectively. Not blocking tile 1.3.
 
 ### Migration UX popup (DEFERRED to tile 4.15)
 
-Nice-to-have client-side UX layer: when a username or emoji change
-fires, show a small dismissible popup —
+Nice-to-have client-side UX layer: when a username or active_leader
+change fires, show a small dismissible popup —
 "username changes may take a minute to take effect" with a "don't
 show again" checkbox. Mirrors the partner-reaction confirmation
 popup pattern. Sits on top of the defensive write requirements as
 a courtesy to the user, not as a correctness layer.
 
-### Morning-payout claim endpoint (DEFERRED — own design conversation)
+### Morning-payout claim endpoint (specced in morning sequence doc)
 
-Blocked on: `migration_003` landing (the new `morning_payout_due_for`
-column).
-
-Approximate shape (to be designed properly when relevant tile lands):
+Approximate shape — full spec in morning_sequence design notes:
 
 - `POST /pair/:key/users/:target/claim_morning`
 - Server-side atomic transaction:
+  - Performs seal-on-open if user's local_date has advanced
   - Reads pending date from `users.morning_payout_due_for`
   - Computes stamp tier from `days.tasks_done` count for that date
   - Picks a random message from the tier-appropriate pool
   - Writes `days.stamp` for that date
-  - Pays out coins (tasks_done count → coin amount, server-side rule)
+  - Captures `days.day_theme_state` JSON snapshot at seal time
+  - Pays out coins (tasks_done count → coin amount)
   - Updates `users.streak`
   - Clears `users.morning_payout_due_for`
   - Returns the new state for client animation playback
 - Empty request body (server already knows what's pending)
-- Response includes: new coins, new streak, the stamp that landed,
-  so the client can play the morning sequence (tile 4.6) animation
-  with real data
 
-The stamp-tier rules and message pools need their own design pass.
-Blocks tile 4.6 (morning sequence animation) — the animation needs
-the response shape to know what to play.
+Belongs in tile 4.6 design pass alongside morning sequence
+implementation.
 
-### Stamp / reaction / emoji enum validation (DEFERRED v1.x+)
+### Stamp / reaction / active_leader enum validation (DEFERRED v1.x+)
 
 Server-side validation of these against hard-coded enums is a
 backward-compatible tightening. Adding it later doesn't require
@@ -570,6 +602,7 @@ When the implementation tile lands (separate session from this design):
    non-empty checks). They already exist as `validateUser()` in
    `index.ts`; expand or factor as needed.
 2. Re-use `derivePairKey()` for the migration step. Already extracted.
+   Update to consume `active_leader` instead of legacy `emoji` column.
 3. Re-use `getPair()` for response payloads (both endpoints return full
    pair state on success, same shape as GET /pair/:key).
 4. The migration transaction is the substantive new code. Use D1's
@@ -579,7 +612,10 @@ When the implementation tile lands (separate session from this design):
    listing writable columns, reject body keys outside the set with 400.
    Defence-in-depth pattern — even if new columns are added later
    without updating the set, the default is reject.
-6. Curl-verify every rejection path the way tile 1.2's reads were
+6. The claim endpoint (POST claim_morning) lands in this tile bundle
+   alongside seal-on-open logic (timezone doc) — they share the same
+   transaction surface.
+7. Curl-verify every rejection path the way tile 1.2's reads were
    verified — each error code on each endpoint gets a positive test.
 
 ---
@@ -590,5 +626,4 @@ This document is the design half of tile 1.3. The implementation tile
 remains `[ ]` in the todo and will reference this doc when written.
 Splitting the design from the implementation follows the architectural
 preference doc's pattern: capture the design when it's fresh, implement
-against a fixed spec. The endpoints land in a separate session against
-this spec.
+against a fixed spec.

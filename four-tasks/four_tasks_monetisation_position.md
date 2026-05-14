@@ -1,10 +1,13 @@
 # Four Tasks — Monetisation Position
 
-**Last updated:** 14 May 2026 (session 6, mobile)
+**Last updated:** 14 May 2026 (session 7, mobile — fortnightly cadence locked, schema updated to JSON column, tier references cleaned up to align with feature-catalogue theme model)
 **Status:** v2.0 — subscription mechanic fundamentally reframed.
 Brand position, pricing, founders model, store mechanics carry
 forward from v1.1 (session 1). The "what does subscription buy"
-answer is superseded.
+answer is superseded. Session 7 updates: fortnightly alternating
+drop cadence locked, schema sketch updated for migration_005 JSON
+column, tier language dropped to align with theme doc's
+feature-catalogue model.
 
 **Source:**
   - v1.1 — session 1 decision conversation (subscription product
@@ -13,9 +16,10 @@ answer is superseded.
     sharing mechanic, immutable past, founders pricing structure).
 
 Cross-references:
-  - four_tasks_theme_design_notes.md (TIER 0/1/2/3, pack architecture)
+  - four_tasks_theme_design_notes.md (feature-catalogue slot model,
+    pack architecture)
   - four_tasks_staggered_disclosure_design_notes.md (day-21 subscription beat)
-  - four_tasks_pair_key_v2_design_notes.md (pair model)
+  - four_tasks_pair_key_design_notes.md (pair model)
   - four_tasks_morning_sequence_design_notes.md (coin payout mechanics)
   - four_tasks_onboarding_design_notes.md (solo mode, partner panel)
 
@@ -149,16 +153,23 @@ WHY IMMUTABLE PAST:
     content.
 
 SCHEMA IMPLICATION:
-  `days` table gains two columns:
-    day_leader   TEXT   -- sticker ID of calendar_leader on this day
-    day_palette  TEXT   -- sticker ID of palette_source on this day
+  `days` table gains a single JSON column:
+    day_theme_state  TEXT  -- JSON map of slot → sticker ID
+                              captured at day-seal time
 
   Written at day-seal time (per the sealing logic in the timezone
   design doc). Never modified after. Read by the historical renderer.
 
-  This is migration_005 (or whichever number is next available
-  after migration_004 from the timezone doc). Apply alongside or
-  after migration_004.
+  This is migration_005. Apply alongside or after migration_004.
+
+  Schema NOTE (session 7 update): the earlier sketch of two
+  separate columns (day_leader + day_palette) was superseded by
+  the feature-catalogue model in the theme doc rewrite (session
+  7). The slot system has 10+ named slots, not 2. A single JSON
+  column captures the full slot state at seal time and survives
+  future slot additions without further schema migrations. See
+  four_tasks_theme_design_notes.md "Schema implications" for the
+  full slot map shape.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COIN ECONOMY TUNING (NEW IN v2.0)
@@ -193,23 +204,29 @@ SUBSCRIPTION COIN BONUS:
   not an accelerator.
 
 PACK PRICING CURVE:
-  First pack: FREE. Specifically, the TIER 1 pack the user picked
-  at onboarding is unlocked in full (leader + companions +
-  background + flourishes) as their starter. Free users live the
-  full theme system from day 1 — the upgrade path to subscription
-  is concrete, not imagined.
+  First pack: FREE. Specifically, the pack the user picked at
+  onboarding is unlocked in full (whichever feature elements that
+  sticker ships — leader + palette + whatever theme files exist
+  in its folder) as their starter. Free users live the full theme
+  system at the depth their starter sticker offers from day 1.
+  The upgrade path to subscription is concrete, not imagined.
 
-  Subsequent TIER 1-3 packs: cost curve ramps up to a cap.
-    Pack 2 (TIER 1-3):  ~300 coins
-    Pack 3:             ~400 coins
-    Pack 4:             ~500 coins
-    Pack 5+:            ~600 coins (cap)
+  Subsequent packs: single cost curve, ramps to a cap.
+    Pack 2:   ~300 coins
+    Pack 3:   ~400 coins
+    Pack 4:   ~500 coins
+    Pack 5+:  ~600 coins (cap)
 
-  TIER 0 (animated / premium) packs: separate, higher cost curve.
-    Each TIER 0 pack: ~1500 coins flat (or ramped from there).
-    Available to all users (free or subbed) to grind for. Owned
-    permanently once bought. Subscription affects whether you can
-    USE your partner's TIER 0 packs while subbed.
+  Pricing NOTE (session 7 update): the earlier two-tier pricing
+  (TIER 1-3 at ~300-600, TIER 0 at ~1500) was superseded by the
+  feature-catalogue model. Stickers no longer fall into tier
+  buckets — each ships whatever subset of features makes sense
+  for its identity. Pricing is a single ramp, identical across
+  all stickers regardless of how feature-rich any individual
+  sticker is. "Value" is what the user perceives, not what the
+  pack technically contains. Some 600-coin packs are minimal,
+  some are maximal; both are valid art. Users choose based on
+  taste, not on content quantity.
 
 PACK COUNT IS PAIR-WIDE:
   The ramp counter is shared across the pair. Both users see the
@@ -224,6 +241,63 @@ PACK COUNT IS PAIR-WIDE:
 
   In a solo user (no partner), "the pair" is just them. They
   own everything they buy, accessible to them always.
+
+PACK DROP CADENCE — FORTNIGHTLY ALTERNATING (LOCKED SESSION 7):
+  The studio commits to a FORTNIGHTLY drop cadence post-launch,
+  alternating between subscriber-only and free-user-purchasable
+  packs:
+
+    Week 1: Subscriber-only drop. Available for purchase ONLY by
+            users whose pair has at least one active subscription.
+            Free users see it in the picker (locked) but cannot
+            spend coins on it.
+    Week 3: Free-user-thank-you drop. Available for purchase by
+            EVERYONE, free or subscribed. The studio's thank-you
+            for free users continuing to use and recommend the
+            app.
+    Week 5: Subscriber-only drop. (Cycle restarts.)
+    Week 7: Free-user-thank-you drop.
+    ...and so on.
+
+  Net effect over any given month: one drop for free users, one
+  drop for subscribers. Free users never feel locked out for long;
+  subscribers get faster catalogue growth and access to the
+  full subscriber drops.
+
+  The "thank-you drop" may be review-gated unlock — captured in
+  theme doc Open work and to be designed if the mechanism is
+  pursued. Defer to v1.x consideration.
+
+  WHY FORTNIGHTLY ALTERNATING:
+    - Monthly would be too slow — subscriber retention promise
+      weakens if catalogue grows by only one item a month.
+    - Weekly would be unsustainable for a solo painter.
+    - Fortnightly is the painting-budget sweet spot: 2 packs per
+      month, one of each type, allows a buffer queue and per-pack
+      effort variance (one minimal pack per minimal-paint week,
+      one maximal pack per maximal-paint week).
+    - Alternating subscriber/free creates a rhythm where every
+      user has something to look forward to every fortnight,
+      regardless of subscription state.
+    - Subscriber drops are SUBSCRIBER-ONLY PURCHASABLE during
+      their drop window. The cohort of users who can spend coins
+      on them grows over time as more users subscribe; eventually
+      some free users will subscribe specifically to unlock
+      retrospective access to past subscriber drops they want.
+
+  STUDIO CONTENT BUFFER:
+    Paint 3-4 packs ahead at any time. Buffer absorbs missed
+    fortnights from life events, FIFO swings, family priorities.
+    Per-pack effort variance (minimal vs maximal) makes the
+    buffer easier to maintain than a fixed "every pack must hit
+    full-theme quality" model would have allowed.
+
+  QUEUE FAILURE MODE:
+    If the buffer ever runs to zero and a fortnight is missed,
+    the honest move is to communicate. A skipped drop is not
+    fatal as long as users see the studio is real and the next
+    drop is coming. Predator-pattern subscription apps run on
+    fake scarcity; an honest miss is brand-aligned.
 
 NON-GOAL: PER-STICKER COIN BONUS STACKING.
   The Tower / idle-clicker style "every collectible adds a tiny
@@ -451,8 +525,9 @@ WHAT THIS MEANS FOR WHAT WE BUILD
     filters to the user's own library only. Live theme reverts as
     needed.
 
-  - HISTORICAL THEME RENDERER. Past days read `days.day_leader`
-    and `days.day_palette` and render with those, regardless of
+  - HISTORICAL THEME RENDERER. Past days read
+    `days.day_theme_state` (JSON slot map) and render with the
+    full slot configuration captured at seal time, regardless of
     current subscription state.
 
   - COIN BONUS APPLICATION. The morning sequence claim endpoint
@@ -669,17 +744,18 @@ Carried forward + new for v2.0:
 RELATED DOCS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  - four_tasks_theme_design_notes.md — pack architecture, TIER
-    0/1/2/3 system. Library access mechanism inherits the TIER
-    structure: all tiers are available in the combined library
-    when subscribed; only own tier-bought packs in own library.
+  - four_tasks_theme_design_notes.md — pack architecture, feature-
+    catalogue slot model (session 7 rewrite — supersedes the earlier
+    TIER 0/1/2/3 framing). Library access mechanism: all
+    accessible packs available in the combined library when
+    subscribed; only own-purchased packs in own library when not.
 
   - four_tasks_staggered_disclosure_design_notes.md — day-21
     subscription reveal beat. Copy authoring concern at Phase 5.
     Reveal frames subscription as a value summary against the
     user's actual play history, not as a trial-end nag.
 
-  - four_tasks_pair_key_v2_design_notes.md — pair model. Each
+  - four_tasks_pair_key_design_notes.md — pair model. Each
     user has subscription_active independently. Pair-level
     features read both users' state.
 

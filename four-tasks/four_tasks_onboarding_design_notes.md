@@ -1,12 +1,13 @@
 # Four Tasks — Onboarding Design Notes
 
-Status: LOCKED (session 6, mobile drafting)
+Status: LOCKED (session 6, mobile drafting; terminology refreshed
+        session 7 for feature-catalogue theme model)
 Implementation tiles: 3.1 through 3.6+ (Phase 3)
 Required reading before any Phase 3 tile lands.
 
 Cross-references:
-  - four_tasks_pair_key_v2_design_notes.md (identity, collision, recovery)
-  - four_tasks_theme_design_notes.md (sticker tiers, picker model)
+  - four_tasks_pair_key_design_notes.md (identity, collision, recovery)
+  - four_tasks_theme_design_notes.md (slot catalogue, picker model)
   - four_tasks_staggered_disclosure_design_notes.md (what NOT to show now)
   - four_tasks_morning_sequence_design_notes.md (MOTD timing)
   - four_tasks_timezone_and_sealing_design_notes.md (silent tz capture)
@@ -17,11 +18,11 @@ PROBLEM
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Four Tasks is a two-user app by premise. Pair-key v2 requires all six
-identity values (name + username + icon × 2 users) to exist before a
-real pair-key can compute. The naive interpretation — both users must
-complete onboarding together — creates an adoption-killing friction
-point: a user who hears about the app but can't reach their partner
-right now bounces.
+identity values (name + username + active_leader × 2 users) to exist
+before a real pair-key can compute. The naive interpretation — both
+users must complete onboarding together — creates an adoption-killing
+friction point: a user who hears about the app but can't reach their
+partner right now bounces.
 
 Onboarding must work for three real-world install patterns:
 
@@ -96,19 +97,26 @@ SCREEN 4 — Your username.
   Validation as above. No confirmation step — mutable, low stakes.
 
 SCREEN 5 — Your sticker.
-  Reduced picker grid showing ONLY TIER 1 stickers (full theme art
-  sets — the showpieces). Tap to select. Selected sticker shows
-  the chosen state. The app background previews the chosen theme
-  in real time so the user sees what they're picking.
+  Reduced picker grid showing the LAUNCH STARTER SET — a curated
+  small selection of feature-rich stickers from the catalogue
+  (those that ship the most slot contributions, the visual
+  showpieces). Tap to select. Selected sticker shows the chosen
+  state. The app background previews the chosen theme in real
+  time so the user sees what they're picking.
 
   No themed-marker badges in this reduced picker. Every option is
-  themed, so the badge is meaningless here.
+  feature-rich, so the badge is meaningless here.
 
   Continue button enabled once a sticker is selected.
 
   Silent effects of this choice:
-    - calendar_leader = selected sticker
-    - palette_source  = selected sticker (defaults to match leader)
+    - active_leader = selected sticker (identity-hashed, participates
+      in pair-key)
+    - active_theme.palette = selected sticker (defaults to match
+      leader)
+    - active_theme also fills any other slots this sticker can
+      contribute to (background, cell treatments, etc.) — the
+      onboarding pack acts as an APPLY-ALL on the first sticker
     - active_stickers pool = [selected sticker] + a small set of
       neutral default stickers (3-4 — chosen at art time)
 
@@ -184,7 +192,7 @@ THE ONBOARDING FLOW (INVITE LINK PATH)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 User B taps a link of the form:
-  https://thepicklemoon.com/pair?u=<solo_uuid>&n=<name>&un=<username>&i=<icon>
+  https://thepicklemoon.com/pair?u=<solo_uuid>&n=<name>&un=<username>&l=<active_leader>
 
 If app is not installed: link routes through the app store via
 universal link / app link configuration. Link parameters survive
@@ -195,7 +203,7 @@ If app is installed: link opens app directly into a special
 onboarding entry point.
 
 SCREEN A1 — Joining your partner.
-  Shows the inviter's name, username, and icon prominently:
+  Shows the inviter's name, username, and leader sticker prominently:
     "You're joining MORGAN (morgan91, 🐸)."
   [Continue] [This isn't right]
 
@@ -258,7 +266,7 @@ After screen 9 (server resolve):
   The misspelling case is a design accept. The user typed wrong
   values; the app cannot read minds. Future tile: a "is this
   your partner?" sanity check screen after pair resolve that
-  shows partner's name + icon for confirmation before fully
+  shows partner's name + active_leader for confirmation before fully
   committing — defer to v1.x polish.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -273,9 +281,9 @@ What works in solo mode:
   - Morning sequence — fires normally. Partner panel section of
     the sequence is replaced with a single recruitment beat (see
     "Recruitment surface" below).
-  - Theme system (Lever 1 pool, Lever 2 leader, Lever 3 palette
-    source) all functional. Post-fork features (context menu) still
-    gated by staggered disclosure day 7+.
+  - Theme system (active_stickers pool, active_leader, active_theme
+    slots) all functional. Post-fork features (per-slot context menu
+    on long-press) still gated by staggered disclosure day 7+.
   - Streaks, rest days, milestones — all work.
 
 What does not work:
@@ -347,8 +355,8 @@ Two endpoints for joining a solo pair:
 POST /join_by_link
   Body: {
     solo_uuid: string,
-    inviter_values: { name, username, icon },     // from the link, for validation
-    joiner_values:  { name, username, icon }
+    inviter_values: { name, username, active_leader },  // from the link, for validation
+    joiner_values:  { name, username, active_leader }
   }
   Logic:
     1. Look up pairs row by solo:<solo_uuid>. 404 if not found.
@@ -368,8 +376,8 @@ POST /join_by_link
 
 POST /join_by_values
   Body: {
-    inviter_values: { name, username, icon },
-    joiner_values:  { name, username, icon }
+    inviter_values: { name, username, active_leader },
+    joiner_values:  { name, username, active_leader }
   }
   Logic:
     1. Search solo pairs (pair-key starts with `solo:`) whose
@@ -394,7 +402,7 @@ INVITE LINK FORMAT
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 URL shape:
-  https://thepicklemoon.com/pair?u=<solo_uuid>&n=<name>&un=<username>&i=<icon>
+  https://thepicklemoon.com/pair?u=<solo_uuid>&n=<name>&un=<username>&l=<active_leader>
 
 All four parameters URL-encoded. The pickle-moon-public repo hosts
 the landing page at thepicklemoon.com/pair which:
@@ -528,7 +536,7 @@ After this doc, tile structure should become roughly:
   3.2 — Welcome screen + recovery branch entry point.
   3.3 — Own name + confirmation modal.
   3.3a — Own username.
-  3.4 — Own sticker (reduced TIER 1 picker).
+  3.4 — Own sticker (reduced launch-starter-set picker).
   3.4a — "Do you have your partner with you?" fork screen.
   3.5 — Partner name + confirmation, partner username.
   3.5a — Solo confirm screen.
@@ -559,16 +567,16 @@ Defer to implementation or future design passes:
   - iOS install-referrer SDK decision (Branch.io vs alternatives vs
     accept Phase-1 friction). Defer to Phase 5.
   - "Is this your partner?" sanity-check screen after manual pair
-    resolve, showing partner name+icon for confirmation. Defer to
-    v1.x polish.
+    resolve, showing partner name + active_leader sticker for
+    confirmation. Defer to v1.x polish.
   - Solo recruitment surface visual design — the empty partner
     panel's exact look. Art + UX tile.
   - Confirmation modal exact UX — single button to lock immutable
     name vs full-screen modal vs inline accordion. Implementation
     decision.
   - Recovery flow detail — masked hint mechanism, rate limiting,
-    fields eligible for hinting. Captured in pair-key v2 doc, lands
-    at tile 3.6 implementation.
+    fields eligible for hinting. Captured in pair-key design doc,
+    lands at tile 3.6 implementation.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RELATED ARCHITECTURAL CALLS THIS SESSION

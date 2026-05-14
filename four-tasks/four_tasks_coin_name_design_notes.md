@@ -44,26 +44,21 @@ coin_name              TEXT    NOT NULL DEFAULT '',  -- derived from username, m
 coin_name_reroll_count INTEGER NOT NULL DEFAULT 0   -- how many rerolls user has burned
 ```
 
-`coin_name` is initially derived at user creation (onboarding step
-between username and icon, probably) by running the username through
-the generator. Reroll generates a new variant from the same rule table
-and overwrites `coin_name`, incrementing `coin_name_reroll_count`.
+`coin_name` is initially derived at user creation (during onboarding,
+after username is locked) by running the username through the generator.
+Reroll generates a new variant from the same rule table and overwrites
+`coin_name`, incrementing `coin_name_reroll_count`.
 
 ### 2. Rich rule set, iterable
 
-The rule set lives in `res://data/coin_name_rules.tres` (a Godot
-Resource file the generator reads). Server logic mirrors the structure
-in TypeScript so the same rules apply server-side at creation/reroll
-time.
-
-Wait — actually, the rules belong on the *server* as the authority.
-The client gets the result, not the rules. The server holds a JSON
-rule table (in the Worker code as a constant, or in D1 as a config
-table if it gets big). Client never runs the generator; client just
-displays the `coin_name` field it gets back.
+The rules live on the *server* as the authority. The client gets the
+result, not the rules. The server holds a JSON rule table (in the
+Worker code as a constant, or in D1 as a config table if it gets big).
+Client never runs the generator; client just displays the `coin_name`
+field it gets back.
 
 This keeps it tamper-proof (client can't generate a custom name) and
-matches the architectural-preference rule from session 2 (clarity over
+matches the architectural-preference rule (clarity over
 cleverness — single source of truth).
 
 **Rule structure (sketch):**
@@ -92,8 +87,7 @@ the rule table. No code change beyond that. Joy to extend.
 
 ### 3. Reroll mechanism — coin spend, escalating cost
 
-Reroll progression locked to **coin spend with doubling cost**, matching
-the MOTD reroll system (web build precedent, ported to tile 4.5):
+Reroll progression locked to **coin spend with doubling cost**:
 - First reroll: 50 coins (numbers TBD when coin economy is tuned)
 - Each subsequent reroll: doubles
 - Stored cost can be checked client-side from `coin_name_reroll_count`,
@@ -101,6 +95,13 @@ the MOTD reroll system (web build precedent, ported to tile 4.5):
 
 This matches the "you're spending coins to rename your coins" gesture
 that makes the feature feel coherent.
+
+**Contrast with MOTD reroll:** MOTD reroll uses FLAT cost (90-110 range,
+no escalation) because it's a casual aesthetic choice. Coin name reroll
+uses DOUBLING because it's an identity-adjacent commitment. The general
+principle from morning sequence Q8 lock: *doubling cost belongs on
+features where the user output should escalate in significance; flat
+cost belongs on features that should stay casual.*
 
 ### 4. Coin name re-derives on username change
 
@@ -227,9 +228,15 @@ backend exists. The third is one regex pass on a list output.
 ## Cross-references
 
 - `four-tasks/server/schema.sql` — concrete columns (after migration 002)
+- `four_tasks_pair_key_design_notes.md` — identity model; coin_name
+  is non-identity, doesn't migrate
 - `four_tasks_staggered_disclosure_design_notes.md` — the principle
   that this feature, like rest-day intro and subscription nudge, is
   not surfaced day 1
+- `four_tasks_morning_sequence_design_notes.md` — MOTD reroll uses
+  flat cost; coin name reroll keeps doubling. Architectural contrast
+  explicit.
+- `four_tasks_architectural_preference.md` — server-side authority
+  rule that justifies the rules-on-server approach
 - Future tile: coin name generator (server)
 - Future tile: reroll UI (client, v1.x)
-- Tile 4.5 — MOTD reroll system; same economy pattern

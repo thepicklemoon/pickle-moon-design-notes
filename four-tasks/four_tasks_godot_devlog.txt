@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Devlog
 ==========================
-Last updated: May 2026 (session 6, closed)
+Last updated: May 2026 (session 7, closed)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -18,63 +18,97 @@ and todo (`four_tasks_devlog.txt`, `four_tasks_todo.txt`) are reference docs
 for the port, not active working documents.
 
 Design notes (read whichever is relevant to the tile being worked on):
-  - `four_tasks_pair_key_identity_design_notes.md`  — v1 identity sketch
-    from session 13. Background only.
-  - `four_tasks_pair_key_v2_design_notes.md`        — LOCKED v2 identity
-    model. Six-value pair-key, partner-app-mediated recovery, migration
-    semantics. Refines v1; supersedes on recovery story. (Session 2)
+  - `four_tasks_pair_key_design_notes.md`           — LOCKED identity
+    model (renamed session 7 from pair_key_v2). Six-value pair-key,
+    partner-app-mediated recovery, migration semantics. active_leader
+    is the migration-triggering identity field (renamed from
+    prototype-era `emoji`/`icon`). (Session 2, terminology refreshed
+    session 7)
   - `four_tasks_partner_reactions_design_notes.md`  — LOCKED partner
     reactions design. Schema reserved v1.0; feature ships v1.x. First
     feature with field-level write rules (partner writes other user's
-    row). (Session 2)
+    row). Surfacing model is time-agnostic visual indicators (session
+    5 update — superseded earlier push-based draft). (Session 2)
   - `four_tasks_coin_name_design_notes.md`          — LOCKED coin name
     generator design. Server-side rule-driven affix system that
     transforms username into flavoured coin economy name. Schema
-    reserved v1.0; feature ships v1.x. (Session 2)
+    reserved v1.0; feature ships v1.x. Doubling-cost reroll contrasts
+    with MOTD reroll flat-cost mechanic (per morning sequence Q8).
+    (Session 2)
   - `four_tasks_staggered_disclosure_design_notes.md` — LOCKED meta-
     principle. Features reveal over days/weeks, not at onboarding.
     Schema (tutorial_progress) reserved v1.0; coordinator + reveal
-    content land in Phase 4. (Session 2)
+    content land in Phase 4. Achievements brainstorm is an explicit
+    counter-example (no scheduled reveal). (Session 2)
   - `four_tasks_architectural_preference.md`        — LOCKED meta-rule.
     Clarity over cleverness for Four Tasks' low-throughput load
-    profile. (Session 2)
+    profile. Refreshed session 7 with current examples. (Session 2)
   - `four_tasks_write_rules_design_notes.md`        — LOCKED write
     rules for tile 1.3. Field-level permissions, validation, state
     preconditions, migration semantics, rejection codes for all
     three write endpoints (POST bug_report, PUT day, PUT user).
-    Design closed session 4; implementation lands in a future
-    session against this spec.
-  - `four_tasks_theme_design_notes.md`              — LOCKED (session 5)
-    theme + sticker system. Three independent levers (pool / leader
-    / palette source). Palette-agnostic art rule. Folder-per-sticker
-    file architecture. Picker UX with long-press context menu.
-    Coverage gradient and staggered-disclosure overlay. The OLD
-    one-line "palette system" entry is superseded by this fuller
-    session-5 doc; the original was lost from the repo. Required
-    reading before tile 4.14a (basic picker) and tile 4.14b (theme
-    manager + context menu).
-    SESSION 6 ADDITIONS: STICKER CANVAS LOCKED at 32×32 RGBA
-    (asset dimensions section). TIER 0 (animated/premium packs)
-    added above TIER 1 in coverage gradient — categorically
-    distinct tier with behaviour alongside art (effects.tres
-    declarative spec + optional effects.gd). Monetisation shadow
-    captured (TIER 0 packs candidate paid-tier content). Required
-    reading before any Aseprite work on stickers, or any TIER 0
-    implementation pass.
-  - `four_tasks_morning_sequence_design_notes.md`   — LOCKED (session 5)
+    Schema delta now bundles migrations 003 + 004 + 005 (full
+    active_leader / active_theme JSON / active_stickers /
+    day_theme_state shape per session 7). Tile 1.4 nightly cron
+    reframed to lazy seal-on-open per timezone doc. (Session 4,
+    schema refreshed session 7)
+  - `four_tasks_theme_design_notes.md`              — LOCKED (session 5
+    foundation, session 6 size/TIER 0 additions, session 7 full
+    rewrite to feature-catalogue model + cell overlay/mask
+    architecture)
+    theme + sticker system. Two layers: STICKER POOL (the
+    active_stickers pool, tap-to-toggle) and ACTIVE THEME SLOTS
+    tap-to-toggle) and ACTIVE THEME SLOTS (per-slot selection
+    via long-press context menu). Slot catalogue enumerates
+    every named slot a sticker can fill (leader, palette,
+    background, cell variants, dead-cell, grid_tile, flourish,
+    label, active fx, ambient fx, audio). Each sticker ships
+    whatever subset of slots makes sense for it — no tier
+    bucket, no "full theme" bar. Long-press shows element-icons
+    for shipped features; tap an icon to claim that slot for
+    this sticker. INSTANT FEEDBACK, no commit-on-close.
+    Sparsity is a design axis. Palette-agnostic art rule.
+    Folder-per-sticker, file existence is declaration. Sticker
+    canvas locked at 32×32 (session 6). MOTD font + UI fonts
+    are LOCKED GLOBAL (not per-theme). Schema is JSON-based
+    (active_theme map, day_theme_state on days). Long-press
+    surfaced via day-7 staggered disclosure reveal. Required
+    reading before tile 4.14a (basic picker), tile 4.14b
+    (theme manager + per-slot context menu), tile 4.D (sticker
+    art), and any Aseprite work on stickers.
+    SESSION 7 REWRITE NOTES: previous "Tier 0/1/2/3 coverage
+    gradient" framing is SUPERSEDED. The doc text is now fully
+    aligned to the slot catalogue model (session 7 sweep).
+    Migration_005 shape changed from two columns (day_leader +
+    day_palette) to a single JSON column (day_theme_state). The
+    previous picker UX (two-icon context menu: calendar/palette)
+    is SUPERSEDED by per-slot icon menu. Cell treatments are now
+    overlay + optional mask layers on top of stock cells, not
+    full replacements (session 7 architecture).
+  - `four_tasks_morning_sequence_design_notes.md`   — LOCKED (session 5,
+    terminology refreshed session 7)
     full design of the morning ritual / daily ceremony. 12 beats,
     rest-day variant, partner panel visibility model, crash-resistance,
-    claim endpoint architecture, MOTD reroll cost change (supersedes
-    doubling). Eight design questions (Q1-Q8) landed answers here.
+    claim endpoint architecture (integrated with seal-on-open
+    transaction), MOTD reroll cost change (supersedes doubling).
+    Eight design questions (Q1-Q8) landed answers here. Lever
+    language replaced with active_stickers pool reference.
     Required reading before tile 4.6 (morning sequence coordinator),
     tile 4.4 (slot machine), tile 4.5 (MOTD reroll), tile 4.7 (stamp
     slap), tile 4.8 (rest day), tile 4.16 (partner reactions
     surfacing).
   - `four_tasks_marketing_notes.md`                 — RUNNING DOC
-    (started session 5). APPtrioc launch play, 9 subculture targets,
-    streamer outreach economics, long-tail community plan, open
-    questions, journal section. Updated as marketing thinking
-    arrives. Required reading before Phase 5b work.
+    (started session 5, promo codes added session 7). APPtrioc
+    launch play, 9 subculture targets, streamer outreach
+    economics, long-tail community plan, open questions,
+    journal section. SESSION 7 ADDITION: full promo code +
+    subculture-targeted launch model (Section 6) — 3-month
+    free trial → soft landing into founders pricing tier,
+    caps small (50-200 per code), short expiry (14 days),
+    wave-based retargeting (no waitlist), library sharing
+    included in trial, starter pack = choice from existing
+    catalogue not bespoke. Required reading before Phase 5b
+    work and any subreddit outreach.
   - `four_tasks_timezone_and_sealing_design_notes.md` — LOCKED (session 6)
     timezone localisation + lazy-seal-on-open architecture.
     Replaces tile 1.4's "nightly cron sweep" framing. Each user
@@ -99,18 +133,46 @@ Design notes (read whichever is relevant to the tile being worked on):
     fairy). Parked ideas section. Edited freely as inspiration
     arrives. Reference for tile 4.D (sticker art) when packs
     graduate to paint-ready.
+    SESSION 7 NOTE: brainstorm entries use the old "leader +
+    companions + background" framing; under the new feature-
+    catalogue model from session 7 theme doc rewrite, each pack
+    entry would ideally list which slots it ships. Rewrite of
+    individual pack entries is parked admin work — does not
+    block painting since the same art still serves the same
+    slots; the metadata listing just needs updating.
   - `four_tasks_monetisation_position.md`           — LOCKED v2.0
-    (session 6 part 2 — supersedes v1.1 session 1). Subscription
-    delivers BILATERAL LIBRARY ACCESS within pair + small
-    stacking coin bonus. All packs bought with coins by all
-    users, permanently owned. Past days immutable (preserve
-    historical theme state). Founders pricing tier (launch
-    cohort) distinct from founders flag (prototype era). Per-
-    sticker coin bonus stacking rejected as non-goal. Coin
-    economy tuning (rest-day cadence, pack cost curve) captured
-    as placeholders pending balance pass. Required reading for
-    Phase 5 (RevenueCat, paywall, lapse flow) and Phase 4 pack
-    pricing.
+    (session 6 part 2 — supersedes v1.1 session 1, session 7
+    schema+cadence updates). Subscription delivers BILATERAL
+    LIBRARY ACCESS within pair + small stacking coin bonus.
+    All packs bought with coins by all users, permanently
+    owned. Past days immutable (preserve full historical slot
+    state). Founders pricing tier (launch cohort) distinct
+    from founders flag (prototype era). Per-sticker coin bonus
+    stacking rejected as non-goal. Coin economy tuning
+    (rest-day cadence, pack cost curve) captured as placeholders
+    pending balance pass.
+    SESSION 7 UPDATES: FORTNIGHTLY ALTERNATING DROP CADENCE
+    LOCKED — week 1 subscriber-only drop, week 3 free-user
+    thank-you drop, repeat. Migration_005 schema updated from
+    two columns to single JSON column (day_theme_state) to
+    align with feature-catalogue theme model. Tier language
+    dropped from pricing curve — single ramp 300→600 cap
+    regardless of pack feature-richness. Required reading for
+    Phase 5 (RevenueCat, paywall, lapse flow) and Phase 4
+    pack pricing.
+  - `four_tasks_achievements_brainstorm.md`         — BRAINSTORM
+    (started session 7). NOT LOCKED — prompt-as-document for
+    future-Morgan. Hidden Easter-egg achievements rewarding
+    global-first unlockers with lifetime subscriptions. Ten
+    starting candidates spanning emotional registers (Embrace
+    the Chaos, Espresso Heart, Confess Nothing, The Buddy
+    Exchange, The Ghost Calendar, Nine Nines, etc). Server-
+    side adjudication architecture sketched (atomic UPDATE
+    race, lifetime sub award flow, studio announcement
+    pipeline). Anti-cheat posture: explicitly tolerant.
+    Implementation may never ship — captured to prevent the
+    idea going undocumented. Reference for future v1.x design
+    pass if pursued.
 
 THE APPTRIOC FORK ARCHITECTURE (locked session 5):
   APPtrioc is no longer a marketing fork of the prototype. It is a
@@ -568,7 +630,8 @@ LEDGER ADMIN (pre-tile work, ~30min):
       • Emoji picker uses preview-on-press / commit-on-close to
         collapse the race-condition window
       • Pair-key stored as SHA-256 truncated to 16 hex chars
-  - Full write-up: four_tasks_pair_key_v2_design_notes.md. The
+  - Full write-up: four_tasks_pair_key_v2_design_notes.md (renamed
+    to four_tasks_pair_key_design_notes.md in session 7). The
     v1 doc remains for background but is superseded on recovery
     semantics by v2.
   - This was the right level of design conversation to have *before*
@@ -623,10 +686,11 @@ this session 2 entry below):
   - The schema's identity model documentation is the source of
     truth for tile 1.3's defensive write rules — re-read both the
     schema comments AND four_tasks_pair_key_v2_design_notes.md
+    (renamed to four_tasks_pair_key_design_notes.md in session 7)
     before writing migration logic.
   - Tile 4.14 (theme manager) now has UX hooks defined for the
-    picker. Implementation can refer to the v2 doc's
-    "Emoji picker UX" section.
+    picker. Implementation can refer to the renamed pair-key doc's
+    "Picker UX" section.
   - Outstanding ledger items for when receipts/statements land:
       • Cloudflare domain (thepicklemoon.com) — invoice IN-64839053,
         USD $10.46, expected ~A$16-17, paid 11 May. Card statement
@@ -2426,5 +2490,353 @@ SESSION 6 PART 2 (14 May 2026, afternoon-onward — mobile) — Theme depth, sti
   Part 2 time: ~3.5h.
   Session 6 combined total: ~6.5h.
   Running project total: ~40.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 7 (14 May 2026 evening / 15 May 2026 work shift — mobile) — Marketing promo codes, theme rewrite, achievements brainstorm, cadence lock. Time: ~5h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  All-mobile session spanning two distinct working windows
+  (post-work evening + next-day work shift). Three major design
+  threads landed plus a brainstorm doc plus several admin
+  updates. The "stop the tile and write the design" pattern from
+  session 2 continues to deliver — each thread had real cascading
+  shadow that would have been expensive to retrofit later.
+
+  LOCK 1 — PROMO CODES + SUBCULTURE-TARGETED LAUNCH
+  (four_tasks_marketing_notes.md Section 6, new):
+
+    Morgan joined a handful of relevant subreddits this evening
+    (FIFO, indie dev, ADHD, others) and started thinking about
+    acquisition mechanics. Conversation moved through three
+    drafts before locking.
+
+    Draft A — 12-month free trials via promo codes. Rejected as
+    too generous; commits a year of revenue per redeemer.
+
+    Draft B — Gate library sharing behind paywall, give free
+    trial users 90% of the experience but not the signature
+    feature. Rejected — library sharing is the v2.0 signature
+    feature, a trial without it isn't a trial of the product.
+
+    Locked C — 3-month free trial + soft landing into founders
+    pricing tier. Library sharing INCLUDED in trial. Starter
+    pack = choice of existing catalogue pack (not bespoke art).
+    Caps small (50-200 per code) with 14-day expiry. Wave-based
+    retargeting: wave 1 (initial offer), wave 2 (same offer 30+
+    days later if demand exceeded cap), wave 3 (drop trial
+    extension, offer founders rate access directly to larger
+    pool).
+
+    Three psychological mechanics stacked deliberately:
+      - Free trial period (acquisition urgency).
+      - Founders price lock (loyalty reward, lifetime to year 2).
+      - Year-2+ standard pricing +50% above founders
+        (retroactive validation of early adoption).
+
+    Morgan flagged his initial year-2 pricing hike of +100% as
+    "latent greed speaking" and walked back to +50%. Going in
+    generous and earning the right to raise is the values-
+    consistent posture; going in high and walking back is
+    harder.
+
+    Waitlist mechanism considered + REJECTED. Psychologically a
+    queue, which is a control mechanism, which clashes with the
+    buddy-ware tone. Over-cap redeemers see "this code is
+    closed, next wave coming" instead of "you're in line."
+
+    Server work captured for Phase 5: /redeem endpoint,
+    promo_codes + redemption_attempts tables, two new users
+    columns (trial_extension_days, founders_rate_eligible).
+    Bundled as migration_006 at Phase 5 entry. NOT v1.0
+    launch-critical for store ship — but IS a blocker for the
+    first targeted post since the first promo code can't be
+    issued until the redeem endpoint exists.
+
+    Apple/Google policy compliance noted: server-side trial
+    extension does NOT touch store-level subscription state.
+    Users still progress through the standard store trial; our
+    server treats them as entitled for an additional period
+    beyond the store trial. Stores get paid when the user
+    converts. No policy violation.
+
+  LOCK 2 — THEME SYSTEM REWRITE TO FEATURE-CATALOGUE MODEL
+  (four_tasks_theme_design_notes.md rewrite):
+
+    The bigger architectural shift this session. The previous
+    tier-based theme model (TIER 0/1/2/3 from session 6)
+    presented a tidy hierarchy but didn't match how Morgan
+    actually wanted to ship content.
+
+    Morgan's reframe: "I don't see these tiers being as clear
+    as you want them to be. Frog might have 7/10 elements, vamp
+    may have 4, fairy might have 2, maybe chilli just has a
+    theme song and a palette." Each sticker as its own
+    inventory of features rather than slotting into a
+    completeness bucket.
+
+    Drove the rewrite to a FEATURE-CATALOGUE model:
+      - The theme system has named SLOTS (leader, palette,
+        background, cell variants, dead-cell, grid_tile,
+        flourish, label, active fx, ambient fx, audio).
+      - Each sticker ships whichever subset of slots its art
+        actually fills.
+      - The user's active theme is a per-slot selection from
+        their accessible library — each slot independently
+        filled by tapping the relevant element-icon in a
+        long-press context menu over the contributing sticker.
+      - One element per slot. No stacking. No collisions to
+        negotiate.
+      - The user's library is a menu of options per slot.
+      - Instant feedback on slot change — no commit-on-close
+        pattern (that exists for identity, doesn't apply here).
+      - Design sparsity is its own axis. A minimal sticker
+        with one exquisite element can be more compelling than
+        a maximal one with all of them.
+      - Sustainable content cadence — each sticker contributes
+        what makes sense for it, no "TIER 1 bar" forcing
+        completeness per pack.
+
+    Morgan's lightbulb on the picker UX: "long-press a sticker
+    pops a context menu of element icons. If locked, just a
+    preview button showing all of it at once. If unlocked, one
+    icon per shipped element + an apply-all button. Visual
+    language only, no text, for screen economy and style."
+
+    Pushed back on stacking elements across stickers — Morgan
+    correctly rolled it back: "you're never stacking effects
+    that collide, you simply build up a library of stickers
+    that have effects you like and you can matrix them up as
+    you please." Each slot holds one thing. The library is the
+    menu, the active theme is the meal.
+
+    Pushed back hard on per-theme MOTD font; Morgan agreed and
+    LOCKED MOTD FONT GLOBAL: "lock global font I am way too
+    scared to start fucking with that. I'm hoping the
+    aesthetic gels well over all packs as the art style should
+    aid in binding it together as well, pix art but not too
+    blocky, pix sorta font, should make all packs sing." All
+    UI fonts also locked global. Label *background* themes per
+    pack; label *typography* stays global.
+
+    Splash effects on cell-tap (water splash for frog, sizzle
+    for chilli, drip for vampire) initially proposed as TIER 1
+    feature; Morgan flagged this as too heavy a commitment per
+    pack ("places a huge onus upon me to deliver an animation
+    every month"). Resolved by collapsing the tier system
+    entirely — splashes are just one of many possible slots,
+    sparingly shipped, not a per-pack expectation.
+
+    SCHEMA SHIFT FROM SESSION 6:
+      Previously sketched in monetisation v2.0 as
+      `days.day_leader + days.day_palette` (two TEXT columns).
+      Updated to `days.day_theme_state` (single JSON column)
+      capturing the full slot map at seal time. Migration_005
+      shape changed accordingly. Forward-compatible — adding a
+      new slot later doesn't need a schema migration.
+
+      Per-user theme state also reorganised:
+        users.active_leader TEXT (identity-hashed, in pair-key)
+        users.active_theme TEXT  (JSON map for all other slots)
+        users.active_stickers TEXT (JSON array, pool members)
+
+    APPLY ALL button in the context menu fills every slot a
+    sticker contributes to in one tap. The user can build up
+    their theme element-by-element OR claim a full pack at once.
+
+  LOCK 3 — FORTNIGHTLY ALTERNATING PACK DROP CADENCE
+  (four_tasks_monetisation_position.md update):
+
+    The catalogue cadence question had been parked since v2.0
+    locked the catalogue purchase gate. Tonight Morgan
+    decided.
+
+    Locked: FORTNIGHTLY drops, alternating between subscriber-
+    only purchasable and free-user-purchasable:
+      Week 1: Subscriber-only drop
+      Week 3: Free-user-thank-you drop
+      Week 5: Subscriber-only drop
+      ...repeating.
+
+    Net effect: each user (free or subbed) gets one drop they
+    can buy each month. Neither tier feels locked out for long.
+    Subscribers get faster catalogue growth + access to the
+    week-1 drops; free users get the week-3 thank-you packs
+    plus everything from before launch.
+
+    Cadence calibrated against sustainable painting budget for
+    a solo painter. Monthly is too slow (subscriber retention
+    promise weakens); weekly is unsustainable. Fortnightly is
+    the sweet spot, especially because per-pack effort variance
+    under the feature-catalogue model lets some packs be
+    minimal (weekend's work) and some be maximal (month's
+    work). Buffer queue of 3-4 packs absorbs life-event
+    interruptions.
+
+    The "thank-you drop" may be review-gated unlock (mentioned
+    as a possibility, not locked) — captured in theme doc
+    Open work.
+
+  LOCK 4 — ACHIEVEMENTS BRAINSTORM
+  (four_tasks_achievements_brainstorm.md, new — NOT LOCKED):
+
+    Morgan, tired, dropped a thought experiment about hidden
+    Easter-egg achievements rewarding the global-first
+    unlocker with a lifetime subscription. Asked for the idea
+    captured-while-fresh as a prompt for future-Morgan to
+    react against rather than locked.
+
+    Pushed back on the lifetime-sub stake before drafting —
+    it's the biggest gun in the marketing arsenal, using it
+    for global-firsts commits a permanent revenue floor of
+    however many achievements ship. Morgan accepted the
+    trade-off: "I just like the thought experiment at this
+    stage, don't want it going undocumented."
+
+    Doc captures ten starting achievement candidates:
+      1. Embrace the Chaos — random reroll on + no coin spends
+         for a calendar month
+      2. Espresso Heart — claim within 60s of 5am local for 7
+         consecutive days
+      3. The Longest Shortest Day — both partners 4T + MOTD on
+         the solstice in their local zone
+      4. Confess Nothing — 100 MOTDs each exactly one character
+      5. The First and Last Chilli — full chilli day, all four
+         tasks contain 🌶️, pool is just chilli
+      6. The Buddy Exchange — pair swaps usernames + icons on
+         the same day (name immutable, so partial swap)
+      7. One Hundred Rerolls — 100 coins on MOTD rerolls in a
+         single day
+      8. Equal and Opposite — for a calendar month, exactly
+         one partner 4Ts each day, exactly the other rests
+      9. Nine Nines — streak hits exactly 999. The "almost" is
+         the joke.
+      10. The Ghost Calendar — 14 consecutive rest days,
+          honoring the use of the app as permission slip to
+          rest. Most emotionally loaded.
+
+    Plus a seed-ideas section for undeveloped concepts
+    (palindrome usernames, date-specific, sticker-thematic
+    matchups, network-chain pair history, etc).
+
+    Adjudication architecture sketched — atomic SQL UPDATE
+    for global-first race, server-side detection only,
+    anti-cheat posture explicitly tolerant. Studio
+    announcement flow captured: webhook ping to studio when
+    global-first fires, decision to announce same-day or
+    wait for user to share, cryptic announcement copy
+    preserves the discovery game for future achievements.
+
+    NOT v1.0 BLOCKER. NOT FORMALLY LOCKED. The doc exists to
+    prevent the idea going undocumented. Future-Morgan may
+    pursue, modify, defer, or abandon.
+
+  KEY ARCHITECTURAL CALLS THIS SESSION:
+
+    1. Promo codes are a real acquisition lever, designed to
+       NOT clash with buddy-ware tone (no waitlist, no
+       gating of signature features, choice not exclusivity
+       on starter packs).
+
+    2. Theme system is per-slot selection from a feature
+       catalogue, not a tier-based completeness hierarchy.
+       Each sticker is its own inventory of features. The
+       user's active theme is a personal assembly from the
+       library.
+
+    3. MOTD font + all UI fonts are LOCKED GLOBAL. Cohesive
+       brand voice across themes. Label backgrounds change
+       per theme; typography does not.
+
+    4. Migration_005 schema updated to single JSON column
+       (day_theme_state) to handle the full slot map.
+       Forward-compatible with future slot additions without
+       further migrations.
+
+    5. Fortnightly alternating drop cadence locked.
+       Subscriber-only on odd weeks, free-user-thank-you on
+       even weeks. Net one drop per month per tier. Buffer
+       queue smooths painting effort variance.
+
+    6. Year-2+ standard pricing +50% above founders (walked
+       back from initial +100% instinct).
+
+    7. Library sharing INCLUDED in promo trials. Signature
+       feature must be lived during trial.
+
+    8. Hidden Easter-egg achievement framework captured as
+       brainstorm prompt. NOT locked. May ship, may not.
+       Documentation prevents idea decay.
+
+  DOC CONSEQUENCES:
+    - UPDATED: four_tasks_marketing_notes.md — added Section
+      6 (promo codes + subculture-targeted launch). Section 5
+      Q10 marked RESOLVED with reference to monetisation v2.0.
+      New journal entry covering today's design conversation.
+    - REWRITTEN: four_tasks_theme_design_notes.md — feature-
+      catalogue model replaces tier gradient. Slot catalogue
+      enumerated explicitly. Per-slot context menu picker UX.
+      MOTD font lock + global UI fonts. Schema reorganised
+      around JSON columns. Asset architecture extended (audio,
+      label backgrounds, dead-cell treatments, ambient + active
+      effects as separate slots).
+    - UPDATED: four_tasks_monetisation_position.md — fortnightly
+      cadence locked, schema sketch updated to JSON column,
+      tier language dropped from pricing curve (single ramp
+      300→600 cap regardless of pack feature-richness).
+    - NEW: four_tasks_achievements_brainstorm.md — hidden
+      Easter-egg achievement prompt-as-document. Ten starting
+      candidates + seed ideas + adjudication architecture
+      sketch + studio announcement flow. NOT LOCKED.
+    - REPO INDEX needs updating with the new achievements doc
+      and refreshed descriptions for the theme + monetisation +
+      marketing docs (Morgan to sync).
+
+  GIT COMMITS THIS SESSION (Morgan to land at next sync):
+    pickle-moon-design-notes repo:
+      (pending) Session 7: marketing promo codes Section 6,
+                theme doc rewrite (feature-catalogue model),
+                monetisation cadence + schema updates,
+                achievements brainstorm new doc, devlog/todo
+                sync, repo index sync.
+
+  NOTES FOR NEXT SESSION:
+    - Tile 1.3 implementation STILL the next code thing at
+      home office. Schema bundle now includes migrations 003
+      (morning payout), 004 (timezone), 005 (day_theme_state
+      JSON, supersedes earlier day_leader+day_palette sketch).
+      Per-user theme state schema (active_leader column +
+      active_theme JSON + active_stickers JSON) also lands
+      around the same time.
+    - First sticker paint can begin at FIFO shifts using the
+      32×32 canvas locked session 6. The feature-catalogue
+      model gives freedom on which slots each sticker fills —
+      paint whatever feels right for each.
+    - Sticker pack brainstorm doc entries are written against
+      the old "leader + companions + background" framing.
+      Updating each entry to the new "this pack ships these
+      slots" framing is parked admin work. Doesn't block
+      painting.
+    - Promo code infrastructure (migration_006, /redeem
+      endpoint, attempt logging) lands as Phase 5 prep work,
+      NOT v1.0 blocker — but IS blocker for the first
+      subreddit outreach post.
+    - Fortnightly cadence kicks in post-launch. Studio
+      content buffer should be 3-4 packs ahead by ship date.
+    - Day-21 subscription disclosure reveal copy needs
+      writing against the v2.0 model. Phase 5 work.
+    - Achievement framework not implemented. Future v1.x
+      consideration. Brainstorm doc carries the seed.
+
+  SESSION 7 CLOSED. Three locks (promo codes, theme feature-
+  catalogue model, fortnightly cadence) plus one brainstorm
+  capture (achievements). All mobile, no code touched. The
+  cumulative architectural shadow of the last three sessions
+  has been substantial — when Phase 1 code work resumes at
+  the home office, tile 1.3 will land against a much richer
+  spec than it would have had without these mobile design
+  passes.
+
+  Session 7 time: ~5h.
+  Running project total: ~45.25h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

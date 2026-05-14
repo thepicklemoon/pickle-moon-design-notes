@@ -8,6 +8,12 @@ Status: FOUNDATION LOCKED (session 5)
           ships whatever subset of features it ships, no tier
           label. Per-slot selection from the user's accessible
           library at runtime.
+        CELL TREATMENT OVERLAY + MASK ARCHITECTURE LOCKED
+          (session 7 mobile) — supersedes the implied "full
+          replacement" cell PNG model. Themed cells are stock
+          cells decorated by an overlay layer on top + optionally
+          a mask cutting the silhouette. No underlay. Z-order
+          pipeline documented under the CELL TREATMENT slot.
 
 Schema: NEW columns required at theme-system implementation —
         see "Schema implications" section.
@@ -62,13 +68,14 @@ THE MODEL — PER-SLOT SELECTION FROM AVAILABLE LIBRARY
 
 The theme system has two layers:
 
-  LAYER 1 — STICKER POOL (Lever 1, from session 5).
+  LAYER 1 — STICKER POOL.
     Which stickers are eligible to be randomly slapped onto days
     where the user completes all four tasks. Floor of 1 — every
     completed day needs something to celebrate with. Same
     behaviour as prototype's activeEmojis. Toggled via TAP on a
     sticker in the picker grid. ALSO feeds the MOTD's emoji slot
-    (session 5 Q1 lock — see morning sequence doc).
+    (session 5 Q1 lock — see morning sequence doc). Stored
+    server-side as `users.active_stickers` (JSON array).
 
   LAYER 2 — ACTIVE THEME SLOTS.
     A set of named slots, each of which holds zero or one
@@ -170,24 +177,58 @@ BACKGROUND (background.png — optional)
   impact when shipped. Most stickers will NOT ship this — it's
   reserved for stickers with genuine visual ambition.
 
-CELL TREATMENT (cell_unmarked.png, cell_completed.png,
-                cell_partial.png, cell_rest.png — any subset)
-  Per-state day cell rendering. Replaces the default cell visuals
-  for each state. A sticker can ship one, several, or all four
-  variants. Cell treatments are the SECOND most prominent visual
-  surface after background — they're what the user's eye lands on
-  hundreds of times per session.
+CELL TREATMENT (overlay + mask architecture — locked session 7)
+  Per-state day cell decoration. Each cell state can ship two
+  optional files:
 
-DEAD-CELL TREATMENT (cell_dead.png — optional, rarely shipped)
-  The visual for days outside the current month view (the April
-  end-dates visible when looking at May, or pre-install days).
-  Rose vines growing over, jail bars, faded wash, dried leaves —
-  whatever the theme calls for. Most stickers won't ship this.
-  When shipped, it's the kind of detail that turns casual users
-  into gratitude posters. Effort:profit is low but signal value
-  is high. Optional by design — TIER-system would have forced this
-  into the "full theme" checklist; the catalogue model lets it be
-  a sparingly-used flourish.
+    cell_overlay_<state>.png  — drawn ON TOP of the stock cell.
+                                Decoration, linework, vines,
+                                bricks-as-outline, frost creeping
+                                in from corners, etc. The stock
+                                cell renders normally underneath
+                                (date number, partial pips, stamp).
+    cell_mask_<state>.png     — alpha mask CUTTING the stock cell.
+                                Burn-from-bottom, claw-marks,
+                                irregular edges. Black pixels in
+                                the mask cut holes in the stock
+                                cell silhouette. Used sparingly
+                                for shape effects that addition
+                                alone can't achieve.
+
+  <state> is one of: unmarked, completed, partial, rest. A sticker
+  ships any subset of overlays and any subset of masks. Most
+  stickers won't ship either — both are decorative flourishes, not
+  requirements. Stickers that DO ship treatments are the visually
+  ambitious ones.
+
+  NO UNDERLAY SLOT. Tinted backdrops behind cells are achieved
+  through the palette source slot (which retints the stock cell
+  fill). A separate underlay layer would be overkill for the
+  decorative effect overlays already provide.
+
+  Z-ORDER PIPELINE (locked session 7):
+    1. Stock cell fill (with mask applied if present) + border
+    2. Stock cell content — date number, partial-task pips
+    3. Stamp art (when claimed)
+    4. Theme overlay (cell_overlay_<state>.png if shipped)
+    5. Completion sticker (when present, randomly slapped)
+
+  Overlay sits above stamp, below the completion sticker. Sticker
+  stays the loudest visual element on completed days; overlay is
+  atmospheric decoration.
+
+DEAD-CELL TREATMENT (cell_overlay_dead.png + cell_mask_dead.png —
+                     optional, rarely shipped)
+  The visual treatment for days outside the current month view (the
+  April end-dates visible when looking at May, or pre-install days).
+  Same overlay + mask architecture as the in-month cell treatments.
+  Rose vines growing over the dead cell, jail bars, faded wash with
+  shape-cutting masks, dried leaves — whatever the theme calls for.
+  Most stickers won't ship this. When shipped, it's the kind of
+  detail that turns casual users into gratitude posters.
+  Effort:profit is low but signal value is high. Optional by
+  design — the catalogue model lets it be a sparingly-used flourish
+  rather than a per-pack requirement.
 
 GRID TILE (grid_tile.png — optional)
   Repeating background tile for the calendar grid itself.
@@ -284,11 +325,16 @@ The folder may contain any subset of:
   OPTIONAL (any subset):
     background.png         — full-grid background layer
     grid_tile.png          — calendar grid background tile
-    cell_unmarked.png      — unmarked day cell
-    cell_completed.png     — completed day cell
-    cell_partial.png       — partial completion day cell
-    cell_rest.png          — rest day cell
-    cell_dead.png          — out-of-month / pre-install day cell
+    cell_overlay_unmarked.png   — overlay drawn on unmarked cells
+    cell_overlay_completed.png  — overlay drawn on completed cells
+    cell_overlay_partial.png    — overlay drawn on partial cells
+    cell_overlay_rest.png       — overlay drawn on rest day cells
+    cell_overlay_dead.png       — overlay drawn on out-of-month cells
+    cell_mask_unmarked.png      — alpha mask cutting unmarked cells
+    cell_mask_completed.png     — alpha mask cutting completed cells
+    cell_mask_partial.png       — alpha mask cutting partial cells
+    cell_mask_rest.png          — alpha mask cutting rest day cells
+    cell_mask_dead.png          — alpha mask cutting dead cells
     flourish_name.png      — decoration near user's name
     label_background.png   — surface behind task labels
     effects_active.tres    — tap/event-triggered animation spec
@@ -336,8 +382,9 @@ The picker is the single surface where the entire theme system is
 managed. No dedicated "atmosphere mixer" screen.
 
 GESTURES:
-  - TAP on a sticker → toggles pool membership (Layer 1, Lever 1).
-    Floor of 1, identical to prototype and APPtrioc.
+  - TAP on a sticker → toggles pool membership (Layer 1 — the
+    active_stickers pool). Floor of 1, identical to prototype and
+    APPtrioc.
   - LONG-PRESS on a sticker (with vibration feedback) → opens the
     sticker's CONTEXT MENU.
 
@@ -906,11 +953,12 @@ Captured for the implementation session, not now:
 RELATED DOCS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  - four_tasks_pair_key_v2_design_notes.md
+  - four_tasks_pair_key_design_notes.md
     Identity model. active_leader participates in the pair-key
     hash; all other slots do not. Picker UX inheritance (the
-    long-press gesture pattern) — though the v2 commit-on-close
-    model is NOT inherited here; theme slot changes are instant.
+    long-press gesture pattern) — though the commit-on-close
+    model is NOT inherited here for non-leader slots; theme slot
+    changes are instant.
 
   - four_tasks_staggered_disclosure_design_notes.md
     Long-press gesture (per-element context menu) is a slow-

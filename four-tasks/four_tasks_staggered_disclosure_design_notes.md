@@ -1,7 +1,7 @@
 # Staggered Feature Disclosure — Design Principle
 
 **Status:** LOCKED as a design principle (session 2). Applies to every
-v1.0+ feature, retroactively where useful.
+v1.0+ feature, retroactively where useful. Cross-refs refreshed session 7.
 
 **Scope:** this is a *meta-principle* about how features are introduced
 to the user over time. It doesn't dictate which features exist; it
@@ -14,10 +14,10 @@ governs *when* the user discovers them.
 Four Tasks reveals its surface area to the user over **days, weeks, and
 months of use**, not all at once at onboarding.
 
-Onboarding teaches the bare minimum: name, tasks, slot, emoji, your
-partner exists, here is the calendar. Everything else gets surfaced at
-the moment it's most useful to learn, which is rarely "right now, while
-the user is overwhelmed by a brand new app."
+Onboarding teaches the bare minimum: name, tasks, slot, leader sticker,
+your partner exists, here is the calendar. Everything else gets
+surfaced at the moment it's most useful to learn, which is rarely
+"right now, while the user is overwhelmed by a brand new app."
 
 ## Why
 
@@ -46,9 +46,9 @@ tuned in Phase 4 / Phase 5.
 | 3    | Rest day intro ("did you know — long-press a future cell") |
 | 4    | Partner reactions intro (you can react to each others sealed days) |
 | 5    | Streak milestone popup (first 5-day streak)               |
-| 7    | Theme picker hint (long-press your sticker, pick leader or palette) |
+| 7    | Theme picker context menu hint (long-press a sticker, see the slots it can fill) |
 | 14   | Coin name reroll unlocks (first time enough coins exist)  |
-| 21   | Subscription nudge (trial about to end / value summary)   |
+| 21   | Subscription disclosure (value summary against actual play history) |
 | 30   | Leaderboard offer ("want to compete?")                    |
 
 Some features are *triggered* not *scheduled* — e.g. partner reaction
@@ -115,26 +115,37 @@ changes. Glitch-typewriter applies if appropriate.
 
 Tiles that should be designed with staggered disclosure in mind:
 
-- **Tile 3.1-3.8 (Onboarding)** — be ruthless about what stays. Anything
-  that can wait until day 2+ should wait.
+- **Tile 3.1-3.9 (Onboarding)** — be ruthless about what stays. Anything
+  that can wait until day 2+ should wait. MOTD specifically was removed
+  from onboarding (session 6) — first MOTD lands in first morning
+  sequence, not in onboarding.
 - **Tile 4.6 (Morning sequence)** — natural surfacing window for
   scheduled reveals. "Yesterday wrapped + here's the new thing."
 - **Tile 4.5 (MOTD reroll)** — Reroll is a power feature. Could be
   introduced day 5+ rather than day 1. (Cost model superseded session
-  5 — see four_tasks_morning_sequence_design_notes.md Q8 section.)
+  5 — see four_tasks_morning_sequence_design_notes.md Q8 section for
+  flat 90-110 per press.)
 - **Tile 4.11 (Help menu)** — exists for users who want everything at
   once. Always-available escape hatch from the staggered approach.
-- **Tile 4.14a (Basic sticker picker — pre-fork)** — pool toggle is
-  available immediately, no reveal needed.
+- **Tile 4.14a (Basic sticker picker — pre-fork)** — pool toggle (tap)
+  is available immediately, no reveal needed. APPtrioc inherits this
+  picker.
 - **Tile 4.14b (Sticker picker context menu — post-fork, Four Tasks
-  only)** — the long-press context menu (calendar leader + palette
-  source) is a scheduled reveal at day 7+. APPtrioc never gets this
-  surface; APPtrioc users see the picker without the context menu.
+  only)** — the long-press context menu (per-slot element-icons under
+  the feature-catalogue model — see theme doc) is a scheduled reveal
+  at day 7+. APPtrioc never gets this surface; APPtrioc users see the
+  picker without the context menu (which is the conversion mechanic).
 - **Tile 4.16 (Partner reactions)** — day-4 scheduled reveal (primary
   teaching) + trigger-gated reaffirmation (if partner reacts earlier).
   Session 5 refinement; see Q7 section in morning sequence design doc.
-- **Tile 4.18 (Coin name reroll)** — example time-gated reveal,
-  unlocks first time user has enough coins.
+- **Day-21 subscription disclosure** — VALUE SUMMARY against actual
+  play history under monetisation v2.0, not a trial-end nag. Examples
+  of what could surface: coins earned, packs owned vs catalogue size,
+  days played, longest streak, "subscribe to access partner's library
+  and grind faster." Copy authoring job, lands Phase 5 alongside
+  paywall UI.
+- **Coin name reroll** — example time-gated reveal, unlocks first time
+  user has enough coins (post-v1.0).
 
 ## Open questions
 
@@ -157,7 +168,18 @@ Tiles that should be designed with staggered disclosure in mind:
 - `four_tasks_morning_sequence_design_notes.md` — Q7 partner
   reaction surfacing model + the day-4 vs day-6 timing rationale.
 - `four_tasks_theme_design_notes.md` — sticker picker context menu
-  is a post-fork (Four Tasks only) reveal at day 7.
+  is a post-fork (Four Tasks only) reveal at day 7. Under the
+  feature-catalogue model (session 7), the context menu shows
+  per-slot element icons rather than the old two-icon (leader/palette)
+  pattern.
+- `four_tasks_onboarding_design_notes.md` — onboarding flow honours
+  the "minimum to land in the app" rule from this doc.
+- `four_tasks_monetisation_position.md` — subscription disclosure
+  reveal copy (day 21) lives in the v2.0 model.
+- `four_tasks_achievements_brainstorm.md` — counter-example: hidden
+  Easter-egg achievements explicitly DO NOT use staggered disclosure.
+  They are pure discovery, no scheduled reveal. The brainstorm doc
+  acknowledges this departure from the staggered principle.
 - Tile 4.11 (help menu) — the "show me everything" escape valve.
 - Future tile: TutorialCoordinator autoload + tutorial_progress
   schema reservation on `users`.

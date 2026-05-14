@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Todo
 ========================
-Last updated: May 2026 (session 6, end)
+Last updated: May 2026 (session 7, end)
 
 This list is driven by the roadmap (`four_tasks_godot_roadmap.md`). All tiles
 from the roadmap are seeded below as `[ ]` items, organised by phase. Tick
@@ -308,12 +308,14 @@ PHASE 1 — Backend + foundations
     IDENTITY MODEL REFINEMENT: mid-tile, a long design conversation
     surfaced that the v1 pair-key model (two names, session 13) was
     under-specified for the recovery story Morgan actually wanted.
-    Locked v2 model: six-value pair-key (name+username+icon × 2),
-    name immutable, username + icon mutable + migration-triggering,
-    partner-app-mediated recovery, re-entrant transactional migrations.
-    Full write-up: four_tasks_pair_key_v2_design_notes.md. This
-    document is now required reading for tile 1.3 (defensive writes)
-    and tiles 4.14a / 4.14b (picker + theme manager).
+    Locked v2 model: six-value pair-key (name+username+active_leader
+    × 2), name immutable, username + active_leader mutable +
+    migration-triggering, partner-app-mediated recovery, re-entrant
+    transactional migrations.
+    Full write-up: four_tasks_pair_key_design_notes.md (renamed
+    from pair_key_v2 in session 7). This document is now required
+    reading for tile 1.3 (defensive writes) and tiles 4.14a / 4.14b
+    (picker + theme manager).
     GIT: 4 commits on main in four-tasks: .gitignore extension,
     Worker scaffold, schema (fa0e618), wrangler.toml binding (f103435).
     (Session 2)
@@ -369,19 +371,29 @@ PHASE 1 — Backend + foundations
     state preconditions, rejection codes (400/404/409), migration
     transaction shape, hash-collision handling, client-side
     defensive write requirements.
-    SCHEMA DELTA captured (UPDATED session 6 part 2):
+    SCHEMA DELTA captured (UPDATED session 7):
       - migration_003_morning_payout.sql adds
         users.morning_payout_due_for (nullable TEXT).
       - migration_004_user_timezone.sql adds users.timezone TEXT
         NOT NULL DEFAULT 'UTC' (from session 6 part 1 timezone
         doc).
-      - migration_005_day_theme_state.sql adds days.day_leader
-        TEXT and days.day_palette TEXT (from session 6 part 2
-        monetisation v2.0 doc — historical theme preservation
-        for the immutable-past mechanic). Written at day-seal
-        time, never modified after.
+      - migration_005_theme_state.sql (UPDATED session 7) —
+        per-user theme state + per-day theme snapshot:
+          ALTER TABLE users ADD COLUMN active_leader TEXT;
+          ALTER TABLE users ADD COLUMN active_theme TEXT;
+              -- JSON map: slot → sticker ID for non-leader slots
+          ALTER TABLE users ADD COLUMN active_stickers TEXT;
+              -- JSON array: pool member sticker IDs
+          ALTER TABLE days ADD COLUMN day_theme_state TEXT;
+              -- JSON map: full slot configuration captured at
+                 day-seal time for immutable-past historical
+                 rendering.
+        Previous session 6 sketch (day_leader + day_palette as
+        two separate columns) is SUPERSEDED by the JSON column
+        approach. Forward-compatible — adding a new theme slot
+        later doesn't need a further migration.
       Migrations are commutative — apply 003, 004, 005 in any
-      order. They touch different columns.
+      order. They touch different rows or different columns.
     IMPLEMENTATION SCOPE for the future session:
       1. Write the three endpoints against the design doc spec
       2. Apply migrations 003, 004, 005 to local + remote D1
@@ -496,13 +508,15 @@ PHASE 3 — Onboarding + identity flow
     NOTE: name is immutable per v2 identity model. Locks for
     BOTH primary and invite-link paths.
 [ ] 3.3a [CODE] Own username step. Mutable, no confirmation modal.
-[ ] 3.4 [CODE] Own sticker step. Reduced picker grid showing ONLY
-    TIER 1 stickers (full theme art sets). Background previews
-    chosen theme in real time. Silent effects: calendar_leader +
-    palette_source + active_stickers pool default all set from
-    this single choice.
+[ ] 3.4 [CODE] Own sticker step. Reduced picker grid showing the
+    LAUNCH STARTER SET — a curated small selection of feature-rich
+    stickers from the catalogue (the visual showpieces). Background
+    previews chosen theme in real time. Silent effects: active_leader
+    + active_theme JSON (palette + any other slots the chosen
+    sticker ships) + active_stickers pool default all set from this
+    single choice (APPLY-ALL on the first sticker).
     NOTE: no themed-marker badges in this reduced picker — every
-    option is themed, badge would be meaningless.
+    option is feature-rich, badge would be meaningless.
 [ ] 3.4a [CODE] "Do you have your partner with you?" fork screen.
     Two CTAs: [Yes, they're here] → proceeds to tile 3.5.
     [Not yet — I'll invite them later] → proceeds to tile 3.5a.
@@ -589,11 +603,11 @@ section at top of this file.
 [ ] 4.4 [CODE] Slot machine — real wheels. WheelControl with vertical
     drag, fling physics, snap. Three word wheels + sticker wheel.
     NOTE: the MOTD is four spinners (adverb + verb + noun + emoji).
-    Locked session 5 Q1. The emoji wheel reads from the user's Lever 1
-    pool (same source as completed-day stickers). The prototype has a
-    visible bug where spinners alternate rather than truly randomising
-    — the Godot port must fix this (truly random per slot, no
-    alternation pattern).
+    Locked session 5 Q1. The emoji wheel reads from the user's
+    active_stickers pool (same source as completed-day stickers).
+    The prototype has a visible bug where spinners alternate rather
+    than truly randomising — the Godot port must fix this (truly
+    random per slot, no alternation pattern).
     See four_tasks_morning_sequence_design_notes.md "The MOTD
     structure (Q1)" section.
 [ ] 4.5 [CODE] MOTD reroll cost system.
@@ -682,15 +696,15 @@ section at top of this file.
     first.
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY.
     Picker grid renders all stickers from res://assets/stickers/<id>/
-    folders. Tap toggles a sticker in/out of the active pool (Lever 1
-    from theme design doc). Floor of 1 (cannot deselect down to zero).
+    folders. Tap toggles a sticker in/out of the active_stickers pool
+    (per theme design doc). Floor of 1 (cannot deselect down to zero).
     Long-press does NOTHING in this tile — gesture is reserved for
     tile 4.14b. APPtrioc inherits this picker.
     Backend hook: pool membership writes through to server normally
     (no preview/commit dance, pool doesn't affect current visible
-    screen). One sticker is permanently the calendar_leader AND
-    palette_source (set at onboarding tile 3.7); changing those is
-    tile 4.14b's job.
+    screen). One sticker is permanently the active_leader (set at
+    onboarding tile 3.4); changing it is tile 4.14b's job (along
+    with all other theme slot management).
     Visual: themed-sticker marker (a glint or badge per
     four_tasks_theme_design_notes.md "Picker UX → Themed-sticker
     marking") IS rendered, even though long-press doesn't do anything
@@ -706,13 +720,11 @@ section at top of this file.
 [ ] 4.D [ART] Sticker catalogue — hand-painted, palette-agnostic.
     Folder-per-sticker structure under res://assets/stickers/<id>/.
     Each sticker ships sticker.png + palette.tres minimum, plus
-    optional theme art files (cell_unmarked, grid_tile, flourish_name,
-    background, etc.) for tier-1/2 stickers, plus optional
-    effects.tres / effects.gd for tier-0 (animated/premium) stickers.
+    whatever optional theme files make sense for its identity.
     All art painted in canonical reference palette per
     four_tasks_theme_design_notes.md. Retinted at render time
     against active palette source.
-    STICKER CANVAS LOCKED (session 6 part 2): 32 × 32 RGBA,
+    STICKER CANVAS LOCKED (session 6): 32 × 32 RGBA,
     transparent background, indexed mode recommended for retint
     option C compatibility. Effective art area ~26×26 inside with
     margin for rotation wobble. Source .aseprite files in
@@ -720,16 +732,27 @@ section at top of this file.
     assets/stickers/<name>/sticker.png at implementation time.
     Aseprite work can begin pre-Phase-4 — Morgan plans to start
     painting at FIFO shifts.
-    Pack ideas brainstormed in four_tasks_sticker_pack_brainstorm.md.
-    Tier targets: TIER 0 (animated) post-launch / paid-tier
-    content. TIER 1 (full theme) at launch as showpieces. TIER 2
-    (partial theme) and TIER 3 (palette only) as catalogue
-    grows.
-    Launch catalogue: small set of TIER 1 showpieces + a larger
-    set of TIER 3 palette-only stickers. Final count TBD by
-    painting budget — the 86 figure from the web build was an
-    artefact of free emoji, not realistic for hand-painted work.
-    Plan in batches over multiple sessions.
+    FEATURE-CATALOGUE MODEL (locked session 7):
+    Stickers are NOT categorised into tiers. Each ships
+    whatever subset of named slots (leader, palette, background,
+    cell variants, dead-cell, grid_tile, flourish, label,
+    active effect, ambient effect, audio) feels right for its
+    identity. A minimal sticker shipping just palette + tap-
+    sizzle is as valid as a maximal one shipping every slot.
+    Sparsity is its own design axis. The user's library is a
+    menu per slot; the active theme is one selection per slot.
+    Pack ideas brainstormed in
+    four_tasks_sticker_pack_brainstorm.md (note: brainstorm
+    entries written against old tier framing; per-pack slot
+    listings need refresh but doesn't block painting).
+    Launch catalogue: small set of stickers spanning a range
+    of feature-richness. Final count TBD by painting budget —
+    the 86 figure from the web build was an artefact of free
+    emoji, not realistic for hand-painted work. Plan in
+    batches over multiple sessions. Fortnightly drop cadence
+    post-launch (alternating subscriber-only / free-thank-you
+    drops per monetisation v2.0 session 7 update) — buffer
+    queue of 3-4 packs by ship date.
 [ ] 4.E [ART] UI chrome. Buttons, popup borders, panel dividers, util bar.
     Painted in reference palette for those surfaces that participate
     in the theme system (most). Sacred-semantic surfaces (error red,
@@ -751,32 +774,67 @@ is live.
 
 ━━━ POST-FORK CODE TILES (Four Tasks exclusive) ━━━
 
-[ ] 4.14b [CODE] Sticker picker context menu + Theme manager.
+[ ] 4.14b [CODE] Sticker picker context menu + Theme manager
+    (UPDATED session 7).
     Adds the long-press gesture to the picker built in tile 4.14a.
-    Long-press (500ms + vibration) opens a small context menu with
-    two icons:
-      [📅] calendar icon  — set as calendar leader (Lever 2)
-      [🎨] artist palette — set as palette source  (Lever 3)
-    Both Levers operate independently per
-    four_tasks_theme_design_notes.md "Three independent levers".
-    Picker UX: preview-on-press + commit-on-close. Pair-key migration
-    fires server-side on calendar_leader change. Palette source change
-    is non-identity (does NOT trigger migration) — schema split
-    happens with this tile.
-    ThemeManager autoload: hooks preview_palette() / commit_palette()
-    for Lever 3, preview_leader() / commit_leader() for Lever 2.
-    Pool changes use tile 4.14a's normal write path.
+    Long-press (500ms + vibration) opens a context menu with
+    PER-SLOT element-icons reflecting whichever theme slots that
+    sticker ships. Visual language only — icons, no text.
+    UNLOCKED STICKER context menu:
+      One icon per slot the sticker can fill. Tap an icon →
+      INSTANT application of that slot to the live app. No
+      confirmation, no commit-on-close.
+      Plus APPLY ALL button → fills every slot the sticker can
+      contribute to in one tap.
+    LOCKED STICKER context menu:
+      Single PREVIEW button. Tap → temporarily applies ALL of
+      the sticker's elements to live app. Reverts on menu close
+      or after generous timeout (~30s).
+    Slot list (from theme doc Slot Catalogue):
+      Leader, Palette Source, Background, Cell Treatments,
+      Dead-cell Treatment, Grid Tile, Flourish Name, Label
+      Treatment, Active Effect, Ambient Effect, Theme Audio.
+      Each sticker shows icons only for the slots it actually
+      ships (file existence is declaration).
+    ICON VOCABULARY: placeholder per theme doc. Final
+    iconography deferred to focused visual-design pass at this
+    tile's implementation.
+    SCHEMA WORK (covered by migration_005):
+      users.active_leader column (identity-hashed, participates
+      in pair-key).
+      users.active_theme JSON column (all other slot
+      assignments).
+      users.active_stickers JSON column (pool members).
+      days.day_theme_state JSON column (full slot snapshot at
+      seal time, for immutable-past historical rendering).
+    Pair-key migration fires server-side on active_leader
+    change ONLY. All other slot changes are non-identity writes
+    — no migration, no commit-on-close. Just send it.
+    ThemeManager autoload: per-slot setters that immediately
+    apply to live app and fire a single server write. Pool
+    changes use tile 4.14a's existing write path.
     DEPENDENCIES BEFORE THIS TILE LANDS:
-      - Asset dimensions locked (theme implementation prep item in
-        ACTIVE).
-      - Retint mechanism chosen (shader / pre-bake / indexed-palette).
+      - Asset dimensions locked for non-sticker theme files
+        (theme implementation prep item in ACTIVE).
+      - Retint mechanism chosen (shader / pre-bake / indexed-
+        palette).
       - Reference palette exact RGB values locked.
-      - Schema migration: icon column → calendar_leader + new
-        palette_source column. Pair-key tuple participation
-        confirmed (calendar_leader participates; palette_source
-        does NOT). Likely migration_004.
-    See four_tasks_theme_design_notes.md "What this doc leaves open"
-    for the full list of resolutions required.
+      - effects_active.tres and effects_ambient.tres schemas
+        designed.
+      - Effects coordinator autoload architecture designed.
+      - theme_audio.tres schema designed (if audio shipping
+        in v1.0).
+      - Schema migration_005 applied (per tile 1.3 work).
+    See four_tasks_theme_design_notes.md "What this doc leaves
+    open" for the full list.
+    PREVIOUS DESIGN SUPERSEDED:
+      The earlier two-icon context menu (calendar leader +
+      palette source only) from session 5/6 is REPLACED by the
+      per-slot icon list under the feature-catalogue model
+      (session 7). Preview-on-press / commit-on-close picker
+      UX pattern is NOT inherited here — theme slot changes
+      are instant, only identity changes (active_leader)
+      commit through the migration path.
 [ ] 4.15 [CODE] Username edit flow. Settings screen with "change
     username" → triggers pair-key migration server-side. Confirms
     new state from server before showing success.
@@ -784,8 +842,9 @@ is live.
     v1.x scope, not v1.0 ship.
     Reaction picker UI for MOTD and task tray on partner's SEALED days
     only — past-day-tray view, not live day. Preview-on-press /
-    commit-on-exit, mirroring the emoji picker pattern (tile 4.14b),
-    plus a confirmation popup on each commit:
+    commit-on-exit pattern, mirroring the IDENTITY picker pattern
+    from tile 4.14b's leader selection (NOT the theme slot pickers,
+    which apply instantly). Plus a confirmation popup on each commit:
       "react with ❤️ on this day? you can't change this later"
       [Yes] [No] [ ] don't show this again
     Single dismissal of "don't show again" kills the popup for BOTH
@@ -807,10 +866,13 @@ is live.
       implementation time. The principle: BENIGN, not urgent.
       Tutorial reveal at day 4 (preferred) or day 6 (backup) per
       staggered disclosure schedule.
-    Backend endpoint: PUT /pair/:key/users/:target_name/day/:date/reaction
-    with body {"motd_reaction": "❤️"} or {"tray_reaction": "🔥"}.
-    Server rejects if column already non-NULL (immutability) or if
-    day is unsealed.
+    Backend endpoint (per write rules doc):
+      PUT /pair/:key/users/:target/days/:date?caller=:caller_name
+      with body {"motd_reaction": "❤️"} or {"tray_reaction": "🔥"}.
+      :target is the user whose day is being reacted to (partner);
+      ?caller is the reactor. Server rejects with 409
+      reaction_already_set if column already non-NULL
+      (immutability) or 409 day_not_sealed if day is unsealed.
     Schema columns already reserved in tile 1.1. Field-level write
     rules already designed in tile 1.3 (this tile depends on those
     landing first).
@@ -1089,30 +1151,38 @@ ACTIVE — ad-hoc items found during the port
     Surfaced session 5 with the theme design doc. PARTIALLY resolved
     session 6 part 2: STICKER CANVAS LOCKED at 32×32 RGBA (the
     blocker for tile 4.D first paint). Aseprite work can begin.
+    REWRITTEN session 7 to align with feature-catalogue model.
     REMAINING open items in four_tasks_theme_design_notes.md before
     tile 4.14b can land:
       - Calendar cell sticker render size in Godot pixels
         (intent: ~100px target, lock when day cell scene lands)
       - Picker grid sticker render size in Godot pixels
         (intent: ~200px target)
-      - Unmarked-cell variant source size
+      - Cell treatment variant source sizes (unmarked, completed,
+        partial, rest, dead — each may need its own dimensions)
       - Grid tile size
-      - Background.png slot dimensions (full-grid layer, new
-        from session 6 part 2 — frog "swamp overlaps day tiles"
-        idea)
-      - Name flourish bounding box
+      - Background.png slot dimensions (full-grid layer)
+      - Flourish name bounding box
+      - Label background bounding box (depends on task row height)
       - Safe-area / padding rules within 32×32 sticker export
       - Retint mechanism choice (shader / pre-bake / indexed PNG)
       - Reference palette exact RGB values
-      - Default theme art set design
-      - Themed-sticker marker visual style (TIER 1+)
-      - TIER 0 picker indicator (stronger than TIER 1+ marker)
-      - Context-menu visual design
-      - Schema split (icon → calendar_leader + palette_source)
-        and pair-key tuple participation
-      - TIER 0 effects.tres schema and effects coordinator design
-      - Locked vs unlocked rendering in picker for free vs paid
-        users (TIER 0 specifically)
+      - Default theme art set design (what does app look like
+        when MOST slots are empty — brand new user with only
+        onboarding-free sticker)
+      - Themed-sticker marker visual style in picker grid
+      - Final context-menu icon vocabulary (placeholders listed
+        in theme doc; visual-design pass needed)
+      - effects_active.tres + effects_ambient.tres schemas
+        (tween / particle / shader / audio parameters)
+      - theme_audio.tres schema (audio event binding, ambient
+        vs stinger differentiation)
+      - Effects coordinator autoload architecture
+      - Audio playback architecture (single AudioStreamPlayer
+        per scope vs pooled, bus routing, fade-in/out)
+      - Locked vs unlocked picker rendering for free vs paid
+        users — locked stickers should look enticing not greyed
+      - Preview timeout exact duration for locked-sticker preview
     Belongs in a focused design conversation with Aseprite open
     so dimension claims can be tested as they're made. Blocks
     tile 4.14b. Does NOT block tile 4.D first paint anymore.
@@ -1179,7 +1249,7 @@ ACTIVE — ad-hoc items found during the port
     Rationale: the canonical pair-key form uses '|' and '__' as
     separators. Allowing them in user input would ambiguate the
     canonical string and let two distinct pairs hash to the same
-    key. See four_tasks_pair_key_v2_design_notes.md "Pair-key format".
+    key. See four_tasks_pair_key_design_notes.md "Pair-key format".
 
 [ ] curl-test convention for the project — use curl.exe explicitly.
     Captured session 3. On Windows PowerShell, `curl` is an alias
@@ -1238,7 +1308,7 @@ ACTIVE — ad-hoc items found during the port
 [ ] Schema migrations 003 + 004 + 005 application.
     THREE migrations land alongside tile 1.3 implementation.
     All commutative; apply in any order.
-    Migration content:
+    Migration content (UPDATED session 7):
       003: ALTER TABLE users ADD COLUMN morning_payout_due_for TEXT;
            (from write rules doc — consumed by morning sequence
             claim endpoint)
@@ -1246,11 +1316,18 @@ ACTIVE — ad-hoc items found during the port
            DEFAULT 'UTC';
            (from session 6 part 1 timezone doc — read by
             seal-on-open and claim endpoint)
-      005: ALTER TABLE days ADD COLUMN day_leader TEXT;
-           ALTER TABLE days ADD COLUMN day_palette TEXT;
-           (from session 6 part 2 monetisation v2.0 — written at
-            day-seal time for immutable-past historical theme
-            preservation)
+      005: ALTER TABLE users ADD COLUMN active_leader TEXT;
+           ALTER TABLE users ADD COLUMN active_theme TEXT;
+           ALTER TABLE users ADD COLUMN active_stickers TEXT;
+           ALTER TABLE days ADD COLUMN day_theme_state TEXT;
+           (from session 7 theme doc rewrite —
+            per-user theme state + per-day theme snapshot
+            for immutable-past historical theme rendering.
+            Previous session 6 sketch of two TEXT columns
+            (day_leader + day_palette) on days is SUPERSEDED
+            by the single JSON column approach. The full slot
+            map shape is documented in theme doc "Schema
+            implications".)
     Apply to local AND remote D1, in that order, with verification
     between.
 
@@ -1334,8 +1411,10 @@ PARKED — known, not blocking
           free pair perfect play → ~7 days savings per rest
           one-sub pair perfect play → ~6 days
           two-sub pair perfect play → ~5 days
-      - Pack cost curve (first free, ramps 300→400→500→600 cap
-        for TIER 1-3; TIER 0 separate curve from ~1500).
+      - Pack cost curve: single ramp 300→400→500→600 cap regardless
+        of pack feature-richness (per session 7 monetisation v2.0
+        update — tier pricing dropped to match feature-catalogue
+        theme model).
       - Streak multiplier interaction with all of the above.
     Balance pass needs morning sequence + coin payout + pack
     purchase all wired up. Belongs after tile 4.6 (morning
@@ -1403,6 +1482,110 @@ PARKED — known, not blocking
       - "Subscribe to access [partner]'s library and grind faster."
     Copy authoring job, lands in Phase 5 alongside paywall UI.
 
+[ ] Promo code infrastructure — Phase 5 prep.
+    Surfaced session 7 with marketing notes Section 6 lock.
+    Lands as part of Phase 5 alongside subscription
+    infrastructure. Components:
+      - migration_006 schema additions (or whichever number is
+        free at Phase 5 entry):
+          CREATE TABLE promo_codes (
+            code TEXT PRIMARY KEY,
+            cap INTEGER NOT NULL,
+            redemptions_used INTEGER DEFAULT 0,
+            trial_extension_days INTEGER,
+            starter_pack_options TEXT,  -- JSON array of pack IDs
+            expires_at INTEGER,
+            active BOOLEAN DEFAULT 1
+          );
+          CREATE TABLE redemption_attempts (
+            code TEXT,
+            user_id TEXT,
+            success BOOLEAN,
+            timestamp INTEGER
+          );
+          ALTER TABLE users ADD COLUMN trial_extension_days
+            INTEGER DEFAULT 0;
+          ALTER TABLE users ADD COLUMN founders_rate_eligible
+            BOOLEAN DEFAULT 0;
+      - POST /redeem endpoint per marketing notes Section 6
+        "Server endpoints needed".
+      - Onboarding integration: "Have a promo code?" text link
+        on welcome screen → small input screen with validation.
+      - Settings integration: "Redeem code" entry for existing
+        users.
+      - Apple/Google policy compliance: server-side trial
+        extension does NOT touch store-level subscription
+        state. Users still go through standard 30-day store
+        trial; server treats them as entitled for additional N
+        days beyond.
+    NOT v1.0 launch-critical for store ship — but IS blocker
+    for the first subreddit outreach post (first promo code
+    can't be issued without the redeem endpoint).
+    Reference: four_tasks_marketing_notes.md Section 6.
+
+[ ] Pack drop content buffer — Phase 4 art preparation.
+    Surfaced session 7 with fortnightly cadence lock. Studio
+    commits to fortnightly alternating drops post-launch:
+    week 1 subscriber-only, week 3 free-thank-you, repeat.
+    REQUIREMENTS BEFORE LAUNCH:
+      - 3-4 packs queued (painted, palettes finalised,
+        any theme files prepared) BEFORE ship date.
+      - Half the buffer should be subscriber-only-flagged,
+        half free-thank-you-flagged.
+      - First subscriber-only drop scheduled for ~2 weeks
+        post-launch.
+      - First free-thank-you drop scheduled for ~4 weeks
+        post-launch.
+    POST-LAUNCH MAINTENANCE:
+      - Paint 1-2 packs per fortnight on average. Per-pack
+        effort variance (feature-catalogue model allows this)
+        smooths painting workload.
+      - Re-fill buffer continuously. If buffer hits zero, an
+        honest skip-this-fortnight communication is brand-
+        aligned — predator-pattern apps run on fake scarcity;
+        honest misses are acceptable.
+    Pack ideas live in four_tasks_sticker_pack_brainstorm.md
+    (note: brainstorm entries currently written against old
+    tier framing — see separate item to refresh).
+
+[ ] Sticker pack brainstorm refresh.
+    Surfaced session 7 with feature-catalogue model lock.
+    The pack ideas in four_tasks_sticker_pack_brainstorm.md
+    are written against the old "leader + companions +
+    background" framing. Under the new feature-catalogue
+    model, each pack entry should list explicitly which
+    slots it ships (sticker.png, palette.tres always; plus
+    any of background, cell variants, dead-cell, grid_tile,
+    flourish, label, active fx, ambient fx, audio).
+    Worth a focused mobile session to rewrite each entry
+    (frog, chilli, vampire, wizard, car, fairy) with explicit
+    slot lists + the painting commitment each implies.
+    NOT URGENT — doesn't block painting since the same art
+    still serves the same conceptual purposes. Just makes the
+    brainstorm doc consistent with the architectural model.
+
+[ ] Achievement framework — speculative future work.
+    Captured in four_tasks_achievements_brainstorm.md
+    (session 7). NOT LOCKED, NOT COMMITTED. Hidden Easter-egg
+    achievements rewarding global-first unlockers with
+    lifetime subscriptions. Ten starting candidates plus seed
+    ideas. Adjudication architecture sketched (atomic SQL
+    UPDATE race, lifetime sub award via founders flag
+    extension mechanism, studio webhook ping on global-first
+    fire).
+    IF PURSUED:
+      - Server-side detection logic in relevant write
+        endpoints (claim_morning, day-tick, coin-spend, etc).
+      - Schema additions for achievements + user_achievements
+        tables.
+      - Studio admin notification channel for global-first
+        events.
+      - Notification UX for unlock events (soft, brand-aligned).
+      - Copy authoring against MOTD vocabulary voice.
+    Honest position: may never ship. Brainstorm exists to
+    prevent the idea going undocumented while fresh. Future-
+    Morgan to react against, prune, expand, or abandon.
+
 (empty otherwise — items added as they come up during the port)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1427,11 +1610,14 @@ prior, smaller theme system that's been superseded.
 
 Note on "Paid premium features (extra sticker packs, palette tiers,
 custom stamps)" — REMOVED from DEFERRED. Superseded by monetisation
-v2.0 (session 6 part 2). The new model has no IAP packs — all packs
-are bought with coins by all users. Subscription unlocks bilateral
-library access + small coin bonus. The "premium" concept is now
-TIER 0 (animated packs, post-launch content arc) and lives in the
-theme design doc, not as a deferred monetisation item.
+v2.0 (session 6 part 2, refined session 7). The new model has no IAP
+packs — all packs are bought with coins by all users. Subscription
+unlocks bilateral library access + small coin bonus + access to
+purchase subscriber-only fortnightly drops. Stickers no longer fall
+into tier buckets (the TIER 0/1/2/3 framing from session 6 was
+dropped in session 7 in favour of the feature-catalogue model — each
+sticker ships whichever subset of slots makes sense for its
+identity).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COMPLETED — historical record (chronological by completion)
@@ -1549,9 +1735,10 @@ SESSION 5 — Away-time planning + theme + marketing + APPtrioc architecture + m
                           calls. Full beat-by-beat sequence
                           captured from prototype screenshot +
                           Morgan's narration. Locked: MOTD is
-                          four spinners reading from Lever 1 pool
-                          (Q1, supersedes theme doc to add this
-                          property); crash-resistance model atomic
+                          four spinners reading from the
+                          active_stickers pool (Q1, supersedes theme
+                          doc to add this property); crash-resistance
+                          model atomic
                           on server (Q2); calendar always opens
                           flat as base state (Q3); partner panel
                           dead-until-claim with polling catch-up

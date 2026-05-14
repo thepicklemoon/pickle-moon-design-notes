@@ -1,14 +1,13 @@
 # Four Tasks — Morning Sequence Design Notes
 
-Status: LOCKED for v1.0 implementation (session 5)
+Status: LOCKED for v1.0 implementation (session 5, terminology refreshed session 7)
 Implementation tile: 4.6 (full coordinator)
 Related tiles: 4.4 (slot machine), 4.5 (MOTD reroll cost),
 4.7 (stamp slap animation), 4.8 (rest day system), 4.16 (partner
-reactions surfacing), 1.4 (nightly cron), the deferred morning-
-payout claim endpoint.
+reactions surfacing), the claim_morning endpoint (lands with tile 1.3).
 
 The morning sequence is the centrepiece of the daily experience.
-Four sessions of design conversation have circled it without ever
+Four sessions of design conversation circled it without ever
 fully documenting it in one place. This doc fixes that. Eight
 discrete design questions (Q1-Q8 in the session-5 conversation)
 landed answers here; each is captured under its own subheading.
@@ -118,14 +117,20 @@ Example from the prototype screenshot: "eerily" + "ignored" +
 "the mind" + "👽".
 
 The emoji slot reads from the *same pool* as the user's day-cell
-completion stickers — the active pool (Lever 1 from theme design
-notes). The user's sticker selections in the picker affect both
-the visual identity of the MOTD and what stickers slap onto
-completed days. Single source of truth.
+completion stickers — `users.active_stickers` (the pool the user
+manages via tap-to-toggle in the picker, per theme design notes).
+The user's sticker selections in the picker affect both the
+visual identity of the MOTD and what stickers slap onto completed
+days. Single source of truth.
 
 This means: change your active pool, and your MOTDs change emoji
 character along with your completed-day stickers. They move
 together.
+
+MOTD FONT: locked global per theme design notes session 7
+rewrite. The MOTD typography is the same across all themes — only
+the emoji slot changes per pack. Brand-voice consistency over
+per-theme expressive typography.
 
 PROTOTYPE BUG TO FIX IN PORT:
   The prototype's spinners *alternate* visibly when spun (visible
@@ -155,10 +160,10 @@ This makes the sequence robustly crash-resistant by design:
     (the claim endpoint hasn't fired). Server flag is still set.
     Next launch replays the full sequence from the start. User
     sees their coins already accounted for in the counter (because
-    the server's coin balance was updated by the nightly cron, not
-    by the claim endpoint). MOTD will be a new random one.
-    Cosmetic-only loss is "I didn't see the moment happen."
-    Acceptable degradation.
+    the server's coin balance was updated by the seal-on-open
+    transaction, not by the claim endpoint visually). MOTD will
+    be a new random one. Cosmetic-only loss is "I didn't see the
+    moment happen." Acceptable degradation.
 
   - If the app crashes AFTER the claim endpoint fires but before
     the sequence visually completes:
@@ -281,9 +286,10 @@ the most recent day they actually ticked anything on. Everything
 since then is empty and gets no ceremony, no stamp, no message.
 
 THE WALKBACK ALGORITHM:
-  On app open, server (or client cron-sync logic) walks back
-  from today looking for the most recent date where:
-    - days.tasks_done > 0, AND
+  On app open, the seal-on-open transaction walks back from
+  the user's current local date looking for the most recent
+  date where:
+    - days.tasks_done > 0 (or days.rest_day = 1), AND
     - days.stamp IS NULL (not yet ceremoniously sealed)
   That's the date to set as morning_payout_due_for. The morning
   sequence plays for that date.
@@ -492,9 +498,9 @@ WHY THIS IS THE RIGHT MECHANIC FOR THIS FEATURE:
   feel casual and low-stakes.
 
   Real sinks (where significant coins should accumulate to):
-    - Emoji/sticker pack purchases (planned: 1-3x a rest day's
-      cost per pack)
-    - Coin name rerolls (tile 4.18 — keeps doubling-cost
+    - Sticker pack purchases (single ramp 300-600 coin per pack
+      per monetisation v2.0 session 7 update)
+    - Coin name rerolls (post-v1.0 — keeps doubling-cost
       mechanic because identity rerolls should escalate)
     - Rest days (tile 4.8 — pre-paid cost when designated)
 
@@ -504,7 +510,7 @@ WHY THIS IS THE RIGHT MECHANIC FOR THIS FEATURE:
   it punitive.
 
 DOUBLING-COST STAYS WHERE IT FITS:
-  Coin name reroll (tile 4.18) keeps the doubling-cost mechanic.
+  Coin name reroll (post-v1.0) keeps the doubling-cost mechanic.
   Why: coin name is a persistent identity element. Escalating
   cost is the right friction because each reroll changes
   something the user lives with for a while. Forces deliberation,
@@ -543,41 +549,59 @@ TILE 4.5 DESCRIPTION CHANGE:
 CLAIM ENDPOINT ARCHITECTURE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Already partially specced in four_tasks_write_rules_design_notes.md
-"Deferred / parked items" and in todo ACTIVE-tier item "Morning-
-payout claim endpoint design." This doc consolidates the
-requirements.
+Specced in four_tasks_write_rules_design_notes.md "Deferred /
+parked items" section. This doc consolidates the requirements.
 
 ENDPOINT:
   POST /pair/:key/users/:target/claim_morning
   Empty request body. Server knows what's pending from the
   morning_payout_due_for column.
 
+INTEGRATED WITH SEAL-ON-OPEN:
+  Per the timezone doc, sealing of yesterday happens during the
+  claim endpoint transaction itself (NOT via a nightly cron).
+  The claim endpoint:
+    1. Reads user's local_date from the request envelope (sent
+       on every write per the timezone doc).
+    2. If local_date has advanced past the most recent sealed
+       day, performs seal-on-open: marks intervening days as
+       sealed, computes streak, sets morning_payout_due_for
+       for the latest ticked day if any.
+    3. Then proceeds with claim logic against the pending
+       payout.
+  Tile 1.4 (formerly "nightly cron") is REFRAMED as part of the
+  claim endpoint's transaction surface.
+
 ATOMICITY:
   Single D1 transaction. Server:
-    1. Reads users.morning_payout_due_for for the target user.
+    1. Seal-on-open prelude (per timezone doc).
+    2. Reads users.morning_payout_due_for for the target user.
        If NULL, return 404 (nothing to claim — defensive against
        double-claim races).
-    2. Reads days.tasks_done for (pair, target, that date).
-    3. Computes stamp tier from tasks_done count (or detects
+    3. Reads days.tasks_done for (pair, target, that date).
+    4. Computes stamp tier from tasks_done count (or detects
        rest day from days.rest_day field).
-    4. Picks random message from the appropriate tier pool
+    5. Picks random message from the appropriate tier pool
        (server-held content; not on client).
-    5. Writes days.stamp = tier_colour.
-    6. Writes days.diary if MOTD has been rerolled (the new
+    6. Writes days.stamp = tier_colour.
+    7. Captures days.day_theme_state JSON snapshot from the
+       user's active_leader + active_theme + active_stickers
+       at this moment. Immutable past — this snapshot drives
+       the historical theme renderer per monetisation v2.0.
+    8. Writes days.diary if MOTD has been rerolled (the new
        MOTD text from the spinner). Note: this may interact
        with how diary writes are tracked — the MOTD that lands
        at end of morning sequence becomes the *new* day's
        MOTD, not yesterday's. May need a separate "today's
        MOTD" field on users or on days for today's row. To be
        designed during tile 4.6 implementation.
-    7. Pays out coins: tasks_done count × per-task coin amount,
+    9. Pays out coins: tasks_done count × per-task coin amount,
        multiplied by current streak multiplier if any. Updates
        users.coins.
-    8. Updates users.streak (increment if four-of-four, hold if
+   10. Updates users.streak (increment if four-of-four, hold if
        rest day, reset if less than four).
-    9. Clears users.morning_payout_due_for (sets to NULL).
-   10. Commits transaction.
+   11. Clears users.morning_payout_due_for (sets to NULL).
+   12. Commits transaction.
 
 RESPONSE BODY:
   Returns the full state the client needs to play the sequence
@@ -673,7 +697,7 @@ MIGRATION WINDOW PROPERTY
 
 The morning sequence's user-locked-out window has been called
 "the natural migration window" in earlier design docs (notably
-four_tasks_pair_key_v2_design_notes.md). This doc constrains
+four_tasks_pair_key_design_notes.md). This doc constrains
 that claim with real numbers.
 
 PROPERTY: during the morning sequence, the user has no
@@ -729,8 +753,9 @@ Implementation:
 Data layer:
   - 1.3 (Worker defensive write rules) — already-locked design
     covers the claim endpoint's write rules.
-  - 1.4 (nightly cron) — sets morning_payout_due_for when
-    sealing days.
+  - 1.4 (lazy seal-on-open, REFRAMED) — sealing happens during
+    the claim endpoint transaction, not via a nightly cron.
+    See timezone doc for full architecture.
   - Future: claim endpoint implementation tile (post-1.3).
 
 Partner-side:
@@ -772,14 +797,17 @@ Decisions deferred to tile 4.6 implementation:
 RELATED DOCS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  - four_tasks_pair_key_v2_design_notes.md
+  - four_tasks_pair_key_design_notes.md
     Identity model. The "morning sequence is the natural
     migration window" property is constrained here.
 
   - four_tasks_write_rules_design_notes.md
-    Claim endpoint defensive write rules. The morning-payout
-    claim endpoint is sketched in that doc's "Deferred /
-    parked items" section.
+    Claim endpoint defensive write rules. Schema deltas for
+    migrations 003 + 004 + 005 bundled here.
+
+  - four_tasks_timezone_and_sealing_design_notes.md
+    Seal-on-open architecture. The claim endpoint and seal logic
+    share the same transaction surface.
 
   - four_tasks_partner_reactions_design_notes.md
     Q7's surfacing model supersedes "Surfacing reactions to
@@ -789,8 +817,9 @@ RELATED DOCS
     Partner reactions reveal at day 4 lives in that schedule.
 
   - four_tasks_theme_design_notes.md
-    Q1: the MOTD emoji slot reads from the same Lever 1 pool
-    as day-cell completion stickers.
+    Q1: the MOTD emoji slot reads from the user's
+    active_stickers pool. MOTD font is locked global per the
+    session 7 rewrite.
 
   - four_tasks_coin_name_design_notes.md
     Q8's contrast: coin name reroll keeps doubling cost
