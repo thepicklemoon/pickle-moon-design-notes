@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Todo
 ========================
-Last updated: May 2026 (session 6, partial)
+Last updated: May 2026 (session 6, end)
 
 This list is driven by the roadmap (`four_tasks_godot_roadmap.md`). All tiles
 from the roadmap are seeded below as `[ ]` items, organised by phase. Tick
@@ -369,12 +369,22 @@ PHASE 1 — Backend + foundations
     state preconditions, rejection codes (400/404/409), migration
     transaction shape, hash-collision handling, client-side
     defensive write requirements.
-    SCHEMA DELTA captured: migration_003_morning_payout.sql adds
-    users.morning_payout_due_for (nullable TEXT). Apply alongside
-    this tile's implementation.
+    SCHEMA DELTA captured (UPDATED session 6 part 2):
+      - migration_003_morning_payout.sql adds
+        users.morning_payout_due_for (nullable TEXT).
+      - migration_004_user_timezone.sql adds users.timezone TEXT
+        NOT NULL DEFAULT 'UTC' (from session 6 part 1 timezone
+        doc).
+      - migration_005_day_theme_state.sql adds days.day_leader
+        TEXT and days.day_palette TEXT (from session 6 part 2
+        monetisation v2.0 doc — historical theme preservation
+        for the immutable-past mechanic). Written at day-seal
+        time, never modified after.
+      Migrations are commutative — apply 003, 004, 005 in any
+      order. They touch different columns.
     IMPLEMENTATION SCOPE for the future session:
       1. Write the three endpoints against the design doc spec
-      2. Apply migration_003 to local + remote D1
+      2. Apply migrations 003, 004, 005 to local + remote D1
       3. Curl-verify every rejection path on every endpoint
       4. Write /server/README.md curl-test documentation
     Re-uses already-extracted helpers: ok() / err() / jsonResponse()
@@ -393,9 +403,31 @@ PHASE 1 — Backend + foundations
       6. Write in a transaction
     See the design doc for the full per-endpoint rule tables.
 
-[ ] 1.4 [CODE] Worker scheduled cron — nightly sweep.
-    Replaces doNightlySweep. Walks all pairs at midnight (UTC or per-pair
-    timezone, decision pending), seals yesterday's diary entries.
+[ ] 1.4 [CODE] Lazy seal-on-open (REFRAMED session 6).
+    Reframed from "Worker scheduled cron — nightly sweep" to
+    seal-on-open. No Worker cron triggers. The Worker only runs on
+    incoming HTTP requests.
+    Sealing logic lives inside the claim endpoint transaction (tile
+    1.3 territory). When a user opens the app and the claim endpoint
+    fires, any unsealed days <= the user's reported local_date - 1
+    get sealed in the same transaction. User offline for N days =
+    N row updates in the gap-walk loop, bounded.
+    SCHEMA DELTA: migration_004_user_timezone.sql adds users.timezone
+    TEXT NOT NULL DEFAULT 'UTC'. Apply alongside or after
+    migration_003 — they touch different columns, order doesn't
+    matter.
+    SERVER VALIDATION: each write that depends on "what day is it"
+    sends local_date in the payload. Server validates local_date is
+    plausible against stored tz (±4hr window). Reject as 400
+    "invalid_local_date" if not.
+    DATE LIBRARY: Luxon recommended — handles IANA names natively,
+    runs in Cloudflare Workers' modern V8, handles DST transitions
+    correctly. Don't roll your own.
+    Tile is kept on the list as a separate line item even though
+    seal logic lives inside tile 1.3's claim endpoint, because the
+    seal logic is conceptually distinct and worth its own commit +
+    curl-verification pass.
+    Reference: four_tasks_timezone_and_sealing_design_notes.md.
 
 [ ] 1.5 [CODE] Godot Backend autoload.
     Implements interface from port plan section 4.3. Talks to Worker.
@@ -446,39 +478,87 @@ partner's data, reboot back to onboarding. Looks bad but bones are there.
 PHASE 3 — Onboarding + identity flow
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] 3.1 [CODE] Onboarding scene state machine. Empty steps, navigable.
-[ ] 3.2 [CODE] Welcome step. Frog (placeholder), heading, three body
-    paragraphs. Button armed for 4s.
-[ ] 3.3 [CODE] Name + partner name steps. Three-step name flow.
-    NOTE: name is immutable per v2 identity model. Onboarding copy
-    must enforce this with a "spell carefully" prompt and confirmation
-    step. See four_tasks_pair_key_v2_design_notes.md.
-[ ] 3.3a [CODE] Username step. Mutable display name, can be changed
-    later. Distinct from name (which is the recovery credential).
-[ ] 3.4 [CODE] Pair-key resolve + collision/recovery popup. NameTakenPopup
-    with two paths (use different name / recover existing).
-    NOTE: recovery path needs UI for typing all six values (own three +
-    partner's three). Partner-app-mediated recovery flow.
-    NOTE: collision popup copy can lean on the universally-familiar
-    "username taken" pattern — users have seen this hundreds of times
-    in other apps and don't need extra explanation. Real-world
-    collision rate will be near-zero anyway.
-    NOTE: include masked-hint recovery aid (e.g. user fails 2 attempts,
-    server returns "closest match" hint like `M***** r***` for the
-    name field). See pair_key_v2 design notes "Masked-hint recovery
-    aid" for open design questions to resolve when this tile lands.
-[ ] 3.5 [CODE] Task setup step. Four input fields, placeholders rolled
-    from EXAMPLE_TASKS pool of 24.
-[ ] 3.6 [CODE] Slot intro + diary popup steps.
-[ ] 3.7 [CODE] Sticker pick step + examples + farewell. Placeholder
-    sticker icons (real art in Phase 4). Two example slides.
-    NOTE: this initial pick is the sticker-as-part-of-pair-key (migrates
-    if changed later). The picked sticker fills both calendar_leader
-    AND palette_source initially (most users want one sticker doing
-    both; advanced users decouple later via tile 4.14b context menu).
-    See pair_key_v2 design notes and theme design notes.
-[ ] 3.8 [CODE] Wire onboarding to State + Backend. tutorial_done: true.
-    Route to App scene.
+[ ] 3.1 [CODE] Onboarding scene state machine + entry routing.
+    Empty screens, navigable. Routes between three entry paths:
+    fresh install (screens 1-12), invite link install (A1-A7),
+    recovery (branches to tile 3.6). Reads URL parameters at boot
+    for invite link detection.
+    Reference: four_tasks_onboarding_design_notes.md.
+[ ] 3.2 [CODE] Welcome screen + recovery branch entry.
+    Frog (placeholder), heading, three body paragraphs, button
+    armed for 4s. Below CTA: "Joining an existing pair? Recover
+    here" text link → routes to recovery flow at tile 3.6.
+[ ] 3.3 [CODE] Own name step + immutable confirmation modal.
+    Single text input, inline immutability copy. After continue,
+    confirmation modal shows entered value in large type with
+    "Is this how your partner knows you?" prompt. Locks immutable
+    on confirm.
+    NOTE: name is immutable per v2 identity model. Locks for
+    BOTH primary and invite-link paths.
+[ ] 3.3a [CODE] Own username step. Mutable, no confirmation modal.
+[ ] 3.4 [CODE] Own sticker step. Reduced picker grid showing ONLY
+    TIER 1 stickers (full theme art sets). Background previews
+    chosen theme in real time. Silent effects: calendar_leader +
+    palette_source + active_stickers pool default all set from
+    this single choice.
+    NOTE: no themed-marker badges in this reduced picker — every
+    option is themed, badge would be meaningless.
+[ ] 3.4a [CODE] "Do you have your partner with you?" fork screen.
+    Two CTAs: [Yes, they're here] → proceeds to tile 3.5.
+    [Not yet — I'll invite them later] → proceeds to tile 3.5a.
+    SKIPPED entirely when arriving via invite link path (link
+    carries partner identity, no fork needed).
+[ ] 3.5 [CODE] Partner name + confirmation + username steps.
+    Mirrors tile 3.3 + 3.3a structure for partner. Confirmation
+    modal on partner name (immutable).
+[ ] 3.5a [CODE] Solo confirm screen. One screen explaining solo
+    mode. Server creates solo pair-key (`solo:<uuid>`) on
+    continue. No partner row in users table.
+[ ] 3.6 [CODE] Server resolve + collision/recovery popup +
+    join endpoints.
+    Three server endpoints: /resolve (existing, paired flow),
+    /join_by_link (new, A's solo UUID + B's three values),
+    /join_by_values (new, manual fallback, may return
+    ambiguous_match).
+    NameTakenPopup with two paths (use different name / recover
+    existing). Ambiguous-match popup directs to "use the invite
+    link instead." Recovery path UI for typing all six values
+    (own three + partner's three).
+    NOTE: collision popup copy leans on the universally-familiar
+    "username taken" pattern.
+    NOTE: include masked-hint recovery aid (user fails 2 attempts,
+    server returns "closest match" hint like `M***** r***`). See
+    pair_key_v2 design notes "Masked-hint recovery aid" for open
+    design questions.
+    Reference: four_tasks_onboarding_design_notes.md "Server -
+    Join endpoints" section.
+[ ] 3.7 [CODE] Four tasks input with placeholder pool.
+    Four text inputs, vertically stacked. Placeholders rolled
+    from EXAMPLE_TASKS pool — needs curation tile for ~50
+    examples.
+[ ] 3.8 [CODE] Calendar tour overlay + wire to State + Backend.
+    Single dismissable overlay with 3-4 arrow annotations on key
+    UI elements (today, partner panel direction, coins/streak).
+    On dismiss: tutorial_done: true, route to App scene.
+    NOTE: solo mode users see "your partner's space" framing in
+    the tour copy.
+    NOTE: MOTD does NOT fire here — first MOTD waits for tomorrow
+    morning's ceremony per morning sequence design.
+[ ] 3.9 [CODE] Invite link onboarding entry path.
+    Universal link / app link routing into the app with
+    parameters preserved. Screen A1 ("Joining your partner")
+    shows inviter's name/username/icon. After A1, flows through
+    tiles 3.3/3.3a/3.4 (own values + sticker), skips tile 3.4a
+    (fork screen), skips tiles 3.5/3.5a (partner entry — already
+    have them), calls join_by_link endpoint, continues through
+    tiles 3.7/3.8.
+    DEFER: iOS install-referrer SDK decision (Branch.io etc.) to
+    Phase 5 — iOS users without app installed lose link params
+    across App Store roundtrip and fall back to manual path.
+
+DROPPED: old tile 3.6 (slot intro + diary popup). MOTD removed from
+onboarding entirely — first MOTD ceremony lives in the morning
+sequence per session 5 + session 6 design locks.
 
 PHASE 3 GATE: Install fresh build on Pixel, walk through onboarding from
 welcome to farewell, end up in App scene with pair in database. Still
@@ -558,19 +638,13 @@ section at top of this file.
 [ ] 4.7 [CODE] Stamp slap animation. Scale + rotation tween with overshoot.
     Stamp colour matches tier: red (1 task), orange (2), yellow (3),
     green (4), purple (rest day). Each tier has its own message pool
-    drawn during the morning sequence.
-    FULL STRUCTURAL DESIGN: four_tasks_stamp_tier_design_notes.md
-    (session 6). Locked: server-side TypeScript constants for pool
-    storage, simple random pick, no anti-repeat tracking, pool size
-    targets (red/orange/yellow 5-10 each, green 40+, purple 20),
-    tone targets per tier as authoring guidance, streak-aware
-    stamping explicitly deferred. Stub pools (1-2 placeholders per
-    tier) allow this tile to ship before real content authoring.
-    Content authoring against the locked structure is a separate
-    later task — see stamp tier doc "Tone targets" for the
-    authoring spec.
-    See also four_tasks_morning_sequence_design_notes.md "Rest day
-    variant (Q6)" and "Beat-by-beat (Q1)" for animation context.
+    drawn during the morning sequence — content authoring for these
+    pools lands with this tile or tile 4.6. Estimated 10-20 messages
+    per tier, tone matched: woops/uh-oh for red, affirmation for
+    purple, celebration for green.
+    See four_tasks_morning_sequence_design_notes.md "Rest day
+    variant (Q6)" and "Beat-by-beat (Q1)" sections for full content
+    requirements.
 [ ] 4.8 [CODE] Rest day system. Long-press future cell, confirm, refund.
     The rest day plays the SAME morning sequence as a worked day —
     one parameterised animation, content swaps for the rest variant.
@@ -593,30 +667,19 @@ section at top of this file.
     treats them as their own thing, not pair-attached data. See
     pair_key_v2 design notes "Bug reports — out-of-band lifecycle".
 [ ] 4.13a [CODE] Leaderboard endpoint — GET /leaderboard.
-    Moved from tile 1.2 in session 3. Design closed session 6 —
-    see four_tasks_leaderboard_design_notes.md for the locked
-    spec. Endpoint shape sketched (GET /leaderboard?around=<pair_key>&self=<name>
-    for centred-on-self view; GET /leaderboard?top=20 for top-of-
-    board view). One leaderboard ranked by users.lifetime_coins,
-    current streak as a secondary number per row. Schema delta
-    is migration_004_lifetime_coins.sql (separate ACTIVE-tier
-    item below). Coin names censored via tile 4.17 censorship
-    layer before return. Rate limit tier choice (paired tier,
-    likely shared with GET /pair budget or 10-15/min standalone)
-    needs ~30min future pass before implementation. The "ship
-    no leaderboard at all" option remains live — final decision
-    deferred to tile-adjacent time.
-[ ] 4.13 [CODE] Leaderboard UI — popup, opt-out flow.
-    Long-press the coin display in util bar to open. Popup centred
-    on self, ten rows above and below visible. Each row shows coin
-    name + lifetime_coins (primary rank) + current streak
-    (secondary number). Top-of-board reachable by scroll.
-    Empty/opted-out state design TBD per leaderboard doc deferred
-    items. Reveal threshold (gating new users from seeing the
-    surface until they're competitive) ties to staggered
-    disclosure schedule. Depends on tile 4.13a + migration_004.
-    See four_tasks_leaderboard_design_notes.md for the locked
-    structural design + deferred-items list.
+    Moved from tile 1.2 in session 3. The endpoint was originally
+    bundled into the read-endpoints group but couldn't ship there:
+    its shape (which metric? top N? filter? opt-out flag?) and its
+    interactions with the coin-name censorship layer (tile 4.17)
+    aren't specced yet. Needs a focused design conversation before
+    code, then a small implementation tile. Sits next to 4.13
+    because they ship as a pair (UI + endpoint). Schema impact
+    likely small: maybe one opt-out flag on users, decided at design
+    time.
+[ ] 4.13 [CODE] Leaderboard UI — popup, top 10, opt-out flow.
+    Client-side popup, render top-10 list, opt-out toggle wired
+    through to server. Depends on tile 4.13a (the endpoint) landing
+    first.
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY.
     Picker grid renders all stickers from res://assets/stickers/<id>/
     folders. Tap toggles a sticker in/out of the active pool (Lever 1
@@ -644,17 +707,29 @@ section at top of this file.
     Folder-per-sticker structure under res://assets/stickers/<id>/.
     Each sticker ships sticker.png + palette.tres minimum, plus
     optional theme art files (cell_unmarked, grid_tile, flourish_name,
-    etc.) for tier-1/2 stickers.
+    background, etc.) for tier-1/2 stickers, plus optional
+    effects.tres / effects.gd for tier-0 (animated/premium) stickers.
     All art painted in canonical reference palette per
     four_tasks_theme_design_notes.md. Retinted at render time
     against active palette source.
-    Launch catalogue: small set of tier-1 showpieces + a larger
-    set of tier-3 palette-only stickers. Final count TBD by
+    STICKER CANVAS LOCKED (session 6 part 2): 32 × 32 RGBA,
+    transparent background, indexed mode recommended for retint
+    option C compatibility. Effective art area ~26×26 inside with
+    margin for rotation wobble. Source .aseprite files in
+    source_assets/stickers/<name>/ (gitignored); exports go to
+    assets/stickers/<name>/sticker.png at implementation time.
+    Aseprite work can begin pre-Phase-4 — Morgan plans to start
+    painting at FIFO shifts.
+    Pack ideas brainstormed in four_tasks_sticker_pack_brainstorm.md.
+    Tier targets: TIER 0 (animated) post-launch / paid-tier
+    content. TIER 1 (full theme) at launch as showpieces. TIER 2
+    (partial theme) and TIER 3 (palette only) as catalogue
+    grows.
+    Launch catalogue: small set of TIER 1 showpieces + a larger
+    set of TIER 3 palette-only stickers. Final count TBD by
     painting budget — the 86 figure from the web build was an
     artefact of free emoji, not realistic for hand-painted work.
-    Plan in batches over multiple sessions. Dimensions locked
-    ahead of first paint (see theme implementation prep item
-    in ACTIVE).
+    Plan in batches over multiple sessions.
 [ ] 4.E [ART] UI chrome. Buttons, popup borders, panel dividers, util bar.
     Painted in reference palette for those surfaces that participate
     in the theme system (most). Sacred-semantic surfaces (error red,
@@ -1010,29 +1085,37 @@ ACTIVE — ad-hoc items found during the port
     entries land as new marketing thoughts arrive. Will never be
     "done"; just kept current.
 
-[ ] Theme system implementation prep — dimensions + retint pass.
-    Surfaced session 5 with the theme design doc. Resolves the
-    open items in four_tasks_theme_design_notes.md before tile
-    4.14b can land. Specifically:
-      - Source art resolution (paint at 2x/4x, export at 1x?)
-      - Calendar cell sticker size
-      - Picker grid sticker size
-      - Unmarked-cell variant size
+[ ] Theme system implementation prep — remaining dimensions + retint pass.
+    Surfaced session 5 with the theme design doc. PARTIALLY resolved
+    session 6 part 2: STICKER CANVAS LOCKED at 32×32 RGBA (the
+    blocker for tile 4.D first paint). Aseprite work can begin.
+    REMAINING open items in four_tasks_theme_design_notes.md before
+    tile 4.14b can land:
+      - Calendar cell sticker render size in Godot pixels
+        (intent: ~100px target, lock when day cell scene lands)
+      - Picker grid sticker render size in Godot pixels
+        (intent: ~200px target)
+      - Unmarked-cell variant source size
       - Grid tile size
+      - Background.png slot dimensions (full-grid layer, new
+        from session 6 part 2 — frog "swamp overlaps day tiles"
+        idea)
       - Name flourish bounding box
-      - Safe-area / padding rules
+      - Safe-area / padding rules within 32×32 sticker export
       - Retint mechanism choice (shader / pre-bake / indexed PNG)
       - Reference palette exact RGB values
       - Default theme art set design
-      - Themed-sticker marker visual style
+      - Themed-sticker marker visual style (TIER 1+)
+      - TIER 0 picker indicator (stronger than TIER 1+ marker)
       - Context-menu visual design
       - Schema split (icon → calendar_leader + palette_source)
         and pair-key tuple participation
+      - TIER 0 effects.tres schema and effects coordinator design
+      - Locked vs unlocked rendering in picker for free vs paid
+        users (TIER 0 specifically)
     Belongs in a focused design conversation with Aseprite open
     so dimension claims can be tested as they're made. Blocks
-    first sticker paint and tile 4.14b. Does NOT block writing
-    marketing notes or working on art tiles unrelated to stickers
-    (4.A coin, 4.B frog mascot, 4.C stamps).
+    tile 4.14b. Does NOT block tile 4.D first paint anymore.
 
 [ ] APPtrioc backend prep — focused design pass before Phase 5b.
     Surfaced session 5 once the fork architecture was locked.
@@ -1113,25 +1196,21 @@ ACTIVE — ad-hoc items found during the port
     README.md (when written in tile 1.3) should follow these
     conventions in its examples.
 
-[~] Rate limiting design — DESIGN CLOSED session 6.
-    Surfaced session 4, parked through session 5, designed in full
-    on a nightshift mobile session. See
-    four_tasks_rate_limiting_design_notes.md for the locked spec.
-    Summary: two tiers (pair-keyed for /pair/:key/*, IP-keyed for
-    /resolve), per-endpoint limits derived from (peak × 1.2) for
-    pair-keyed and (peak × 2 × 1.2) for IP-keyed. Edge-not-Worker
-    via Cloudflare rules. 429 allowed as exception to status code
-    list, narrow scope (edge only).
-    Per-endpoint numbers locked:
-      GET /pair/:key                   40/min  (pair-keyed)
-      PUT day / PUT user / bug_report  15/min  (pair-keyed, shared)
-      POST /resolve                    10/min  (IP-keyed)
-      GET /health                      unlimited
-    Implementation = Cloudflare dashboard config (no Worker code
-    changes). Slated for the next home-office session as the first
-    item; 30-60 minutes expected. Applies to APPtrioc Worker too
-    (separate config, same principles, numbers re-derived from
-    APPtrioc's threat model when Phase 5b lands).
+[ ] Rate limiting design — Cloudflare layer, generous limits.
+    Surfaced session 4. The bug_report and migration-triggering
+    write endpoints both raised spam/abuse concerns during tile 1.3
+    design. Right layer for this is Cloudflare's rate limiting
+    (Workers Rate Limiting API or per-IP at the platform edge),
+    NOT per-endpoint existence checks or per-write counters.
+    Generous limits — real users hitting catastrophic bugs may
+    legitimately file three reports in five minutes; real users
+    adjusting username may try a few combinations before settling.
+    Limits should protect against floods, not annoy real usage.
+    Applies to all write endpoints once they exist. Belongs in
+    its own short design conversation after tile 1.3 implementation
+    lands and a few more endpoints exist to protect collectively.
+    NOT blocking tile 1.3 implementation. Applies to APPtrioc
+    Worker too (separate config but same principles).
 
 [~] Morning-payout claim endpoint design — DESIGN CLOSED session 5.
     Surfaced session 4, designed in full session 5 as part of the
@@ -1156,29 +1235,24 @@ ACTIVE — ad-hoc items found during the port
     column). Implementation lands as part of tile 1.3 work or
     immediately after.
 
-[ ] Schema migration_003 application.
-    Captured in four_tasks_write_rules_design_notes.md.
+[ ] Schema migrations 003 + 004 + 005 application.
+    THREE migrations land alongside tile 1.3 implementation.
+    All commutative; apply in any order.
     Migration content:
-      ALTER TABLE users ADD COLUMN morning_payout_due_for TEXT;
-    Apply alongside tile 1.3 implementation (the column is consumed
-    by the write rules but the rules don't write to it themselves;
-    nightly cron tile 1.4 and the morning-payout claim endpoint do).
+      003: ALTER TABLE users ADD COLUMN morning_payout_due_for TEXT;
+           (from write rules doc — consumed by morning sequence
+            claim endpoint)
+      004: ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL
+           DEFAULT 'UTC';
+           (from session 6 part 1 timezone doc — read by
+            seal-on-open and claim endpoint)
+      005: ALTER TABLE days ADD COLUMN day_leader TEXT;
+           ALTER TABLE days ADD COLUMN day_palette TEXT;
+           (from session 6 part 2 monetisation v2.0 — written at
+            day-seal time for immutable-past historical theme
+            preservation)
     Apply to local AND remote D1, in that order, with verification
     between.
-
-[ ] Schema migration_004 application.
-    Captured in four_tasks_leaderboard_design_notes.md.
-    Migration content:
-      ALTER TABLE users ADD COLUMN lifetime_coins INTEGER NOT NULL DEFAULT 0;
-    Monotonic accumulator — set to 0 at user creation, incremented
-    by the same delta as users.coins on every payout, never
-    decremented. The morning-payout claim endpoint will write both
-    users.coins and users.lifetime_coins with the same delta.
-    Has uses beyond the leaderboard (yearly keepsake totals,
-    future achievements), so apply even if the leaderboard ship
-    decision goes to "no leaderboard." Apply to local AND remote
-    D1 alongside or after migration_003. Order doesn't matter
-    between the two — independent ALTERs on the same table.
 
 [ ] Phase 3 onboarding — additional length caps to enforce.
     Surfaced session 4 during PUT user validation rule lock.
@@ -1246,6 +1320,89 @@ PARKED — known, not blocking
     fresh-clone setup sequence so this doesn't bite future-Morgan
     on a new machine.
 
+[ ] Coin economy balance pass (Phase 4 work).
+    Surfaced session 6 part 2 with monetisation v2.0. All numbers
+    in four_tasks_monetisation_position.md "Coin economy tuning"
+    section are PLACEHOLDERS pending a balance pass against actual
+    prototype play feel. Specifically:
+      - Base daily payout amount.
+      - Partner completion 1.5x multiplier behaviour (already
+        proto-tested but worth re-confirming).
+      - Subscription coin bonus rate (target +15-20% per active
+        sub in pair, stacks).
+      - Rest day cost per tier:
+          free pair perfect play → ~7 days savings per rest
+          one-sub pair perfect play → ~6 days
+          two-sub pair perfect play → ~5 days
+      - Pack cost curve (first free, ramps 300→400→500→600 cap
+        for TIER 1-3; TIER 0 separate curve from ~1500).
+      - Streak multiplier interaction with all of the above.
+    Balance pass needs morning sequence + coin payout + pack
+    purchase all wired up. Belongs after tile 4.6 (morning
+    sequence) and the basic pack picker land. Plan in a dedicated
+    sub-session with maths spreadsheet open.
+    Locked principles for the balance pass to respect:
+      - "One week of subscription cannot buy entire launch
+        catalogue" (anti sub-and-bail).
+      - Free pair still gets rest days regularly (~4/month
+        perfect play).
+      - Subscription is "tip not class divide" — bonus felt but
+        not overwhelming.
+      - Per-sticker stacking earn bonuses are NON-GOAL (rejected
+        session 6 part 2).
+
+[ ] Subscription infrastructure plumbing — Phase 5 prep.
+    Surfaced session 6 part 2 with monetisation v2.0. Lands in
+    Phase 5 alongside store submission. Components:
+      - RevenueCat SDK integration (Godot — community plugin or
+        custom wrapper if no plugin exists for Godot 4.x).
+      - Server endpoint for RevenueCat webhook (subscription
+        state change notifications → server updates users.
+        subscription_active).
+      - users.subscription_active boolean column — server-set,
+        never client-set.
+      - Library access entitlement check — server-side function
+        callable from any endpoint that needs to know "should
+        this user see partner's library."
+      - Coin bonus application in morning sequence claim
+        endpoint — reads both users' subscription_active, sums
+        stacking bonus into payout.
+      - Lapse notification flow — client detects subscription
+        state transition (subscribed → lapsed), shows the honest
+        "subscription ended, themes reverted" notification.
+      - Paywall UI (after trial / for solo users / via day-21
+        staggered disclosure reveal).
+    NOT v1.0 launch-critical pre-Phase-5, but architecture must
+    be ready when Phase 5 begins. The schema column
+    (subscription_active) can land alongside the schema work for
+    tile 1.3 as migration_006, OR wait for Phase 5. Decide at
+    Phase 5 entry.
+
+[ ] Founders cutoff date locks.
+    TWO dates need sharp definition before Phase 5 ships:
+      - Founders FLAG cutoff (prototype-era free-for-life users):
+        Probably "first deployment to TestFlight / internal Play
+        track." Hardcoded user list, ~20-30 people.
+      - Founders RATE expiry (launch-cohort permanent reduced
+        rate): Probably "31 December of year 2." Launch users
+        eligible during launch window (first 6-12 months).
+    Both decisions are Phase 5 timing concerns. Captured here so
+    they don't fall off when Phase 5 work starts. See
+    four_tasks_monetisation_position.md "Open questions" for
+    candidate options on each.
+
+[ ] Day-21 subscription disclosure reveal copy.
+    Surfaced session 6 part 2. The staggered disclosure schedule
+    has subscription as a day-21 reveal. Under monetisation v2.0,
+    this reveal must be a VALUE SUMMARY against the user's actual
+    play history, NOT a trial-end nag. Examples of what it could
+    surface:
+      - Coins earned to date.
+      - Packs owned vs catalogue size.
+      - Days played, longest streak.
+      - "Subscribe to access [partner]'s library and grind faster."
+    Copy authoring job, lands in Phase 5 alongside paywall UI.
+
 (empty otherwise — items added as they come up during the port)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1254,8 +1411,6 @@ DEFERRED — v1.x or later
 
 [ ] Push notifications (port plan 5.29).
 [ ] Audio (port plan 5.30 — recommend silent v1, audio v1.1).
-[ ] Paid premium features (extra sticker packs, palette tiers, custom
-    stamps).
 [ ] Onboarding tutorial overlays + coins tutorial (port plan 5.26 —
     dead code in web, no port needed).
 
@@ -1269,6 +1424,14 @@ surface" — REMOVED from DEFERRED. The session 5 theme design doc
 makes this the v1 state for Four Tasks proper (tile 4.14b ships
 the full plumbing). The previous deferred framing belonged to a
 prior, smaller theme system that's been superseded.
+
+Note on "Paid premium features (extra sticker packs, palette tiers,
+custom stamps)" — REMOVED from DEFERRED. Superseded by monetisation
+v2.0 (session 6 part 2). The new model has no IAP packs — all packs
+are bought with coins by all users. Subscription unlocks bilateral
+library access + small coin bonus. The "premium" concept is now
+TIER 0 (animated packs, post-launch content arc) and lives in the
+theme design doc, not as a deferred monetisation item.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COMPLETED — historical record (chronological by completion)
@@ -1413,70 +1576,3 @@ roster. No implementation; pure design work captured in three
 substantive docs (theme, marketing, morning sequence).
 
 Running project total: ~32.25h.
-
-INTER-SESSION ADMIN (13 May 2026) — Mobile workflow setup.    ~1.5h
-                          Repo made public, GitSync on Android,
-                          repo index doc created, Project files
-                          trimmed to three. First mobile design
-                          conversation enabled by this work.
-
-SESSION 6 — Three design closures (mobile, nightshift)
-[~] design closed         Rate limiting design                      ~1.5h
-                          (four_tasks_rate_limiting_design_notes.md).
-                          Two tiers (pair-keyed for paired endpoints,
-                          IP-keyed for /resolve). Per-endpoint
-                          numbers locked: GET /pair 40/min, writes
-                          combined 15/min, /resolve 10/min. Sizing
-                          rule formalised (peak × 1.2 pair-keyed,
-                          peak × 2 × 1.2 IP-keyed). Edge-not-Worker
-                          via Cloudflare rules. 429 allowed as
-                          narrow exception to locked status code
-                          list (edge layer only; Worker still
-                          returns 200/400/404/409/500). Historical
-                          gap flagged: session 2's 429 exclusion
-                          had no preserved reasoning, decision
-                          re-derived against current principles.
-                          Closes the rate limiting ACTIVE-tier item
-                          parked since session 4. Cloudflare config
-                          is next home-office task; no Worker code
-                          changes required.
-[~] design closed         Leaderboard design                        ~1h
-                          (four_tasks_leaderboard_design_notes.md).
-                          Leans toward restraint: one leaderboard,
-                          ranked by users.lifetime_coins (new
-                          monotonic column, migration_004), current
-                          streak as a secondary number per row.
-                          Long-press coin display to open. Schema
-                          delta + endpoint sketch captured.
-                          Rejected alternatives preserved with
-                          reasoning: install-date clustering,
-                          swipeable multi-metric popup, streak-as-
-                          primary rank, no-leaderboard-at-all. The
-                          last remains live as an option if tile
-                          4.13 lands and the design still feels off.
-                          Principle locked from the conversation:
-                          "engineering cost is cheap; user attention
-                          and emotional energy are not." Tiles 4.13
-                          and 4.13a updated to reference the doc.
-[~] design closed         Stamp tier design                         ~30min
-                          (four_tasks_stamp_tier_design_notes.md).
-                          Structural design locked: server-side
-                          TypeScript constants for pool storage,
-                          simple random pick from per-tier pools,
-                          no anti-repeat tracking. Pool size targets
-                          (red/orange/yellow 5-10 each, green 40+,
-                          purple 20), tone targets locked per tier
-                          as authoring guidance. Streak-aware
-                          stamping deferred — backward-compatible
-                          to add later. Stub-pool strategy means
-                          tile 1.3 / 4.6 / 4.7 implementation isn't
-                          blocked on content authoring. Tile 4.7
-                          updated to reference the doc.
-
-Session 6 (partial) total: ~3h on mobile during nightshift, across
-three design conversations. The mobile workflow set up between
-sessions 5 and 6 was decisive — three substantive design closures
-happened entirely via fetched-from-repo docs with zero laptop access.
-The pattern is repeatable and the right move for FIFO away-time.
-
-Running project total: ~36.75h.

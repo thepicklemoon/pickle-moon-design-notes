@@ -1,6 +1,8 @@
 # Four Tasks — Theme & Sticker System Design Notes
 
 Status: FOUNDATION LOCKED (session 5)
+        STICKER CANVAS SIZE LOCKED (session 6 mobile)
+        TIER 0 ANIMATED PACKS ADDED (session 6 mobile)
 Schema: no immediate impact — see "Schema implications" below
 Implementation tiles: 4.14a (basic picker, pre-fork — tap-to-toggle
 pool membership only), 4.14b (post-fork — long-press context menu +
@@ -297,10 +299,19 @@ THEME COVERAGE GRADIENT
 Not every sticker ships with a theme art set. The catalogue is a
 gradient:
 
+  TIER 0 — Animated / interactive theme (PREMIUM).
+    Full theme + behavioural effects tied to touch / animation /
+    ambient motion. Frog pack with water ripples on cell-press,
+    lily pads that bob and drift after tap. Castle bricks that
+    crumble dust when a day cell is pressed. Cooking pack where
+    chilli stickers sizzle slightly on hover.
+    This tier is the candidate paid-subscription unlock — see
+    "Premium tier and monetisation shadow" section below.
+
   TIER 1 — Full theme.
     Sticker + palette + all optional theme files. Setting this as
     leader transforms the calendar comprehensively. These are the
-    "selling point" stickers.
+    "selling point" stickers at launch.
 
   TIER 2 — Partial theme.
     Sticker + palette + some optional theme files (e.g., custom cell
@@ -313,10 +324,16 @@ gradient:
     the avatar slot." Setting as palette source still works fully.
 
 The catalogue at launch will skew TIER 3 with a small set of TIER 1
-stickers as the showpiece. As Morgan paints more themes over time,
-TIER 3 stickers get promoted to TIER 1. The gradient is a sustainable
-content cadence — each new themed sticker is a content drop, a
-reason for users to revisit the picker, a marketing beat.
+stickers as the showpiece. TIER 0 packs are a post-launch content
+arc — at least one TIER 0 pack should be ready around the time
+paid subscription becomes available, but launch can ship without
+any TIER 0 pack at all if needed.
+
+As Morgan paints more themes over time, TIER 3 stickers get promoted
+to TIER 1, and select TIER 1 packs get promoted to TIER 0. The
+gradient is a sustainable content cadence — each new themed sticker
+is a content drop, a reason for users to revisit the picker, a
+marketing beat.
 
 DEFAULT THEME ART SET:
   Stickers without custom theme files use a default set. The default
@@ -330,25 +347,196 @@ DEFAULT THEME ART SET:
   first-paint time.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ASSET DIMENSIONS — DEFERRED TO IMPLEMENTATION SESSION
+TIER 0 — ANIMATED / INTERACTIVE PACKS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-This doc captures the system. Dimensions are an art-tile concern and
-need to be locked before any sticker is painted (re-exporting 30
-stickers at a different size is a tax to avoid). To resolve next
-session:
+TIER 0 packs ship animated and interactive effects on top of the
+TIER 1 art baseline. Two example concepts (frog pack):
 
-  - Source art resolution (paint at 2x or 4x, export at 1x?)
-  - Calendar cell sticker size (the small render on a day cell)
-  - Picker grid sticker size (the larger render in the picker)
-  - Unmarked-cell variant size (replaces the full day cell)
-  - Grid tile size (the background of the calendar grid)
-  - Name flourish bounding box
-  - Safe-area / padding rules within each export
+  - Touch-ripple on day cell press. Tap any day cell, water
+    ripples outward from the touch point. Persists for ~600ms,
+    fades. Sells the "you're pressing through water" feel.
+  - Lily-pad bob-and-drift. Tap a completed (s4) day showing a
+    lily-pad sticker, the lily pad bobs once and drifts a few
+    pixels before settling. Reinforces the swamp atmosphere.
 
-The 1080×2400 target resolution + Godot's `texture_filter = Nearest`
-pixel-art setting (tile 0.2) constrain the answer space. Decide
-once, document once, paint to spec thereafter.
+Other plausible TIER 0 effects across packs:
+  - Vampire pack: dust motes drift down from castle-brick
+    background. Crumble particle effect on cell press.
+  - Cooking pack: chilli stickers shimmer with heat. Cell press
+    triggers a small sizzle particle.
+  - Wizard pack: cloud-tower background drifts slowly. Tap a
+    sticker, a sparkle trail follows the finger.
+  - Car pack: completed day's car sticker has a tiny exhaust
+    puff on tap.
+
+ARCHITECTURAL IMPLICATIONS:
+
+  1. Behaviour, not just art. TIER 0 packs add code or declarative
+     animation specs alongside their art files. The folder-per-
+     sticker convention extends to allow:
+
+       res://assets/stickers/<id>/
+         sticker.png
+         palette.tres
+         cell_unmarked.png        (TIER 1+)
+         grid_tile.png            (TIER 1+)
+         flourish_name.png        (TIER 1+)
+         background.png           (TIER 1+, full-grid background)
+         effects.tres             (TIER 0 only) — declarative spec
+         effects.gd               (TIER 0 only, optional) — custom code
+
+     `effects.tres` is the preferred path: a declarative Resource
+     describing the pack's effects (ripple shader params, tween
+     curves, particle parameters). A generic effects coordinator
+     reads the .tres and runs the spec. Most TIER 0 effects fit
+     this model.
+
+     `effects.gd` is the escape hatch for effects that don't fit
+     the declarative spec — bespoke behaviour for a single
+     premium pack. Avoid where possible (one custom script per
+     pack is a maintenance tax), but available when an effect is
+     genuinely unique.
+
+  2. Discovery of behaviour follows the same rule as art. File
+     existence is the declaration — if `effects.tres` exists in
+     the sticker folder, the pack has TIER 0 behaviour. No
+     central manifest.
+
+  3. Performance budget. Touch-triggered effects (ripple on
+     press, bob on tap) are cheap — one-shot tweens, fire and
+     forget. Continuous ambient effects (drifting clouds,
+     drifting motes) need a budget rule:
+       - Only the visible viewport runs ambient animation.
+       - Effects pause when the app is backgrounded.
+       - Particle count caps per pack to prevent runaway memory
+         on long sessions.
+     These rules apply globally to all TIER 0 packs; the effects
+     coordinator enforces them.
+
+  4. Reduced-motion accessibility. iOS and Android both expose a
+     "reduce motion" system preference. When set, TIER 0 ambient
+     animation pauses; touch-triggered effects play a simpler
+     fallback (e.g., a static flash instead of a ripple). One-
+     time setup at boot; effects coordinator branches on the
+     flag.
+
+  5. APPtrioc fork interaction. APPtrioc snapshots at tile 4.14a
+     (pre-fork). The TIER 0 system is exclusively a Four Tasks
+     feature — APPtrioc never gets TIER 0 packs. The atrioc-
+     themed sticker that ships with APPtrioc is TIER 1 at most.
+     If a TIER 0 atrioc pack is ever desired post-launch, it
+     would have to be added to Four Tasks proper (the post-fork
+     codebase).
+
+ASSET DIMENSIONS FOR TIER 0:
+  Sticker art still 32×32 (locked session 6). Effects that need
+  additional frames (bob, drift, sizzle) ship as additional PNGs
+  in the sticker folder OR as parameters in effects.tres that
+  modify the base sticker.png via tween. Most effects can use
+  the base sticker.png with tween parameters (translate, rotate,
+  scale) — no additional art required. Frame-by-frame animation
+  is the heavy option, reserved for effects that can't be
+  parametrically expressed (e.g., a wing-flap that's actually
+  pixel-changing motion, not just sticker transform).
+
+PREMIUM TIER AND MONETISATION SHADOW:
+  TIER 0 packs are the natural answer to "what does paid
+  subscription unlock?" The pricing model in
+  four_tasks_monetisation_position.md commits to subscription
+  but doesn't enumerate what's gated. TIER 0 packs are a strong
+  candidate because:
+
+    - The value-add is visible and emotional, not feature-gating.
+      Free users have a full functional app with TIER 1-3 themes.
+      Paid users get the *moments* — the ripple, the drift, the
+      sizzle.
+    - The content cadence is sustainable. Morgan paints + animates
+      a new TIER 0 pack every few months as a subscriber drop.
+    - The free-vs-paid line is legible in the picker grid (TIER 0
+      packs marked with a special indicator — see "Picker UX"
+      section for general themed-sticker marking; TIER 0 gets a
+      stronger version of that marking).
+
+  This isn't locked here — full monetisation answer belongs in
+  four_tasks_monetisation_position.md and needs its own pass at
+  Phase 5. The shadow is captured here so the theme system
+  architecture supports it without retrofit.
+
+  Important nuance: free users still see TIER 0 stickers IN THE
+  PICKER (with a clear "locked" or "premium" indicator) so they
+  understand what subscription buys. Hiding premium content
+  entirely robs free users of the why-pay signal.
+
+OPEN AT TIER 0 IMPLEMENTATION TIME:
+  - Effects.tres schema — exact fields, supported tween/particle/
+    shader parameters.
+  - Generic effects coordinator design — single autoload, signals,
+    lifecycle, viewport-visibility integration.
+  - TIER 0 picker indicator visual style.
+  - "Locked" vs "unlocked" rendering in the picker for free vs paid
+    users — locked TIER 0 stickers should still look enticing, not
+    greyed out.
+  - Preview behaviour for locked TIER 0 — does long-press preview
+    play the effects even for free users (taste test, then upsell)
+    or stay static?
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ASSET DIMENSIONS — STICKER LOCKED (session 6); OTHERS DEFERRED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STICKER.PNG CANVAS — LOCKED:
+
+  32 × 32 pixels, transparent background.
+
+  Reasoning:
+    - 1080×2400 portrait target; 7-column calendar with ~12px padding
+      and 6×6px gaps gives each day cell ~134px of width at native
+      resolution.
+    - Sticker renders at ~75% of cell width (matching prototype
+      proportion), so target on-screen size is ~100px.
+    - 32×32 source → ~100px rendered = clean ~3x integer-ish scale.
+      texture_filter = Nearest (locked tile 0.2) gives crisp pixel
+      blocks at this ratio.
+    - Picker grid render is bigger (probably ~200px in the grid).
+      32×32 at picker render = ~6x scale, still clean, still reads
+      as deliberate pixel art rather than upscaled blob.
+    - 32×32 forces silhouette discipline (which is how pixel art reads
+      at distance) while leaving headroom for character detail (eye
+      placement, single-pixel highlights, small decorative elements
+      like the chilli's stem or the frog's lily-pad context).
+    - 24×24 was considered and rejected: too tight for novice pixel-
+      art workflow, less detail headroom for theme stickers that need
+      to sell at picker render size.
+    - 64×64+ was considered and rejected: at that size each "pixel"
+      is barely visible on the day cell at ~1.5x scale; the pixel-art
+      identity dissolves into "small image that happens to be drawn
+      on a grid."
+
+  Rationale for picking the upper end of pixel-art viability rather
+  than the lower:
+    - Detail headroom for a novice pixel artist. Easier to simplify
+      a 32×32 down to 24×24 later than to add detail going up.
+    - Future "chunkier, more stylised" releases can re-export at 16
+      or 24 from 32 sources; old assets stay forward-compatible.
+    - Picker grid render needs the sticker to *sell* its theme to
+      the user; 32×32 fills the picker cell with confidence at 6x
+      upscale.
+
+DEFERRED TO IMPLEMENTATION SESSION (still open):
+  - Calendar cell sticker render size in actual Godot pixels
+    (intent: ~100px target, lock exact value when day cell scene
+    lands).
+  - Picker grid sticker render size in actual Godot pixels
+    (intent: ~200px target).
+  - Unmarked-cell variant size (replaces the full day cell — likely
+    larger than the sticker, painted at the full cell pixel count).
+  - Grid tile size (the background of the calendar grid).
+  - Name flourish bounding box.
+  - Safe-area / padding rules within the 32×32 sticker export
+    (the sticker is rotated on the day cell per prototype's
+    stickerOffset; some pixels at the corners should be transparent
+    margin to avoid clipping on rotation).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RETINT MECHANISM — DEFERRED TO IMPLEMENTATION SESSION
@@ -386,7 +574,7 @@ size.
 
 Defer to first implementation pass (tile 4.14b). Whichever path is
 picked, the AUTHORING workflow stays the same: paint in reference
-colours, ship as palette-agnostic art + palette.tres.
+colours at 32×32, ship as palette-agnostic art + palette.tres.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SCHEMA IMPLICATIONS
@@ -437,7 +625,9 @@ WHAT THIS DOC LEAVES OPEN
 
 Captured for the implementation session, not now:
 
-  - Asset dimensions (resolution, cell size, picker size, padding).
+  - Asset dimensions for non-sticker theme files (unmarked cell,
+    grid tile, name flourish, background.png). Sticker locked at
+    32×32 session 6.
   - Retint mechanism (shader, pre-bake, or indexed-palette).
   - Reference palette exact values (placeholder #FF0000/#00FF00/#0000FF).
   - Default theme art set design and palette identity.
@@ -450,6 +640,21 @@ Captured for the implementation session, not now:
     participates in the identity hash. Almost certainly calendar_leader
     (the user-facing identity sticker) but needs a dedicated pass
     against the v2 design notes.
+  - TIER 0 effects.tres schema — exact fields, supported tween /
+    particle / shader parameters. Lands when first TIER 0 pack is
+    implemented.
+  - Generic effects coordinator design — single autoload, signals,
+    lifecycle, viewport-visibility integration, reduce-motion branch.
+  - TIER 0 picker indicator visual style (stronger than the standard
+    themed-sticker marker).
+  - Locked vs unlocked rendering in picker for free vs paid users —
+    locked TIER 0 stickers should look enticing, not greyed out.
+  - TIER 0 preview behaviour for free users — does long-press play
+    the effects (taste test) or stay static? Decide with monetisation
+    pass.
+  - Background.png slot — full-grid background layer concept (raised
+    by the frog "swamp overlaps day tiles" idea). Lands when first
+    TIER 1+ pack with full-grid background is implemented.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RELATED DOCS
