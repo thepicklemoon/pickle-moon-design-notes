@@ -175,9 +175,45 @@ THE FINAL MODEL — INTERACTION TABLE
 |                    | that today is templated and    | applies to today (if    |
 |                    | edits here won't apply to      | not sealed) and future  |
 |                    | today                          | instances of weekday    |
-| Week-mode, future  | (Same as today's behaviour     | Same as today's        |
-|                    | when navigated to that day)    | behaviour              |
+| Week-mode, future  | (Same as today's behaviour     | INERT — gesture is not  |
+|                    | when navigated to that day)    | available on navigated  |
+|                    |                                | future days. See        |
+|                    |                                | "Today-only edit rule"  |
+|                    |                                | below.                  |
 | Sealed past day    | Read-only — past is immutable | Inert                  |
+
+TODAY-ONLY EDIT RULE:
+  Long-press-task-label is live ONLY on the day the user is
+  currently viewing as today. Navigating to a future Tuesday and
+  long-pressing a task label does nothing — even if week mode is
+  on for Tuesdays. The gesture remains inert on past sealed
+  Tuesdays for obvious immutability reasons; it ALSO remains
+  inert on future Tuesdays despite them being editable in
+  principle.
+
+  Reasoning:
+    - There is one moment, one place, where template edits
+      happen: today, on the day the user is currently living
+      through. This keeps the edit point unambiguous.
+    - If the gesture were live on a navigated future Tuesday,
+      the user could edit it. The template propagation rule
+      would push that change forward to all subsequent Tuesdays
+      but NOT back to today's Tuesday (today is "past" relative
+      to the edited day). Result: today renders the OLD template,
+      next Tuesday renders the NEW template, and the user has no
+      clear sense of where the cutover happened. Bad UX.
+    - Allowing the gesture on past Tuesdays would suggest
+      historical edits are possible, which is a wrong affordance
+      under the immutable-past principle.
+    - There is no legitimate use case for editing a non-today
+      Tuesday. Future Tuesdays render the template; they don't
+      author it. Past Tuesdays are sealed. The edit always wants
+      to happen today.
+
+  Implementation note: the long-press handler on task labels
+  must check (a) week mode is on for the current weekday AND
+  (b) the day currently being rendered is today's day. Both
+  must be true for the gesture to fire.
 
 CAL-ICON BYPASS BONUS:
   In the prototype, the cal-icon menu has a "completed tasks
@@ -287,9 +323,13 @@ CAL-ICON EDITS (standard four):
   task labels below." Refine at implementation.
 
 LONG-PRESS TASK LABEL EDITS (template):
-  Apply to today's day (if unsealed) and all future instances
-  of the same weekday. Never back-propagate to sealed past
-  days.
+  Available ONLY on today's day view, when week mode is on for
+  today's weekday (see "Today-only edit rule" in the interaction
+  table). Inert on all other day views.
+
+  An edit applies to today's day (if unsealed) and all future
+  instances of the same weekday. Never back-propagates to sealed
+  past days.
 
   If today's tasks are partially ticked when the edit happens,
   only unticked tasks update. Ticked tasks are immutable
