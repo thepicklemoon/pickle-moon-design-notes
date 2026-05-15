@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Devlog
 ==========================
-Last updated: May 2026 (session 7, closed)
+Last updated: May 2026 (session 8, closed)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -18,46 +18,36 @@ and todo (`four_tasks_devlog.txt`, `four_tasks_todo.txt`) are reference docs
 for the port, not active working documents.
 
 Design notes (read whichever is relevant to the tile being worked on):
-  - `four_tasks_pair_key_design_notes.md`           — LOCKED identity
-    model (renamed session 7 from pair_key_v2). Six-value pair-key,
-    partner-app-mediated recovery, migration semantics. active_leader
-    is the migration-triggering identity field (renamed from
-    prototype-era `emoji`/`icon`). (Session 2, terminology refreshed
-    session 7)
+  - `four_tasks_pair_key_identity_design_notes.md`  — v1 identity sketch
+    from session 13. Background only.
+  - `four_tasks_pair_key_v2_design_notes.md`        — LOCKED v2 identity
+    model. Six-value pair-key, partner-app-mediated recovery, migration
+    semantics. Refines v1; supersedes on recovery story. (Session 2)
   - `four_tasks_partner_reactions_design_notes.md`  — LOCKED partner
     reactions design. Schema reserved v1.0; feature ships v1.x. First
     feature with field-level write rules (partner writes other user's
-    row). Surfacing model is time-agnostic visual indicators (session
-    5 update — superseded earlier push-based draft). (Session 2)
+    row). (Session 2)
   - `four_tasks_coin_name_design_notes.md`          — LOCKED coin name
     generator design. Server-side rule-driven affix system that
     transforms username into flavoured coin economy name. Schema
-    reserved v1.0; feature ships v1.x. Doubling-cost reroll contrasts
-    with MOTD reroll flat-cost mechanic (per morning sequence Q8).
-    (Session 2)
+    reserved v1.0; feature ships v1.x. (Session 2)
   - `four_tasks_staggered_disclosure_design_notes.md` — LOCKED meta-
     principle. Features reveal over days/weeks, not at onboarding.
     Schema (tutorial_progress) reserved v1.0; coordinator + reveal
-    content land in Phase 4. Achievements brainstorm is an explicit
-    counter-example (no scheduled reveal). (Session 2)
+    content land in Phase 4. (Session 2)
   - `four_tasks_architectural_preference.md`        — LOCKED meta-rule.
     Clarity over cleverness for Four Tasks' low-throughput load
-    profile. Refreshed session 7 with current examples. (Session 2)
+    profile. (Session 2)
   - `four_tasks_write_rules_design_notes.md`        — LOCKED write
     rules for tile 1.3. Field-level permissions, validation, state
     preconditions, migration semantics, rejection codes for all
     three write endpoints (POST bug_report, PUT day, PUT user).
-    Schema delta now bundles migrations 003 + 004 + 005 (full
-    active_leader / active_theme JSON / active_stickers /
-    day_theme_state shape per session 7). Tile 1.4 nightly cron
-    reframed to lazy seal-on-open per timezone doc. (Session 4,
-    schema refreshed session 7)
+    Design closed session 4; implementation lands in a future
+    session against this spec.
   - `four_tasks_theme_design_notes.md`              — LOCKED (session 5
     foundation, session 6 size/TIER 0 additions, session 7 full
-    rewrite to feature-catalogue model + cell overlay/mask
-    architecture)
-    theme + sticker system. Two layers: STICKER POOL (the
-    active_stickers pool, tap-to-toggle) and ACTIVE THEME SLOTS
+    rewrite to feature-catalogue model)
+    theme + sticker system. Two layers: STICKER POOL (Lever 1,
     tap-to-toggle) and ACTIVE THEME SLOTS (per-slot selection
     via long-press context menu). Slot catalogue enumerates
     every named slot a sticker can fill (leader, palette,
@@ -77,22 +67,18 @@ Design notes (read whichever is relevant to the tile being worked on):
     (theme manager + per-slot context menu), tile 4.D (sticker
     art), and any Aseprite work on stickers.
     SESSION 7 REWRITE NOTES: previous "Tier 0/1/2/3 coverage
-    gradient" framing is SUPERSEDED. The doc text is now fully
-    aligned to the slot catalogue model (session 7 sweep).
-    Migration_005 shape changed from two columns (day_leader +
-    day_palette) to a single JSON column (day_theme_state). The
-    previous picker UX (two-icon context menu: calendar/palette)
-    is SUPERSEDED by per-slot icon menu. Cell treatments are now
-    overlay + optional mask layers on top of stock cells, not
-    full replacements (session 7 architecture).
-  - `four_tasks_morning_sequence_design_notes.md`   — LOCKED (session 5,
-    terminology refreshed session 7)
+    gradient" framing is SUPERSEDED. The doc still references
+    TIER 0 in some legacy comments but the operative model is
+    the slot catalogue. Migration_005 shape changed from two
+    columns (day_leader + day_palette) to a single JSON column
+    (day_theme_state). The previous picker UX (two-icon context
+    menu: calendar/palette) is SUPERSEDED by per-slot icon
+    menu.
+  - `four_tasks_morning_sequence_design_notes.md`   — LOCKED (session 5)
     full design of the morning ritual / daily ceremony. 12 beats,
     rest-day variant, partner panel visibility model, crash-resistance,
-    claim endpoint architecture (integrated with seal-on-open
-    transaction), MOTD reroll cost change (supersedes doubling).
-    Eight design questions (Q1-Q8) landed answers here. Lever
-    language replaced with active_stickers pool reference.
+    claim endpoint architecture, MOTD reroll cost change (supersedes
+    doubling). Eight design questions (Q1-Q8) landed answers here.
     Required reading before tile 4.6 (morning sequence coordinator),
     tile 4.4 (slot machine), tile 4.5 (MOTD reroll), tile 4.7 (stamp
     slap), tile 4.8 (rest day), tile 4.16 (partner reactions
@@ -630,8 +616,7 @@ LEDGER ADMIN (pre-tile work, ~30min):
       • Emoji picker uses preview-on-press / commit-on-close to
         collapse the race-condition window
       • Pair-key stored as SHA-256 truncated to 16 hex chars
-  - Full write-up: four_tasks_pair_key_v2_design_notes.md (renamed
-    to four_tasks_pair_key_design_notes.md in session 7). The
+  - Full write-up: four_tasks_pair_key_v2_design_notes.md. The
     v1 doc remains for background but is superseded on recovery
     semantics by v2.
   - This was the right level of design conversation to have *before*
@@ -686,11 +671,10 @@ this session 2 entry below):
   - The schema's identity model documentation is the source of
     truth for tile 1.3's defensive write rules — re-read both the
     schema comments AND four_tasks_pair_key_v2_design_notes.md
-    (renamed to four_tasks_pair_key_design_notes.md in session 7)
     before writing migration logic.
   - Tile 4.14 (theme manager) now has UX hooks defined for the
-    picker. Implementation can refer to the renamed pair-key doc's
-    "Picker UX" section.
+    picker. Implementation can refer to the v2 doc's
+    "Emoji picker UX" section.
   - Outstanding ledger items for when receipts/statements land:
       • Cloudflare domain (thepicklemoon.com) — invoice IN-64839053,
         USD $10.46, expected ~A$16-17, paid 11 May. Card statement
@@ -2838,5 +2822,305 @@ SESSION 7 (14 May 2026 evening / 15 May 2026 work shift — mobile) — Marketin
 
   Session 7 time: ~5h.
   Running project total: ~45.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 8 (15 May 2026 — pre-night-shift, mobile + home) — Repo index sync, palette derivation lock, first sticker paint started. Time: ~2.5h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Short pre-shift session that produced one substantial
+  architectural lock plus a round of doc housekeeping. Started
+  as a "what's doable in an hour" question, became a paint
+  session that surfaced a palette-system simplification, became
+  a doc rewrite. The "stop the tile and write the design"
+  pattern continued to earn its keep.
+
+  HOUSEKEEPING — REPO INDEX SYNC:
+    Repo index (pickle_moon_repo_index.md) was stale relative
+    to recent doc activity. Index update brought in seven
+    missing entries (achievements_brainstorm, onboarding,
+    timezone_and_sealing, sticker_pack_brainstorm, leaderboard,
+    rate_limiting, stamp_tier), corrected the pair_key v1
+    filename, rewrote stale descriptions for theme +
+    morning_sequence + monetisation + marketing docs, fixed
+    the subfolder path (four-tasks/ now correctly shown as a
+    subfolder with its own raw URL prefix), and reorganised
+    the four-tasks doc list into thematic groupings (architecture
+    /meta-rules, server/backend, gameplay/UX, commercial,
+    running, background/superseded).
+
+    The flat list had become hard to scan at 15+ docs. Thematic
+    clusters make "fetch the rate limiting doc" resolve faster
+    when Claude scans for the right URL.
+
+    Pre-existing inconsistencies flagged but not blocking:
+      - Stamp tier doc references "nightly cron, tile 1.4" in
+        its first paragraph; tile 1.4 has been reframed to
+        lazy seal-on-open (session 6). Line edit needed at next
+        housekeeping pass.
+      - Leaderboard doc names migration_004_lifetime_coins.sql
+        but 004 is already user_timezone and 005 is theme_state.
+        Lifetime coins is migration_006 or later. Naming fix
+        needed in the leaderboard doc.
+
+    Also confirmed during housekeeping: sticker_pack_brainstorm
+    doc was already rewritten to the feature-catalogue model
+    (the "parked admin work" from session 7 close is done).
+    Todo line item to be removed accordingly.
+
+  PAINT SESSION — FIRST FROG:
+    First Aseprite work on the frog leader sticker at the
+    locked 32×32 canvas. Cosy/wholesome direction per the
+    sticker pack brainstorm. Initial pass produced a readable
+    silhouette with eyes, mouth, body, blush cheeks, and
+    contrasting belly. Picker readability confirmed at small
+    scale; character beats land at picker scale.
+
+    During paint, conversation drifted toward palette anxiety —
+    "do I need to lock total palette and cohesion now." Claude
+    pushed back that the locked theme architecture handled the
+    cohesion problem already (per-sticker palette + active leader
+    propagation means there's no "two palettes on screen"
+    scenario to defend against). Painter can paint freely;
+    palette decisions are reversible per-pack.
+
+    Conversation about a "control palette" surfaced — an
+    intentionally ugly diagnostic palette for testing whether
+    art truly survives retinting under any palette. Recognised
+    as standard pixel-art discipline (Lospec has an "ugly"
+    tag for this exact purpose).
+
+  LOCK 1 — PIXEL-FREQUENCY PALETTE DERIVATION
+  (four_tasks_theme_design_notes.md — major rewrite):
+
+    The architectural shadow of the day. Started as a workflow
+    question ("how do I include palette data alongside the
+    sticker"), ended as a simplification of the previous
+    session 7 model.
+
+    Previous session 7 model:
+      Each sticker ships sticker.png + palette.tres.
+      Art painted in canonical reference colours
+      (#FF0000/#00FF00/#0000FF as primary/secondary/tertiary
+      role-values). palette.tres declares real colours for
+      each role. Renderer substitutes reference → real at draw
+      time for every themed surface (including the sticker
+      itself).
+
+    Morgan's proposal:
+      Drop palette.tres entirely. Paint stickers in their REAL
+      colours (frog as actual mossy green, etc.). At runtime,
+      the engine reads sticker.png pixels, counts colour
+      frequencies, derives primary/secondary/tertiary from the
+      pixel counts (most-painted = primary, etc.). Black, white,
+      and greys excluded from the count entirely (they pass
+      through unchanged as structural — outlines, shadows,
+      highlights).
+
+      Constraint: each sticker uses no more than three non-grey
+      colours, with clear proportional difference (no near
+      50/50 splits).
+
+    Claude initially pushed back on multiple grounds:
+      - Conflates "most painted" with "most important."
+      - Removes authorial control over which colour becomes
+        which role.
+      - Edits to art silently flip ordering.
+      - Can't express "this colour is purely structural."
+      - Debuggability suffers (algorithm vs file).
+
+    Morgan rebutted by clarifying the proportional-difference
+    constraint addresses the ambiguity concern; the B/W/grey
+    exclusion handles the structural-colour concern; the
+    authorial control is preserved by painting (the painter
+    expresses palette intent by how much area each colour gets).
+    Asked Claude to reconsider rather than concede.
+
+    On reconsideration: Morgan's right. Under the painter's
+    constraint, the painted PNG already unambiguously expresses
+    primary/secondary/tertiary. A sidecar palette.tres becomes a
+    redundant second source of truth that can drift from the art
+    when edits happen. Removing it eliminates a class of bugs
+    (art/metadata sync) and one piece of per-sticker authoring
+    overhead.
+
+    The wizard counterexample Claude had raised doesn't survive
+    the painter's constraint: if you want purple as primary you
+    paint purple as the dominant area. The choice of WHAT AREA
+    each colour occupies IS the authorial control. You're not
+    losing control — you're encoding it in the painting itself
+    rather than in a sidecar.
+
+    LOCKED SESSION 8: palette derivation by pixel-frequency
+    counting from sticker.png. No palette.tres file. Sticker.png
+    is single source of truth for both leader visual AND
+    palette declaration.
+
+    Sticker.png is the explicit exception to the
+    palette-agnostic art rule — it's painted in REAL colours
+    (because it IS the palette declaration), not in reference
+    role-values. All OTHER themed surfaces (cell overlays,
+    backgrounds, grid tiles, flourishes, label backgrounds,
+    effect sprites) remain painted in reference role-values and
+    retinted at runtime, exactly as the previous model
+    specified.
+
+    Graceful failure: if a sticker uses more than three non-grey
+    colours, the first three by pixel count become the roles;
+    the rest still render as painted in the sticker but don't
+    propagate to themed art. No load-time validation. The
+    constraint is a discipline; the devtool (below) catches
+    mistakes.
+
+  NEW SECTION — PALETTE DERIVATION DEVTOOL:
+
+    Surfaced during the palette-system conversation: under the
+    new rule, the painter needs to know which colour will become
+    which role BEFORE shipping. Without a visualiser, the
+    options are manual pixel-counting in Aseprite or
+    ship-and-test in the live app — both clunky.
+
+    Spec captured: dev-only utility that loads a sticker.png,
+    displays the derived palette swatches (primary/secondary/
+    tertiary) with RGB values + pixel counts, shows all
+    non-grey colours sorted by frequency, badges the result
+    when adjacent ranks are within tolerance (starting
+    threshold 10% pixel-count difference).
+
+    READ-ONLY by design. The devtool cannot write a sidecar,
+    cannot override the derived ordering, cannot produce any
+    artefact other than displayed information. If the
+    derivation produces the wrong ordering, the fix is to
+    re-paint — adjust pixels in Aseprite until the desired
+    ordering emerges. There is no "the algorithm says X but I
+    want Y" escape hatch, because that hatch would reintroduce
+    the drift problem the no-sidecar rule was designed to
+    prevent.
+
+    Lives in scenes/devkit.tscn (tile 0.4 currently a sanity-
+    check skeleton, fleshed out by tile 5.2). Pre-tile-5.2 it
+    can run standalone via F6.
+
+    Implementation note captured: the grey-exclusion rule used
+    in the devtool MUST match the rule used at runtime in the
+    actual renderer. Shared derivation function. Implementation
+    order: write the function, use it in devtool, validate by
+    eye, then wire into runtime renderer.
+
+  DEFERRED — EXACT GREY DEFINITION:
+    The precise definition of "grey" for the exclusion rule is
+    deferred to implementation time. Open questions: tolerance
+    threshold (R≈G≈B within what delta?), whether a fixed grey
+    ramp is enforced or any near-neutral colour is treated as
+    grey, limit on number of distinct greys per sticker.
+    Low-impact — initial constraint is "use grey for outlines
+    and structural shading, don't overuse" — and the precise
+    rule will be informed by the first few painted stickers.
+
+  ASSET NAMING CONVENTION:
+    Morgan asked for a naming convention before committing the
+    frog. Locked: `<sticker_id>_<role>.png` (snake_case,
+    sticker_id first, role suffix). Examples:
+      frog_sticker.png
+      frog_background.png
+      frog_grid_tile.png
+      frog_cell_overlay_completed.png
+      frog_flourish_name.png
+      frog_effects_active.tres
+    Files live under `pickle-moon-assets/stickers/<id>/`.
+
+    Reasoning: folder is namespaced so role doesn't need to lead
+    the filename; sticker_id first clusters assets by pack in
+    flat views (git diffs, search results); role suffix is
+    self-describing when the file is shared outside its folder.
+    snake_case matches Godot conventions and avoids Windows/git
+    case-sensitivity hazards.
+
+    NOTE FOR NEXT HOUSEKEEPING PASS: the theme doc's "file
+    existence is declaration" paragraph currently specifies
+    bare role filenames (`sticker.png`, `background.png`).
+    Update to `<id>_<role>.png` to match the new convention.
+    Engine's folder scan logic also needs the prefix-aware
+    lookup. One-line change, flagged not landed.
+
+  KEY ARCHITECTURAL CALLS THIS SESSION:
+
+    1. Sticker.png is the source of truth for palette. No
+       sidecar declaration. Painted PNG and palette declaration
+       are now the same artefact — eliminates the drift problem
+       at the cost of requiring painter discipline.
+
+    2. Three-non-grey-colour painter's constraint formalised.
+       Discipline, not validation. The devtool catches mistakes
+       at paint time, not at load time.
+
+    3. Devtool is read-only by design. No override path.
+       Pushback on the derived ordering means re-painting, not
+       authoring metadata. Maintains the single-source-of-truth
+       property.
+
+    4. Asset naming convention locked at `<id>_<role>.png`.
+       Snake_case, sticker_id first, role suffix.
+
+  DOC CONSEQUENCES:
+    - UPDATED: pickle_moon_repo_index.md — seven new doc
+      entries, four stale descriptions rewritten, subfolder
+      path corrected, thematic groupings introduced.
+    - UPDATED: four_tasks_theme_design_notes.md — major rewrite.
+      New session 8 status line at top. THE PALETTE KEY section
+      fully rewritten (derivation rule, painter's constraint,
+      why no .tres, performance, grey deferral, graceful
+      failure). New PALETTE DERIVATION DEVTOOL section. PALETTE-
+      AGNOSTIC ART RULE rewritten (clarified sticker.png is the
+      explicit exception). ASSET ARCHITECTURE updated (palette.tres
+      removed from required files). PALETTE SOURCE slot
+      description updated. THEMED-STICKER MARKING updated.
+      SCHEMA IMPLICATIONS — tile 4.G now superseded by both
+      previous models. WHAT THIS DOC LEAVES OPEN — grey
+      deferral and devtool ambiguity-threshold tuning added.
+      RELATED DOCS — architectural preference cross-reference
+      updated to mention session 8 reasoning.
+    - NEW PAINTING IN PROGRESS: frog leader sticker — work
+      continuing after session close. First file going into
+      pickle-moon-assets/stickers/frog/frog_sticker.png.
+
+  GIT COMMITS THIS SESSION (Morgan to land at next sync):
+    pickle-moon-design-notes repo:
+      (pending) Session 8: repo index sync, theme doc palette
+                derivation rewrite, devtool spec, devlog/todo
+                sync.
+    pickle-moon-assets repo (new commits, first painted asset):
+      (pending) First frog leader sticker painted.
+
+  NOTES FOR NEXT SESSION:
+    - Tile 1.3 implementation STILL the next code thing at
+      home office. Schema bundle now includes migrations 003
+      (morning payout), 004 (timezone), 005 (day_theme_state
+      JSON, supersedes earlier day_leader+day_palette sketch).
+    - Devtool implementation is its own new tile (added to
+      todo this session). Sits in devkit, not Phase 1 work.
+      Wire it up when first batch of stickers painted is
+      ready for palette-derivation testing.
+    - Two cross-doc inconsistencies to fix at next housekeeping
+      pass: stamp tier doc references obsolete "nightly cron,
+      tile 1.4"; leaderboard doc names migration_004 for
+      lifetime_coins when 004 is already taken. Both one-line
+      fixes.
+    - Theme doc's "file existence is declaration" paragraph
+      needs updating to the new `<id>_<role>.png` naming
+      convention. Engine folder-scan logic needs the prefix-
+      aware lookup when implemented.
+    - First sticker paint continuing post-session. Frog leader
+      first; companions and additional packs queue up
+      naturally as painting continues during FIFO swing.
+
+  SESSION 8 CLOSED. One architectural lock (palette derivation),
+  one new spec'd dev tool, one naming convention, and the start
+  of real painted assets in the asset repo. The day moved from
+  "what's an hour-shaped task" to "let me lock something
+  fundamental and start painting" — a useful reminder that the
+  best mobile sessions are still architectural.
+
+  Session 8 time: ~2.5h.
+  Running project total: ~47.75h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
