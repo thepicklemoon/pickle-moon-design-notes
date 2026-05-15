@@ -14,6 +14,13 @@ Status: FOUNDATION LOCKED (session 5)
           cells decorated by an overlay layer on top + optionally
           a mask cutting the silhouette. No underlay. Z-order
           pipeline documented under the CELL TREATMENT slot.
+        PIXEL-FREQUENCY PALETTE DERIVATION LOCKED (session 8 mobile) —
+          supersedes the palette.tres + reference-colour
+          substitution model. Palette roles are derived from the
+          sticker.png itself by pixel-count frequency, excluding
+          black, white, and greys. The art file is the only
+          source of truth; no sidecar palette file. See "THE
+          PALETTE KEY" section.
 
 Schema: NEW columns required at theme-system implementation —
         see "Schema implications" section.
@@ -55,12 +62,19 @@ wait for paint, depends on canvas pixel readback semantics that have
 no Godot equivalent).
 
 The Godot port replaces this with a fully hand-crafted system. Every
-sticker is hand-painted. Every theme element is hand-painted.
-Colours are tagged at art time, not extracted at runtime. The
-picker becomes the primary interface for personalising the app. The
-reskin is no longer cosmetic — it touches calendar cells, grid
+sticker is hand-painted at 32×32 with deliberate colour discipline.
+The picker becomes the primary interface for personalising the app.
+The reskin is no longer cosmetic — it touches calendar cells, grid
 tiles, decorative flourishes, the whole chromatic identity of the
 app, and optionally extends to ambient atmosphere and audio.
+
+The palette propagation mechanism, however, is closer in spirit to
+the prototype than initially planned: the sticker.png IS the palette
+declaration. The renderer reads the painted pixels, derives three
+roles by frequency, and applies them to themed surfaces. The
+brittleness of the prototype (browser font rendering, canvas
+readback timing) doesn't exist in Godot — the source asset is a
+known, controlled PNG.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE MODEL — PER-SLOT SELECTION FROM AVAILABLE LIBRARY
@@ -161,13 +175,13 @@ LEADER (sticker.png required — every sticker has this slot)
   Every sticker can fill this slot because every sticker ships
   sticker.png.
 
-PALETTE SOURCE (palette.tres required — every sticker has this slot)
-  The sticker whose tagged palette tints the themed UI surfaces.
-  Three named roles: primary, secondary, tertiary. The renderer
-  consumes these roles, substituting reference-palette pixels in
-  rendered art with the active palette source's tagged colours.
-  Every sticker can fill this slot because every sticker ships
-  palette.tres.
+PALETTE SOURCE (sticker.png — every sticker has this slot)
+  The sticker whose painted colours tint the themed UI surfaces.
+  Three roles — primary, secondary, tertiary — are DERIVED from
+  the sticker.png itself by pixel-frequency counting, excluding
+  black, white, and greys. See "THE PALETTE KEY" for the full
+  rule. Every sticker can fill this slot because every sticker
+  ships sticker.png.
 
 BACKGROUND (background.png — optional)
   Full-grid background layer rendered behind the calendar area.
@@ -319,8 +333,10 @@ Each sticker lives in its own folder under `res://assets/stickers/<id>/`.
 The folder may contain any subset of:
 
   REQUIRED:
-    sticker.png        — the sticker itself, 32×32 RGBA
-    palette.tres       — tagged colour roles
+    sticker.png        — the sticker itself, 32×32 RGBA. Source of
+                         truth for both the leader visual AND the
+                         palette (derived at runtime from this
+                         file — see "THE PALETTE KEY").
 
   OPTIONAL (any subset):
     background.png         — full-grid background layer
@@ -343,13 +359,17 @@ The folder may contain any subset of:
     *.ogg                  — audio files referenced from theme_audio.tres
     effects_custom.gd      — custom GDScript for effects (escape hatch)
 
-A minimal sticker ships sticker.png + palette.tres. A maximal
-sticker ships everything. Most ship somewhere in between, choosing
-what makes sense for their identity. Sparsity is its own design
-axis — a minimal sticker that ships only an exquisite tap-sizzle
-can be more compelling than a maximal one that ships everything.
-The catalogue is enriched by variety in sticker *shape*, not just
+A minimal sticker ships only sticker.png. A maximal sticker ships
+everything. Most ship somewhere in between, choosing what makes
+sense for their identity. Sparsity is its own design axis — a
+minimal sticker that ships only an exquisite tap-sizzle can be
+more compelling than a maximal one that ships everything. The
+catalogue is enriched by variety in sticker *shape*, not just
 sticker *count*.
+
+NOTE: palette.tres is NO LONGER part of the sticker folder. Palette
+roles are derived from sticker.png at runtime — see "THE PALETTE
+KEY" section. This is a session 8 change from the prior model.
 
 FILE EXISTENCE IS DECLARATION:
   No central manifest declaring which sticker has which features.
@@ -430,11 +450,10 @@ ICON VOCABULARY (placeholder — deferred to tile 4.14b implementation):
   visual-design pass when tile 4.14b is ready.
 
 THEMED-STICKER MARKING IN THE GRID:
-  Stickers that ship more than the bare minimum (sticker.png +
-  palette.tres) are visually marked in the picker grid — they
-  have more to offer than palette-only stickers. The marking
-  hints at richness without spoiling what specifically the
-  sticker ships. Discovery preserved.
+  Stickers that ship more than the bare minimum (sticker.png only)
+  are visually marked in the picker grid — they have more to offer
+  than palette-only stickers. The marking hints at richness without
+  spoiling what specifically the sticker ships. Discovery preserved.
 
   Exact marking is an art decision (glint, corner badge, subtle
   border, small animation). Defer to tile 4.14b implementation.
@@ -460,94 +479,155 @@ STAGGERED DISCLOSURE OF THE LONG-PRESS GESTURE:
 THE PALETTE-AGNOSTIC ART RULE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-All theme art (including the sticker itself) is painted in a
-canonical reference palette. At runtime, the renderer substitutes
-the reference palette for the active palette source's tagged
-colours.
+All NON-STICKER theme art (backgrounds, grid tiles, cell overlays,
+flourishes, label backgrounds, effect sprites) is painted with
+THREE FLAT COLOUR ROLES — primary, secondary, tertiary — using
+canonical reference values. At runtime, the renderer substitutes
+the reference role-values for the active palette source's derived
+colours (see "THE PALETTE KEY" for how those colours are
+determined).
 
 This means:
-  - The frog sticker is not painted in literal frog-green. It is
-    painted in (reference-primary, reference-secondary, reference-
-    tertiary) — three flat reference colours. The palette.tres
-    file says "for this sticker, reference-primary = mossy-green,
-    reference-secondary = wet-belly cream, reference-tertiary =
-    dark-water."
-  - When frog fills the palette source slot, the renderer loads
-    frog's palette and substitutes. The sticker renders in its
+  - The lily-pad cell overlay in the frog pack is not painted in
+    literal lily-pad green. It is painted using three flat
+    role-values (e.g. role-primary, role-secondary, role-tertiary).
+  - When frog fills the palette source slot, the renderer reads
+    frog's sticker.png, derives the three roles by pixel
+    frequency, and substitutes. The lily pad renders in frog's
     natural colours.
-  - When chilli fills the palette source slot instead, the
-    renderer loads chilli's palette and substitutes — the frog
-    sticker renders in chilli's colours. Red frog, cream belly,
-    dark stem-green eyes.
+  - When chilli fills the palette source slot instead, the same
+    lily pad PNG renders in chilli's colours — red lily pad
+    against red theme.
 
-THIS APPLIES TO ALL RENDERED THEME ART:
-  - The sticker itself when it appears as a completion sticker
-    on a day cell.
-  - All cell treatment variants.
+THIS APPLIES TO ALL RENDERED NON-STICKER THEME ART:
+  - All cell treatment variants (overlays AND masks-as-decoration).
   - Background and grid tile.
   - Flourishes.
   - Label backgrounds.
   - Active and ambient effect art.
 
-THE ONE EXCEPTION:
-  When a sticker is rendered standalone — i.e., as a thumbnail in
-  the picker grid, not as part of the active theme application —
-  it renders in its OWN palette key. The frog ALWAYS looks like
-  frog in the picker grid (because the picker renders each sticker
-  in that sticker's own palette, not the active palette source's).
-  This preserves the visual identity of each sticker as a
-  recognisable choice.
+STICKER.PNG IS THE EXCEPTION:
+  Sticker art is painted in its REAL FINAL COLOURS. The frog
+  sticker is painted in actual mossy green, cream belly, dark
+  green eyes. The painted pixels are what the user sees in the
+  picker grid AND on completion-stamped day cells. The sticker is
+  never retinted — it always looks like itself.
 
-  Rephrased: the rule is "render with active palette source IF
-  the sticker is being shown as part of the active theme; render
-  with the sticker's own palette OTHERWISE." In practice: the
-  picker always shows authentic-coloured stickers; the calendar /
-  cells / flourishes / completion stickers all retint to the
-  active palette source.
+  This is the rule that swapped in session 8: the sticker is the
+  source of palette declaration. It would be circular to retint
+  the very thing the palette is derived FROM.
 
 WHY THIS MATTERS:
-  Eliminates the cross-theme clash that would otherwise occur. If
-  frog fills leader and vampire fills palette source, the lily
-  pads must not stay bright green — they would clash against a
-  black-and-red app. The retint rule makes the whole composition
-  cohere regardless of which sticker fills which slot.
+  Eliminates the cross-theme clash that would otherwise occur on
+  non-sticker theme art. If frog fills leader and vampire fills
+  palette source, vampire's castle background's lily pads (if
+  such a thing existed) would clash against a black-and-red
+  app. The retint rule makes the whole composition cohere
+  regardless of which sticker fills which slot.
 
-  Also: one source of truth per sticker. No "sticker frog" +
-  "theme frog" double-maintenance. The sticker art and theme art
-  are the same art, rendered through whichever palette is
-  currently active.
+  One source of truth per sticker for colour: the sticker.png
+  itself. No "sticker frog" + "theme frog" double-maintenance.
+  The sticker IS the palette declaration.
+
+REFERENCE ROLE-VALUES FOR NON-STICKER THEME ART:
+  All non-sticker theme art is painted using three known
+  reference values:
+
+    role-primary:   pure red    #FF0000
+    role-secondary: pure green  #00FF00
+    role-tertiary:  pure blue   #0000FF
+
+  These are deliberately ugly values — they never appear in
+  finished art because they always get substituted. The ugliness
+  is the point: a stray reference-pure-red pixel that survives
+  substitution is obvious during testing.
+
+  Black, white, and greys in non-sticker theme art pass through
+  unchanged — they're structural (outlines, shadows, highlights)
+  and are not subject to palette substitution.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE PALETTE KEY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Every sticker ships with palette.tres. Approximate shape (Godot
-Resource syntax — schema to confirm at implementation time):
+LOCKED SESSION 8: palette roles are DERIVED from sticker.png
+itself, not declared in a sidecar file. The painted PNG is the
+single source of truth for both the leader visual and the palette
+that propagates through every themed surface.
 
-  extends Resource
-  class_name StickerPalette
+THE DERIVATION RULE:
 
-  @export var primary:   Color   # dominant brand-style colour
-  @export var secondary: Color   # supporting / accent colour
-  @export var tertiary:  Color   # contrast / darkest colour
+  1. Load the sticker.png.
+  2. For each unique colour in the image, count the number of
+     pixels using that colour.
+  3. EXCLUDE black, white, and greys from the count entirely
+     (definitions in "Painter's constraint" below). These pass
+     through as structural and are never substituted in any
+     theme art.
+  4. From the remaining colours, sort by descending pixel count.
+  5. The most-painted colour = role-primary.
+     The middle = role-secondary.
+     The least = role-tertiary.
 
-The reference colours used in the sticker's PNG art must be a
-fixed, known set so the renderer can perform palette substitution.
-Candidate reference values to lock at implementation time:
+These three derived values are what every themed surface (cell
+overlays, background, grid tile, flourishes, etc.) substitutes
+its reference role-values against.
 
-  reference-primary:   pure red    #FF0000
-  reference-secondary: pure green  #00FF00
-  reference-tertiary:  pure blue   #0000FF
+PAINTER'S CONSTRAINT:
 
-These are deliberately ugly values — they will never appear in
-finished art because they always get substituted. The ugliness is
-the point: a stray reference-pure-red pixel that survives
-substitution is obvious during testing.
+  Every sticker is painted using NO MORE THAN three non-grey
+  colours, plus any amount of black, white, and grey for
+  structural use (outlines, shadows, highlights, eye whites,
+  etc.).
 
-(Open: do we want a fourth "accent" or "highlight" role for finer
-control? Three may be enough — the prototype managed with three —
-but worth checking against the first full theme art set to see if
-something feels missing. Defer to first painted theme.)
+  The three colours must be used with CLEAR PROPORTIONAL
+  DIFFERENCE — one obviously dominant, one obviously middle,
+  one obviously least. No deliberate 49/51 splits. If two
+  colours are dangerously close in pixel count, the painter
+  should adjust the art to clarify intent.
+
+  This constraint is the entire system. The painter expresses
+  palette intent through pixel area. Painting decisions ARE
+  palette decisions, with no separate authoring step.
+
+WHY NO PALETTE.TRES FILE:
+
+  Considered and rejected as redundant. Under the painter's
+  constraint above, the painted PNG already unambiguously
+  expresses primary/secondary/tertiary. A sidecar file declaring
+  the same information would be a second source of truth that
+  could drift from the art when edits happen. Removing it
+  eliminates a class of art/metadata sync bugs and one piece of
+  per-sticker authoring overhead.
+
+  The session 7 model required authoring a palette.tres alongside
+  every sticker.png, which introduced the very drift problem this
+  rule fixes. The session 8 rule consolidates: paint, ship, done.
+
+PERFORMANCE NOTE:
+  Pixel-count derivation runs ONCE per sticker at load time, not
+  per frame. The result is cached. A 32×32 image has 1024 pixels;
+  counting them is instant. There is no per-frame cost.
+
+GREY USAGE — DEFERRED:
+  The exact definition of "grey" (any RGB triple where R≈G≈B
+  within some tolerance? A specific fixed grey ramp? Limit on how
+  many distinct greys per sticker?) is deferred to implementation
+  time. The grey question is low-stakes — initial constraint is
+  "use grey for outlines and structural shading, don't overuse" —
+  and the precise rule will be informed by the first painted
+  pack. Captured in "WHAT THIS DOC LEAVES OPEN" below.
+
+WHAT HAPPENS IF A STICKER USES MORE THAN THREE NON-GREY COLOURS:
+  The first three by pixel count become primary/secondary/
+  tertiary; the rest are still rendered as painted in the
+  sticker itself but don't propagate to themed art. This is a
+  graceful failure mode rather than a hard reject — old stickers
+  or stickers that bend the constraint still render correctly,
+  they just have less expressive palette propagation. The
+  painter's constraint is a discipline, not a load-time
+  validation. The devtool (see below) is where mistakes get
+  caught.
 
 SACRED SEMANTIC COLOURS:
   Some colours are not themed and never change regardless of
@@ -559,9 +639,105 @@ SACRED SEMANTIC COLOURS:
     - Stamp tier 1/2/3 partial colours
     - Body text near-black on light backgrounds
     - Border / outline near-white on dark
-  These are hardcoded in the engine, not in any palette.tres
-  file. Primary/secondary/tertiary are the THEMED colour roles.
-  Sacred semantics are SEPARATE and unaffected by palette source.
+  These are hardcoded in the engine, not derived from any
+  sticker. Primary/secondary/tertiary are the THEMED colour
+  roles, derived per sticker. Sacred semantics are SEPARATE and
+  unaffected by palette source.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PALETTE DERIVATION DEVTOOL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+A development-only utility for visualising the palette that
+WOULD be derived from a sticker.png. Lives in the devkit scene
+(scenes/devkit.tscn — currently a sanity-check skeleton from
+tile 0.4, fleshed out by tile 5.2). NOT shipped to users.
+
+PURPOSE:
+  The painter's constraint depends on the painter knowing which
+  colour will become primary/secondary/tertiary BEFORE shipping
+  the sticker. Without a visualiser, the painter has to either
+  manually pixel-count in Aseprite or ship-and-test in the live
+  app — both clunky and prone to surprises.
+
+  The devtool removes the guesswork: drop a sticker.png in, see
+  exactly which colours the derivation algorithm would pick, in
+  what order, with their pixel counts. If the result is wrong
+  (e.g. secondary and tertiary are too close to call confidently),
+  the painter goes back to Aseprite, adjusts a few pixels, and
+  re-checks. No build-deploy-test cycle.
+
+MINIMUM SHIPPED VIEW:
+  - Load a sticker.png from disk (file dialog or drag-drop).
+  - Display the sticker at meaningful size (e.g. 6x scale,
+    ~192×192 on screen).
+  - Below the sticker, a swatch panel showing:
+      * Primary    — the derived role-primary colour swatch +
+                     RGB value + pixel count
+      * Secondary  — the derived role-secondary colour swatch +
+                     RGB value + pixel count
+      * Tertiary   — the derived role-tertiary colour swatch +
+                     RGB value + pixel count
+  - A list of all non-grey colours in the image with pixel
+    counts, sorted descending — so the painter can see the
+    full ordering, not just the top three.
+  - A small badge or warning when the top-three ordering is
+    AMBIGUOUS — e.g. when secondary and tertiary are within a
+    configurable tolerance of each other (10% difference is a
+    reasonable starting threshold). The badge says "ordering is
+    close — confirm intent before shipping."
+
+NO OVERRIDE CAPABILITY:
+  The devtool is READ-ONLY. It does not write any sidecar file,
+  does not let the painter override the derived ordering, does
+  not produce any artefact other than displayed information.
+  This is deliberate.
+
+  If the derived ordering is wrong, the fix is to re-paint —
+  adjust pixels in Aseprite until the desired ordering emerges
+  from the algorithm. The sticker.png remains the only source
+  of truth. There is no "the algorithm says X but I want Y"
+  escape hatch, because that hatch would re-introduce the
+  drift problem the no-sidecar rule was designed to prevent.
+
+OPTIONAL ENHANCEMENTS (DEFERRED):
+  These are quality-of-life additions that aren't part of the
+  minimum view. Add as they become useful:
+    - Live preview of theme application — show what a few
+      stock themed surfaces (a cell, a background tile) would
+      look like with the derived palette applied.
+    - Side-by-side comparison of two stickers' derived
+      palettes.
+    - Batch derivation report — point at the
+      res://assets/stickers/ folder, get a table of every
+      sticker's derived palette in one view.
+    - Histogram of all colours in the image (including greys
+      and structural) for diagnostic painting.
+    - "Snap to canonical reference values" preview — show
+      what the non-sticker theme art would look like rendered
+      with this sticker's derived palette (i.e. visualises
+      the retint applied to test-art).
+
+WHERE THIS LIVES:
+  scenes/devkit.tscn currently exists as a Control-rooted scene
+  (tile 0.4). When tile 5.2 gates the devkit to debug-only
+  loading via a Main scene, this devtool slots into the devkit
+  as one of its panels. Pre-tile-5.2 it can be run standalone
+  via F6 since devkit.tscn is already runnable that way.
+
+IMPLEMENTATION NOTE:
+  The Godot Image class can iterate pixels with
+  Image.get_pixel(x, y) and accumulate into a Dictionary keyed
+  by Color. For a 32×32 image this is 1024 iterations — fast
+  enough that even a naive implementation is real-time. No
+  optimisation required for the devtool.
+
+  The grey-exclusion rule used in the devtool MUST match the
+  rule used at runtime in the actual renderer — they will
+  share the same derivation function once that function is
+  written. Implementation order is: write the function, use it
+  in the devtool, validate by eye, then wire it into the
+  runtime renderer.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EFFECTS — ACTIVE AND AMBIENT
@@ -609,7 +785,7 @@ PERFORMANCE RULES (apply to all effects):
 
 EFFECTS RENDERING IS PALETTE-AWARE:
   Effect art (particle sprites, splash sprites, drip sprites) is
-  painted in reference palette colours and retinted at runtime per
+  painted in reference role-values and retinted at runtime per
   the standard palette substitution rule. The frog water splash
   in chilli palette renders as cream-and-red liquid; the vampire
   drip in frog palette renders as moss-green ooze. Cohesion
@@ -798,35 +974,36 @@ DEFERRED TO IMPLEMENTATION SESSION:
   - Label_background bounding box (depends on task row height).
   - Effect art (particle sprites) — varies per effect; declared
     in effects_active.tres / effects_ambient.tres specs.
-  - Reference palette exact RGB values
+  - Reference role-value exact RGB values
     (placeholder #FF0000/#00FF00/#0000FF).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RETINT MECHANISM — DEFERRED TO IMPLEMENTATION SESSION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The palette-agnostic art rule requires the engine to substitute
-the reference palette for the active palette at render time. Three
-candidate approaches:
+The palette-agnostic art rule (for non-sticker theme art) requires
+the engine to substitute the three reference role-values for the
+three derived palette colours at render time. Three candidate
+approaches:
 
   A. Shader-based substitution at draw time.
      Fragment shader checks each pixel against the three reference
-     colours and substitutes from a uniform. Cheap per-frame cost,
-     no asset duplication. One shader applied across every themed
-     surface.
+     role-values and substitutes from a uniform. Cheap per-frame
+     cost, no asset duplication. One shader applied across every
+     themed surface.
 
   B. Pre-bake at slot-change time.
      When the palette source slot changes, the engine generates
-     retinted copies of all theme art in memory (or on disk
-     cache). Renders read the cached copies. Per-change cost
-     once; per-frame cost is normal sprite rendering. Memory cost
-     scales with theme art count.
+     retinted copies of all non-sticker theme art in memory (or
+     on disk cache). Renders read the cached copies. Per-change
+     cost once; per-frame cost is normal sprite rendering. Memory
+     cost scales with theme art count.
 
   C. Indexed-palette PNG with runtime palette swap.
-     Theme art shipped as indexed-colour PNGs. The PNG palette
-     itself is rewritten at slot-change time. Standard texture
-     samplers handle the rest. Workflow constraint: Aseprite must
-     export indexed.
+     Non-sticker theme art shipped as indexed-colour PNGs. The
+     PNG palette itself is rewritten at slot-change time. Standard
+     texture samplers handle the rest. Workflow constraint:
+     Aseprite must export indexed.
 
 Decision blocked on: actual count of theme art pieces (memory cost
 of B), prototyping shader A for pixel-art-correctness, and
@@ -835,9 +1012,10 @@ implementable in Godot; differences are workflow + perf + asset
 size.
 
 Defer to first implementation pass (tile 4.14b). Whichever path is
-picked, the AUTHORING workflow stays the same: paint in reference
-colours at 32×32 (or whatever dimensions for other elements), ship
-as palette-agnostic art + palette.tres.
+picked, the AUTHORING workflow stays the same: paint stickers in
+their real colours (subject to the painter's constraint), paint
+non-sticker theme art in reference role-values, derive the palette
+from the active palette source's sticker.png at runtime.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SCHEMA IMPLICATIONS
@@ -902,8 +1080,10 @@ MIGRATION_005 (UPDATED FROM MONETISATION V2.0):
   active_leader and the active_theme JSON's `palette` key).
 
 THE PALETTE_TABLE.TRES TILE (4.G) — STILL SUPERSEDED.
-  Per-sticker palette.tres files in each sticker folder remain
-  the model. No central table.
+  Both the original central palette table model AND the
+  per-sticker palette.tres model are now superseded. Palette is
+  derived from sticker.png at runtime — no central table, no
+  sidecar file.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WHAT THIS DOC LEAVES OPEN
@@ -915,8 +1095,19 @@ Captured for the implementation session, not now:
     cell variants, grid tile, flourishes, label backgrounds,
     effect art). Sticker locked at 32×32 session 6.
   - Retint mechanism (shader, pre-bake, or indexed-palette).
-  - Reference palette exact values (placeholder
+  - Reference role-value exact values (placeholder
     #FF0000/#00FF00/#0000FF).
+  - Exact definition of "grey" for the palette derivation
+    exclusion rule. Tolerance threshold (R≈G≈B within what
+    delta?), whether a fixed grey ramp is enforced or any
+    near-neutral colour is treated as grey, limit on number of
+    distinct greys per sticker. Low-impact — initial constraint
+    is "use grey for outlines and structural shading, don't
+    overuse" — and the precise rule will be informed by the
+    first painted pack.
+  - Tolerance threshold for the devtool's "ambiguous ordering"
+    warning. Starting value 10% pixel-count difference between
+    adjacent ranks; tune against real painted stickers.
   - Default theme art set design (what does the app look like
     when MOST slots are empty? — e.g. brand new user with only
     onboarding-free sticker).
@@ -928,6 +1119,10 @@ Captured for the implementation session, not now:
     listed in "Picker UX" — defer to focused visual-design pass
     at tile 4.14b).
   - Whether to add a fourth colour role (accent / highlight).
+    Under the new derivation rule this would mean allowing four
+    non-grey colours in a sticker, with the fourth becoming
+    role-accent. Defer to first painted pack — three may be
+    enough, the prototype managed with three.
   - effects_active.tres and effects_ambient.tres schemas —
     exact fields, supported tween / particle / shader / audio
     parameters.
@@ -967,10 +1162,11 @@ RELATED DOCS
     from APPtrioc to Four Tasks.
 
   - four_tasks_architectural_preference.md
-    Clarity over cleverness — informed the choice to tag palettes
-    at art time rather than extract at runtime. Hand-painted is
-    the medium; algorithmic colour extraction is performance-coded
-    cleverness for a problem we don't have.
+    Clarity over cleverness — informed the session 8 decision to
+    derive palette from the painted sticker rather than declare
+    in a sidecar. The painted PNG is already an unambiguous
+    declaration under the painter's constraint; a sidecar would
+    be a second source of truth with no real benefit.
 
   - four_tasks_write_rules_design_notes.md
     active_leader changes trigger pair-key migration. Other slot
