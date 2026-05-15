@@ -1,5 +1,6 @@
 FOUR TASKS — Godot Todo
 ========================
+Last edit: 2026-05-15 21:07 AWST
 Last updated: May 2026 (session 8, end)
 
 This list is driven by the roadmap (`four_tasks_godot_roadmap.md`). All tiles
@@ -1854,7 +1855,33 @@ SESSION 8 — Repo index sync + palette derivation lock + first paint
                           readable silhouette confirmed at picker
                           scale. First file going into
                           pickle-moon-assets/stickers/frog/.
+[~] design captured       Tracking discussion doc                     ~45min
+                          (four_tasks_tracking_design_notes.md new).
+                          Broad per-user stat tracking brainstormed
+                          and DEFERRED to non-implementation. Two
+                          counters with committed UX (lifetime_coins,
+                          longest_streak via leaderboard) are the
+                          entire scope. Goodhart audit framework
+                          recorded for future tracker proposals.
+                          Event-logging alternative path also
+                          captured.
+[~] design locked v1.x    Week mode design doc                        ~1.5h
+                          (four_tasks_week_mode_design_notes.md new).
+                          Per-weekday opt-in toggle for task
+                          templating. Off by default. Long-press
+                          day-name to toggle, divergence on first
+                          edit not toggle. Cal-icon stays universal
+                          standard-four editor with contextual
+                          warning on week-mode days. Today-only
+                          edit rule (gesture inert on navigated
+                          past/future days). Personal not shared.
+                          Schema sketch captured. Lands as v1.x
+                          post-launch; not part of any current tile.
+[~] convention            Devlog/todo timestamp header line           ~5min
+                          ("Last edit: YYYY-MM-DD HH:MM AWST" added
+                          to both files, bumped per Claude edit).
 
-Session 8 total: ~2.5h.
+Session 8 total: ~5h (initial close was 2.5h; reopened twice for
+tracking + week mode design conversations, adding ~2.5h).
 
-Running project total: ~47.75h.
+Running project total: ~50.25h.

@@ -1,5 +1,6 @@
 FOUR TASKS — Godot Devlog
 ==========================
+Last edit: 2026-05-15 21:07 AWST
 Last updated: May 2026 (session 8, closed)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
@@ -3113,14 +3114,97 @@ SESSION 8 (15 May 2026 — pre-night-shift, mobile + home) — Repo index sync, 
       first; companions and additional packs queue up
       naturally as painting continues during FIFO swing.
 
-  SESSION 8 CLOSED. One architectural lock (palette derivation),
-  one new spec'd dev tool, one naming convention, and the start
-  of real painted assets in the asset repo. The day moved from
-  "what's an hour-shaped task" to "let me lock something
-  fundamental and start painting" — a useful reminder that the
-  best mobile sessions are still architectural.
+  LATE-SESSION ADDITIONS (after the initial close above):
 
-  Session 8 time: ~2.5h.
-  Running project total: ~47.75h.
+    The session reopened twice in the evening for additional
+    design conversations. Both produced new design docs.
+
+    TRACKING DISCUSSION DOC
+    (four_tasks_tracking_design_notes.md, new — DEFERRED to
+    non-implementation):
+
+      Brainstormed broad per-user stat tracking (lifetime coins,
+      longest streak, total tasks, source-tagged coin earnings,
+      etc.). Established that capacity is a non-issue at any
+      reasonable scale. Real question is fit with positioning.
+      Morgan's instinct: cuts against the grain. Locked design
+      docs point away from dashboard-style UX. The two trackers
+      with committed UX (lifetime_coins, longest_streak via
+      leaderboard) are the entire scope; everything else stays
+      off. Doc captures the discussion + Goodhart audit framework
+      for future tracker proposals + reversibility argument +
+      event-logging alternative path. Status: DEFERRED, captured
+      for future-Morgan to react against if a real use case
+      surfaces.
+
+    WEEK MODE DESIGN DOC
+    (four_tasks_week_mode_design_notes.md, new — LOCKED v1.x
+    feature):
+
+      Started from a friends-and-family user asking about
+      "weekly tasks." Rejected the request (introduces a second
+      clock, breaks daily rhythm thesis, fractures partner
+      cadence, slope to dashboard-style life-tracker), but the
+      ask pointed at real friction — users with stable weekly
+      rhythms retyping the same Monday tasks every Monday.
+
+      Reshape: WEEK MODE. Per-weekday opt-in toggle. Off by
+      default. Long-press the day name in the task tray heading
+      to toggle. Toggle ON enables long-press-task-label as the
+      template-edit gesture; toggle OFF disables it. Divergence
+      happens on first task edit, not on toggle — so toggling is
+      cheap and reversible with no template lifecycle to track.
+      Toggling off preserves the diverged template silently;
+      toggling back on restores it. No popups, no prompts.
+
+      Cal-icon menu stays the universal standard-four editor.
+      On week-mode days it shows a highly visible warning
+      explaining edits won't affect today, redirecting to
+      task-label long-press. Emergent bonus: templated days
+      bypass the cal-icon's "tick-locked all four" greying,
+      solving a separate flagged frustration.
+
+      Today-only edit rule added late-session: long-press-task-
+      label is live ONLY on today's day view, never on
+      navigated past or future days. Prevents cutover ambiguity
+      where future-Tuesday edits would propagate forward but
+      not back to today's Tuesday.
+
+      Personal not shared (partners don't sync week mode state).
+      Reveal timing deferred to future staggered-disclosure
+      pass. Schema sketch captured (week_mode_weekdays bitmask
+      + user_weekday_overrides table). Lands as v1.x post-
+      launch; not part of any current tile.
+
+      Prototype-patch feasibility was scoped at end of session
+      (~4-8h work, architecture friendly to the addition).
+      Decision: don't patch the prototype. The friends-and-
+      family prototype is being replaced by the Godot port;
+      better to land week mode properly in Godot than half-do
+      it in HTML. Time-to-discovery on the deployed prototype's
+      version mismatch (phone copy 6853 lines vs Project copy
+      7599 lines) was itself the reason to defer — a missed
+      sync gap that would have produced a bad patch.
+
+    DEVLOG TIMESTAMP CONVENTION ADDED:
+      "Last edit: YYYY-MM-DD HH:MM AWST" line added to devlog
+      and todo headers. Bumped each time files are touched by
+      Claude. Helps spot stale-vs-fresh files during multi-
+      commit days.
+
+  SESSION 8 CLOSED. One architectural lock (palette derivation),
+  one new spec'd dev tool, one naming convention, two new
+  design docs (tracking deferred, week mode locked v1.x), and
+  the start of real painted assets in the asset repo. The day
+  moved from "what's an hour-shaped task" to "let me lock
+  something fundamental and start painting" to "let me capture
+  three more design conversations while they're fresh" — a
+  useful reminder that the best mobile sessions are still
+  architectural.
+
+  Session 8 time: ~5h (initial close was 2.5h; reopened twice
+  for the tracking discussion and week mode design conversation,
+  adding ~2.5h).
+  Running project total: ~50.25h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
