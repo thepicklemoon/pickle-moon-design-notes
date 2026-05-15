@@ -1,5 +1,7 @@
 # Four Tasks — Theme & Sticker System Design Notes
 
+Last edit: 2026-05-15 21:35 AWST
+
 Status: FOUNDATION LOCKED (session 5)
         STICKER CANVAS SIZE LOCKED (session 6 mobile)
         TIER 0 ANIMATED PACKS ADDED (session 6 mobile)
@@ -329,41 +331,54 @@ emoji, unusual punctuation).
 ASSET ARCHITECTURE — ONE FILE PER FEATURE, FOLDER PER STICKER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Each sticker lives in its own folder under `res://assets/stickers/<id>/`.
-The folder may contain any subset of:
+Each sticker lives in its own folder under
+`res://assets/stickers/<id>/` (or in the pickle-moon-assets
+repo at `stickers/<id>/`). Files within use the convention
+`<id>_<role>.<ext>` — sticker_id first, role suffix, snake_case.
+Examples below use a sticker_id of `frog`.
 
   REQUIRED:
-    sticker.png        — the sticker itself, 32×32 RGBA. Source of
-                         truth for both the leader visual AND the
-                         palette (derived at runtime from this
-                         file — see "THE PALETTE KEY").
+    frog_sticker.png        — the sticker itself, 32×32 RGBA.
+                              Source of truth for both the
+                              leader visual AND the palette
+                              (derived at runtime from this
+                              file — see "THE PALETTE KEY").
 
   OPTIONAL (any subset):
-    background.png         — full-grid background layer
-    grid_tile.png          — calendar grid background tile
-    cell_overlay_unmarked.png   — overlay drawn on unmarked cells
-    cell_overlay_completed.png  — overlay drawn on completed cells
-    cell_overlay_partial.png    — overlay drawn on partial cells
-    cell_overlay_rest.png       — overlay drawn on rest day cells
-    cell_overlay_dead.png       — overlay drawn on out-of-month cells
-    cell_mask_unmarked.png      — alpha mask cutting unmarked cells
-    cell_mask_completed.png     — alpha mask cutting completed cells
-    cell_mask_partial.png       — alpha mask cutting partial cells
-    cell_mask_rest.png          — alpha mask cutting rest day cells
-    cell_mask_dead.png          — alpha mask cutting dead cells
-    flourish_name.png      — decoration near user's name
-    label_background.png   — surface behind task labels
-    effects_active.tres    — tap/event-triggered animation spec
-    effects_ambient.tres   — continuous ambient animation spec
-    theme_audio.tres       — audio pack spec
-    *.ogg                  — audio files referenced from theme_audio.tres
-    effects_custom.gd      — custom GDScript for effects (escape hatch)
+    frog_background.png         — full-grid background layer
+    frog_grid_tile.png          — calendar grid background tile
+    frog_cell_overlay_unmarked.png   — overlay on unmarked cells
+    frog_cell_overlay_completed.png  — overlay on completed cells
+    frog_cell_overlay_partial.png    — overlay on partial cells
+    frog_cell_overlay_rest.png       — overlay on rest day cells
+    frog_cell_overlay_dead.png       — overlay on out-of-month cells
+    frog_cell_mask_unmarked.png      — alpha mask cutting unmarked cells
+    frog_cell_mask_completed.png     — alpha mask cutting completed cells
+    frog_cell_mask_partial.png       — alpha mask cutting partial cells
+    frog_cell_mask_rest.png          — alpha mask cutting rest day cells
+    frog_cell_mask_dead.png          — alpha mask cutting dead cells
+    frog_flourish_name.png      — decoration near user's name
+    frog_label_background.png   — surface behind task labels
+    frog_effects_active.tres    — tap/event-triggered animation spec
+    frog_effects_ambient.tres   — continuous ambient animation spec
+    frog_theme_audio.tres       — audio pack spec
+    frog_*.ogg                  — audio files referenced from theme_audio.tres
+    frog_effects_custom.gd      — custom GDScript (escape hatch)
 
-A minimal sticker ships only sticker.png. A maximal sticker ships
-everything. Most ship somewhere in between, choosing what makes
-sense for their identity. Sparsity is its own design axis — a
-minimal sticker that ships only an exquisite tap-sizzle can be
-more compelling than a maximal one that ships everything. The
+NAMING CONVENTION RATIONALE:
+  The folder is already namespaced (sticker_id is the folder
+  name), so role-only filenames would be sufficient inside the
+  folder. The prefix exists for readability outside the folder
+  context — git diffs, search results, shared files. Reading
+  `frog_cell_overlay_completed.png` in any view tells you both
+  the pack and the role. Snake_case matches Godot conventions
+  and sidesteps Windows/git filename case-sensitivity hazards.
+
+A minimal sticker ships only `<id>_sticker.png`. A maximal sticker
+ships everything. Most ship somewhere in between, choosing what
+makes sense for their identity. Sparsity is its own design axis
+— a minimal sticker that ships only an exquisite tap-sizzle can
+be more compelling than a maximal one that ships everything. The
 catalogue is enriched by variety in sticker *shape*, not just
 sticker *count*.
 
@@ -374,10 +389,44 @@ KEY" section. This is a session 8 change from the prior model.
 FILE EXISTENCE IS DECLARATION:
   No central manifest declaring which sticker has which features.
   The engine scans the sticker folder at load and builds the
-  context-menu element-icon list from what's present. Adding a
-  new feature to a sticker is dropping a new file in its folder.
+  context-menu element-icon list from what's present, matching
+  on the `<id>_<role>` pattern. Adding a new feature to a sticker
+  is dropping a new file in its folder following the convention.
   Removing a feature is deleting the file. Zero metadata
   bookkeeping.
+
+  Engine implementation note: the folder scan recognises files
+  by stripping the `<id>_` prefix and matching the role suffix
+  against the known slot catalogue. Files that don't match the
+  convention are ignored. Files matching unknown roles are also
+  ignored (graceful forward compatibility — new slots added in
+  future versions don't break old engines).
+
+PER-SLOT VARIANT VARIATIONS:
+  Any cell-treatment slot may ship multiple numbered variants
+  by appending `_<N>` to the role suffix:
+
+    frog_cell_overlay_completed_1.png
+    frog_cell_overlay_completed_2.png
+    frog_cell_overlay_completed_3.png
+
+  When variants are present, the engine treats them as a
+  variant set and picks one per cell via a stable hash of the
+  cell's date (so the same cell always shows the same variant,
+  but different cells in the same month show different
+  variants). The base file (without `_<N>` suffix) is treated
+  as variant 0 if also present, or absent variants simply
+  shrink the pool.
+
+  Painters who want one overlay ship one file. Painters who
+  want variation ship N files. No new mental model. Useful
+  range is approximately 3-7 variants — fewer reads as
+  monotony, more becomes indistinguishable.
+
+  Solves the per-cell repetition problem: a single overlay
+  applied identically to 30+ cells in a month view becomes
+  visually monotonous. Variant rotation gives the eye natural
+  texture without coordinated cell logic.
 
 WHY FOLDER-PER-STICKER, NOT SPRITE-SHEET-PER-STICKER:
   Sprite sheets force a fixed slot layout up front. The catalogue
@@ -1143,6 +1192,85 @@ Captured for the implementation session, not now:
     possibly review-gated unlock). Surfaced in monetisation v2.0
     discussion, not yet specified. Lives in the monetisation doc
     when fleshed out, not this one.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ANTICIPATED FUTURE SLOTS — DESIGN-SPACE FOOTNOTE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This section records slot ideas surfaced in session 8 design
+conversations that are NOT part of the current spec but have
+identifiable shapes if/when they prove necessary. The intent is
+preservation — future-Morgan or future-Claude looking at a
+specific visual ambition won't have to rediscover the same
+analysis.
+
+The architecture is intentionally open-extension; these are
+parking spots, not promises. The bias should remain "make the
+visual work within current slots" not "find a reason to add a
+slot." Every new slot weakens the constraint that drives
+painting discipline.
+
+  cell_underlay_<state>.png
+    A layer drawn BELOW the stock cell (currently the
+    architecture has overlay above, mask cutting, but no
+    underlay). For glow, neon, soft auras, halo effects, gentle
+    backdrop tints distinct from palette retint. The original
+    theme doc rejected underlays on the grounds that "tinted
+    backdrops are handled by palette retint," which holds for
+    flat tint but not for blur/falloff/halo effects. Add this
+    if a sticker genuinely needs glow-style decoration that
+    overlay-above can't deliver.
+
+  grid_revealed_image.png (or similar name)
+    A single calendar-grid-sized image rendered only through
+    the cell shapes — cells act as windows into the image
+    rather than self-contained decoration targets. Solves the
+    "brick pattern fragments at cell boundaries" problem by
+    laying the pattern continuously underneath and letting the
+    cells reveal a coherent piece of it. Constraints: image
+    composition must be designed for the grid layout; pixel art
+    works well here, painted styles look chopped up. Different
+    from background.png (which sits behind everything visible)
+    and grid_tile.png (which repeats per cell). Z-layer
+    question to settle if implemented: probably below stock
+    cell fill but above background.png.
+
+  cell_overlay_<state>_<position_mod>.png
+    Position-aware variant slots for patterns that need to
+    coordinate with cell position (alternating rows, weekday-
+    aware decoration, "every Nth cell different"). Different
+    from the per-cell-variant rotation (which is random by
+    stable hash); position-modular is deliberate per-position.
+    Likely 2-variant (even/odd) or 7-variant (weekday-aware)
+    most useful. Engine picks variant by cell's position mod N.
+
+  cell_custom.gd
+    Escape hatch — bespoke GDScript for cell rendering when
+    declarative slots can't express the intent. Mirrors the
+    existing effects_custom.gd pattern. Use only when a sticker
+    genuinely needs rendering logic that can't be expressed as
+    a fixed set of PNG slots. Every custom script is per-pack
+    maintenance, so the bias is strongly against — but the
+    door stays open.
+
+CASES CONSIDERED AND REJECTED:
+
+  image_extends_beyond_cells (window-cut with continuation):
+    Considered: a single image larger than the visible calendar
+    that "extends beyond the cells" so swiping months reveals
+    more of it. Rejected as theatre — the cells are the
+    calendar, content outside them isn't real estate the user
+    is meant to look at. The brick-wall case (continuous
+    pattern visible through cell windows) stands on its own
+    merits as the grid_revealed_image slot above; image
+    extension is bonus complexity that doesn't earn its keep.
+
+  per-frame randomisation of cell variants:
+    Considered: cell variants pick randomly per render, varying
+    over time. Rejected — random changes undermine the "this is
+    MY May 15" feeling. Stable hash of cell date is the locked
+    answer for per-cell variant pools (see PER-SLOT VARIANT
+    VARIATIONS in asset architecture).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RELATED DOCS

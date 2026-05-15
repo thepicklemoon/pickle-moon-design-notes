@@ -1,5 +1,7 @@
 # Stamp Tier — Design Notes
 
+Last edit: 2026-05-15 21:45 AWST
+
 **Status:** LOCKED for v1.0 (session 6). Structural design closed.
 Content authoring (the actual message strings in each pool) is a
 separate later task that happens against this spec.
@@ -15,6 +17,10 @@ for early implementation testing.
 - `four_tasks_morning_sequence_design_notes.md` — defines when and
   how stamps appear in the morning sequence, including the rest-day
   variant. This doc only covers the *content* side.
+- `four_tasks_timezone_and_sealing_design_notes.md` — sealing model.
+  Day sealing happens inside the claim endpoint transaction (lazy
+  seal-on-open), not via a nightly cron. Stamp selection happens
+  in the same transaction.
 - `four_tasks_write_rules_design_notes.md` — `days.stamp` is a
   server-only column; users never write stamps directly. The claim
   endpoint picks the message and writes the column.
@@ -26,12 +32,13 @@ for early implementation testing.
 
 ## What a stamp is
 
-When a day seals (nightly cron, tile 1.4) and the user claims their
-morning payout (claim endpoint, designed in morning sequence doc),
-the server picks a *stamp message* from a tier-appropriate pool and
-writes it to `days.stamp` for that date. The message + tier together
-form the visual + textual content of the day's "fingerprint" on the
-calendar.
+When the user claims their morning payout (claim endpoint, designed
+in morning sequence doc), the server seals the previous day inside
+the claim transaction (lazy seal-on-open per the timezone+sealing
+doc — session 6 reframe of tile 1.4 from nightly cron) and picks a
+*stamp message* from a tier-appropriate pool, writing it to
+`days.stamp` for that date. The message + tier together form the
+visual + textual content of the day's "fingerprint" on the calendar.
 
 The tier is derived from the day's completion state:
 

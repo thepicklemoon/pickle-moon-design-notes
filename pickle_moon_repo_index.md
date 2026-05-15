@@ -1,5 +1,7 @@
 # PICKLE MOON Repo Index
 
+Last edit: 2026-05-15 21:50 AWST
+
 Purpose: canonical list of files across THE PICKLE MOON's repos, with one-line descriptions. Reference doc for Claude sessions — "fetch the X doc" resolves to a specific raw URL from this list.
 
 Last updated: 2026-05-15
@@ -41,8 +43,9 @@ Locked design docs (gameplay / UX):
 - `four_tasks_partner_reactions_design_notes.md` — sealed-day immutable partner reactions on MOTD + tray. First feature with field-level write rules (partner writes other user's row). Schema reserved v1.0, feature ships v1.x.
 - `four_tasks_coin_name_design_notes.md` — server-side affix rule system, transforms username into flavoured coin economy display name. Schema reserved v1.0, feature ships v1.x.
 - `four_tasks_stamp_tier_design_notes.md` — stamp tier mapping (red/orange/yellow/green/purple), server-side message pools, tone targets per tier. Random pick, no anti-repeat for v1.0.
-- `four_tasks_leaderboard_design_notes.md` — single global leaderboard ranked by lifetime_coins, streak as secondary number. Long-press coin display to access. Rejected alternatives recorded (clustering, swipeable multi-metric, streak-primary, no leaderboard).
-- `four_tasks_theme_design_notes.md` — theme + sticker system. Feature-catalogue model (session 7 rewrite — supersedes tier-coverage gradient). Per-slot context menu picker. Slot catalogue enumerates every named slot. MOTD + UI fonts locked global. 32×32 sticker canvas.
+- `four_tasks_week_mode_design_notes.md` — per-weekday opt-in task templating. Long-press day-name to toggle. Divergence on first edit. Cal-icon stays universal standard-four editor. Today-only edit rule. Personal not shared. Lands v1.x post-launch.
+- `four_tasks_leaderboard_design_notes.md` — single global leaderboard ranked by lifetime_coins, streak as secondary. DEFERRED (session 8) — possibly not shipping at launch. Re-evaluate after v1.0 with real usage data. Full design + rejected alternatives preserved for if/when revisited.
+- `four_tasks_theme_design_notes.md` — theme + sticker system. Feature-catalogue model. Pixel-frequency palette derivation from sticker.png (session 8 — supersedes palette.tres). Asset naming `<id>_<role>.png`. Per-slot variant rotation by stable date-hash. MOTD + UI fonts locked global. 32×32 sticker canvas.
 
 Locked design docs (commercial):
 - `four_tasks_monetisation_position.md` — v2.0 (session 6/7). Subscription delivers bilateral library access + small stacking coin bonus. All packs bought with coins. Fortnightly alternating drop cadence (subscriber-only / free-thank-you). Founders pricing tier for launch cohort.
@@ -51,6 +54,9 @@ Running documents (not locked, edit freely):
 - `four_tasks_marketing_notes.md` — APPtrioc launch play, subculture targeting, streamer outreach, promo code + subculture launch model (Section 6, session 7), journal section.
 - `four_tasks_sticker_pack_brainstorm.md` — content brainstorm. Pack ideas with leader + slots-shipped + companions + notes. Rewritten session 7 to feature-catalogue model.
 - `four_tasks_achievements_brainstorm.md` — hidden Easter-egg achievements rewarding global-first unlockers with lifetime subscriptions. NOT locked. Prompt-as-document. Session 7.
+
+Discussion / reference (captured thinking, not committed):
+- `four_tasks_tracking_design_notes.md` — per-user stat tracking discussion. DEFERRED to non-implementation. Two trackers with committed UX (lifetime_coins, longest_streak via leaderboard) are the entire scope. Goodhart audit framework + event-logging alternative path captured for future revisit.
 
 Background / superseded:
 - `four_tasks_pair_key_design_notes.md` — v1 identity sketch from prototype era. Superseded by v2 on recovery story. Reference only.

@@ -1,14 +1,42 @@
 # Leaderboard — Design Notes
 
-**Status:** LEANING TOWARD RESTRAINT (session 6). Design conversation
-closed in principle; final ship decision deferred until tile 4.13 is
-actually adjacent. Captures the full discussion including alternatives
-that were considered and rejected, so the rejection reasoning is
-recoverable when the tile lands.
+Last edit: 2026-05-15 21:40 AWST
+
+**Status:** DEFERRED — POSSIBLY NOT SHIPPING AT LAUNCH (session 8).
+Earlier framing of "leaning toward restraint" has softened further
+into genuine uncertainty about whether a leaderboard belongs in v1.0
+at all. The full design conversation is preserved below for if/when
+the decision is revisited, but the working assumption is now: skip
+at launch, observe what users actually want from community
+comparison once the app is live, decide post-launch whether to ship
+this design, a modified version, or nothing.
+
+**Reasoning for the v1.0 deferral (session 8):**
+- The partner panel already does the social-comparison work at the
+  level Four Tasks actually wants — buddy-ware, two-person,
+  relationship-shaped. Adding a broader community comparison layer
+  at launch risks importing the very dynamics the app is positioned
+  to avoid.
+- A leaderboard is a one-way door in user perception. Once users
+  see it, removing it feels like a takeaway. Adding it post-launch
+  with measured framing is reversible; shipping it at launch and
+  later removing it isn't.
+- v1.0 has plenty of features to land cleanly without this one.
+  Subscription, themes, the catalogue cadence, partner reactions,
+  morning sequence — the core loop is already rich. Leaderboard
+  earning its place can wait until the loop is proven.
+- The "Goodhart" framing from the tracking discussion doc applies:
+  surfacing `lifetime_coins` and `longest_streak` as ranking metrics
+  is the move that converts those proxies into targets. Worth
+  taking very seriously rather than locking in at launch.
+
+**If revisited post-launch:** the design below is the candidate to
+react against. Many of the rejected alternatives may also be worth
+re-examining with real user behaviour to inform the call.
 
 **Implementation timing:** tile 4.13 (UI) + tile 4.13a (endpoint).
-Both deferred until Phase 4 UI work is well underway and the coin
-name censorship layer (tile 4.17) has shape.
+Both deferred. Possibly permanently deferred. Re-evaluate after
+v1.0 launch with real usage data.
 
 **References:**
 - `four_tasks_architectural_preference.md` — clarity-over-cleverness,
@@ -20,6 +48,10 @@ name censorship layer (tile 4.17) has shape.
   applies before display.
 - `four_tasks_monetisation_position.md` — the calm, low-pressure
   tone the app holds; the leaderboard must not violate this.
+- `four_tasks_tracking_design_notes.md` — Goodhart framework
+  applied to all tracker surfaces. Leaderboard is the surface that
+  would convert lifetime_coins and longest_streak from proxies into
+  targets. Worth weighing carefully.
 
 ---
 
@@ -275,7 +307,11 @@ Monotonic accumulator. Set to 0 at user creation. Incremented by
 the same delta as `users.coins` whenever coins are paid out.
 Never decremented.
 
-Likely lands as `migration_004_lifetime_coins.sql`.
+Likely lands as `migration_006_lifetime_coins.sql` or later
+(migration_004 is `user_timezone` and migration_005 is
+`theme_state` per the timezone+sealing and theme docs; the
+leaderboard migration sequences after both). Confirm number at
+implementation time.
 
 The morning-payout claim endpoint (designed in the morning sequence
 doc, deferred for implementation alongside tile 1.3) currently
