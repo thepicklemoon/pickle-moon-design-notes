@@ -1,185 +1,238 @@
 # Staggered Feature Disclosure — Design Principle
 
-**Status:** LOCKED as a design principle (session 2). Applies to every
-v1.0+ feature, retroactively where useful. Cross-refs refreshed session 7.
+**Status:** LOCKED as a design principle (session 2, refined session 5, substantial revisions session 8 to reflect onboarding scope expansion and week mode v1.0 inclusion).
 
-**Scope:** this is a *meta-principle* about how features are introduced
-to the user over time. It doesn't dictate which features exist; it
-governs *when* the user discovers them.
+**Scope:** this is a *meta-principle* about how features are introduced to the user over time. It doesn't dictate which features exist; it governs *when* the user discovers them.
 
 ---
 
 ## The principle
 
-Four Tasks reveals its surface area to the user over **days, weeks, and
-months of use**, not all at once at onboarding.
+Four Tasks reveals its surface area to the user over **days and weeks of use**, not all at once at onboarding.
 
-Onboarding teaches the bare minimum: name, tasks, slot, leader sticker,
-your partner exists, here is the calendar. Everything else gets
-surfaced at the moment it's most useful to learn, which is rarely
-"right now, while the user is overwhelmed by a brand new app."
+Onboarding teaches the bare minimum required to use the app today, plus the features whose UI is permanently visible from day zero (because hiding them would mean showing the user UI elements with no explanation).
+
+Everything else gets surfaced at the moment it's most useful to learn, which is rarely "right now, while the user is overwhelmed by a brand new app."
 
 ## Why
 
-Habit trackers are dense. The web build has: tasks, MOTD (diary),
-stamps, coins, streaks, milestones, rest days, partner reactions
-(planned), themes, leaderboard, bug catcher, help menu, subscription,
-account recovery. Dumping all of that into onboarding kills the app for
-new users.
+Habit trackers are dense. Four Tasks has: tasks, MOTD, stamps, coins, streaks, milestones, rest days, partner reactions, themes, picker context menu (post-fork), week mode, bug catcher, help menu, subscription, account recovery. Dumping all of that into onboarding kills the app for new users.
 
 Staggering accomplishes two things:
-1. **Reduces cognitive load early** — user only learns what they need
-   to do *today*, day 1.
-2. **Creates rewarding discovery** — features unlock or appear over
-   time, which feels good in itself ("oh I can do *that* now?").
 
-## Example schedule (illustrative, not final)
+1. **Reduces cognitive load early** — the user only learns what they need to do *today*.
+2. **Creates rewarding discovery** — features unlock or appear over time, which feels good in itself ("oh I can do *that* now?").
 
-These are *examples* of when features could appear. Real cadence to be
-tuned in Phase 4 / Phase 5.
+## The onboarding floor
 
-| Day  | Feature surfaced                                          |
-|------|-----------------------------------------------------------|
-| 0    | Core onboarding: tasks, MOTD, calendar, partner, stamp    |
-| 1    | Stamp animation + coins drop in morning sequence          |
-| 2    | Coins tutorial popup (what they're for, how they spend)   |
-| 3    | Rest day intro ("did you know — long-press a future cell") |
-| 4    | Partner reactions intro (you can react to each others sealed days) |
-| 5    | Streak milestone popup (first 5-day streak)               |
-| 7    | Theme picker context menu hint (long-press a sticker, see the slots it can fill) |
-| 14   | Coin name reroll unlocks (first time enough coins exist)  |
-| 21   | Subscription disclosure (value summary against actual play history) |
-| 30   | Leaderboard offer ("want to compete?")                    |
+Onboarding teaches:
 
-Some features are *triggered* not *scheduled* — e.g. partner reaction
-trigger-gated REAFFIRMATION can fire if a partner reaction lands
-before day 4 in the user's life. But the PRIMARY teaching moment for
-partner reactions is the day-4 scheduled reveal, so users have
-vocabulary to notice the indicator before reactions start appearing.
-This was a session-5 refinement (Q7); the earlier framing of partner
-reactions as purely trigger-gated has been superseded.
+- Your name, your username, your starting avatar (the leader sticker).
+- Your themed companion pool and the per-day rotation mechanic.
+- Your message of the day (MOTD) — spin mechanic, save mechanic, coin cost of rerolls.
+- Your partner's calendar (where it lives, that pairing is post-onboarding via a persistent button, that subscription enables bilateral library sharing).
+- Your four tasks.
+- That coins are real, earned each day you finish your tasks, and spent on stickers or MOTD rerolls.
 
-The schedule above is for time-gated reveals; pure trigger-gated
-reveals (e.g. first-coin-payout, first-top-10-on-leaderboard) fire
-when the relevant event happens regardless of day count.
+Onboarding does NOT teach:
+
+- Rest days.
+- Long-press as the app's gesture for deliberate decisions.
+- Week mode (per-weekday task templating).
+- Picker context menu (per-slot UI element assembly).
+- Partner reactions.
+- Streak milestones.
+- Coin name personalisation.
+- Subscription specifics (only the library-sharing concept is planted; the actual disclosure lives at day 21).
+- Bug catcher / help menu (always accessible, not surfaced).
+
+The change vs prior versions of this doc: theme depth and MOTD moved from scheduled reveals into onboarding (session 8) because both are permanent UI elements on the calendar. Hiding them from day zero meant the user encountered visible UI elements with no framing, which violated the staggered principle's own logic.
+
+## The schedule
+
+Day counts are absolute from install date, not pair-formation date. Some reveals fire as scheduled regardless of pair state (e.g. partner reactions fires on day 4 whether or not the user is paired — for solo users, the framing becomes a soft recruitment nudge for when they pair).
+
+| Day | Feature surfaced                                          |
+|-----|-----------------------------------------------------------|
+| 0   | Core onboarding (see above)                               |
+| 1   | First morning sequence — stamp animation, coin payout     |
+| 2   | Long-press philosophy reveal — triggers week mode tutorial|
+| 3   | Rest day intro                                            |
+| 4   | Partner reactions intro                                   |
+| 5   | First streak milestone (trigger-gated, fires on 5-day)    |
+| 14  | Coin name personalisation (trigger-gated by affordability)|
+| 21  | Subscription disclosure                                   |
+| 30  | Leaderboard offer (if leaderboard ships at launch — see leaderboard design notes; currently deferred) |
+
+### Day 1 — first morning sequence
+
+Not a tutorial reveal in the conventional sense. The morning sequence itself is the daily ritual, designed to be its own teaching moment through ceremony. Day 1 fires the full sequence for the first time against an empty "yesterday" state — implementation detail handled in the morning sequence design doc.
+
+### Day 2 — long-press philosophy reveal
+
+The most distinctive reveal in the schedule. A meta-philosophy moment, not a feature introduction. The popup teaches the app's design ethos around deliberate interaction:
+
+> Most apps are over-responsive. They reward accidental taps and treat your attention as something to capture, by any means.
+>
+> We don't work like that. Long-press is our gesture for any decision that matters — it keeps things calm in here and honours your attention.
+>
+> Try it now: long-press a day of the week on your calendar.
+
+**Dismissal pattern:** no Got it button. The popup clears when the user performs the long-press on a day name. The act of dismissing IS the learning. This establishes a new pattern in the app's tutorial language: gesture-teaching reveals dismiss via the taught gesture; content reveals dismiss via Continue.
+
+**Cascading effect:** the long-press on a day name triggers the week mode tutorial, which handles its own feature introduction. The day-2 reveal stays focused on philosophy; the gesture serves as a relay into the feature reveal.
+
+**Implementation note:** the popup needs to be positioned so day names are visible underneath it, or the gesture-dismissal magic breaks. Layout discipline required.
+
+### Day 2 (cascading) — week mode tutorial
+
+Fired by the day-2 long-press. Introduces per-weekday task templating. Copy and flow TBD when week mode tutorial gets its own design pass (see week mode design notes). Note: week mode is now in v1.0 scope (session 8 decision — features touching schema, calendar UI, ritual loop, or write rules ship at launch rather than retrofitted against frozen code).
+
+### Day 3 — rest day intro
+
+Per existing design. Long-press on a future cell. The day-2 reveal has already established long-press as the app's gesture, so day 3 reuses the gesture on a different surface. Sequential teaching that compounds across consecutive days.
+
+### Day 4 — partner reactions intro
+
+Per existing design. Primary teaching moment for the partner reaction mechanic. Trigger-gated reaffirmation still fires if a partner reaction lands earlier than day 4, but day 4 is the scheduled primary reveal.
+
+Solo-user framing: for users without a partner on day 4, the reveal frames the feature prospectively ("when you pair up, you'll be able to react to each other's days"). Acts as a soft recruitment nudge. No conditional cadence — day 4 fires regardless.
+
+### Day 5 — first streak milestone
+
+Trigger-gated, not strictly time-gated. Fires when the user hits a 5-day streak. Typically lands around day 5 for engaged users.
+
+### Day 14 — coin name personalisation
+
+Trigger-gated by affordability. Fires the first time the user has enough coins to reroll their coin name (see coin name design notes for cost). The day-14 entry is the typical landing point under expected economy pacing, not a hard schedule.
+
+### Day 21 — subscription disclosure
+
+Per monetisation v2.0. Value summary against the user's actual play history at this point — coins earned, stickers owned vs catalogue size, days played, longest streak. Lands as "subscribe to access partner's library and grind faster" framing, not as a trial-end nag.
+
+The library-sharing concept was planted on day zero (onboarding screen 7, partner calendar reveal). The day-21 disclosure builds on that mental hook rather than introducing the concept cold.
+
+### Day 30 — leaderboard offer
+
+If leaderboard ships at launch (currently deferred per the leaderboard design notes — possibly not shipping at v1.0). If deferred, this entry is removed and the schedule terminates at day 21.
+
+## Trigger-gated reveals (not on the schedule)
+
+Some reveals fire on action, not on day count:
+
+### Picker context menu hint
+
+Fires the first time the user opens the sticker picker. An inline overlay or tooltip points at a sticker and suggests "long-press for more options." Surfaces the per-slot context menu feature at the moment the user is actually browsing stickers, which is the moment the hint becomes actionable.
+
+This reveal was previously day-7 scheduled. Moved to trigger-gated (session 8) because:
+
+- The picker isn't opened on day 0-6 by all users; a scheduled day-7 reveal could fire before the user has ever seen the picker.
+- The day-2 long-press philosophy reveal now covers the gesture as a general principle, so the picker context menu doesn't need to introduce the gesture from scratch.
+- Trigger-gating respects the user's discovery rhythm — the hint appears when the action becomes possible.
+
+State requirement: the picker needs to track whether it has been opened before by this user. Single boolean on the user's local state or on `tutorial_progress` JSON column.
+
+### Coin name reroll affordability
+
+The first time the user has enough coins to afford a coin name reroll, the day-14 entry fires (if not already shown). Trigger overrides schedule if affordability comes earlier.
+
+### Partner reaction reaffirmation
+
+If a partner reaction lands on the user's calendar before day 4 (i.e. their partner reacted to one of their sealed days), the reveal fires immediately as a "this is what just happened" explanation. The day-4 scheduled reveal still fires for users who haven't received a reaction by then.
 
 ## Architectural implications
 
-### 1. Each feature needs a "first-shown-at" flag, or equivalent
+### 1. `tutorial_progress` JSON column on `users`
 
-For features that should appear once on a schedule:
-- Either store `<feature>_shown_at` timestamps on `users`
-- Or store an aggregate `tutorial_progress JSON` blob
+Single column holding a JSON object of feature-name → timestamp (or null for not-yet-shown):
 
-I lean toward the **second** — one column on `users` holding a JSON
-object like:
 ```json
 {
-  "coins_intro": 1715472000,
+  "long_press_philosophy": 1715472000,
+  "week_mode_intro": 1715472020,
   "rest_day_intro": 1715645200,
-  "theme_picker_hint": null
+  "partner_reactions_intro": null,
+  "picker_context_menu_hint": null,
+  "coin_name_personalisation": null,
+  "subscription_disclosure": null
 }
 ```
 
-Single column, easily extensible, no migration cost when a new feature
-is added to the list. Null = not yet shown.
+Forward-compatible with future feature additions without schema migrations. Schema reservation lands alongside the coin names schema (per the coin name design notes' reservation pattern).
 
-This is a SCHEMA RESERVATION that should land alongside coin names —
-worth doing once, then never again.
+### 2. TutorialCoordinator autoload
 
-### 2. Logic lives in a coordinator, not scattered
+Godot-side autoload checks on app boot and at key state transitions:
 
-A `TutorialCoordinator` autoload (Godot side) checks on app boot:
 - What day of use is this for the user?
-- Which scheduled features are due?
-- Which feature first-shown-at flags are null but should be set?
-- Show the next eligible reveal, set the flag.
+- Which scheduled reveals are due?
+- Which trigger-gated reveals have fired but not yet shown?
+- Show the next eligible reveal, set the timestamp on `tutorial_progress`, write through to server.
 
-One reveal per session boot, not a queue dump. The user gets one new
-thing at a time.
+One reveal per session boot (or per qualifying state transition). Not a queue dump. The user gets one new thing at a time.
 
-### 3. Triggered reveals are signal-driven
+### 3. Trigger emission
 
-For trigger-gated features (partner reaction, leaderboard top-10
-landing, first-coin-payout, etc.), the relevant code emits a signal
-that TutorialCoordinator picks up and renders. Decouples feature
-logic from its reveal logic.
+For trigger-gated reveals, the relevant code emits a signal that TutorialCoordinator picks up:
 
-### 4. The reveal copy itself is content, not code
+- Picker opens for first time → `picker_opened_first_time` signal.
+- Affordability threshold crossed → `coin_name_reroll_affordable` signal.
+- Incoming partner reaction → `partner_reaction_received` signal.
 
-Each reveal has a popup with copy. Copy lives in a Resource file
-(e.g. `res://data/tutorial_reveals.tres`) for iteration without code
-changes. Glitch-typewriter applies if appropriate.
+Decouples feature logic from its reveal logic. Each feature's code doesn't need to know what tutorial state it's tied to.
+
+### 4. Reveal content as Resource
+
+Each reveal's copy and layout config lives in a Resource file (`res://data/tutorial_reveals.tres`) for iteration without code changes.
+
+### 5. Gesture-dismissal popups
+
+The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup clears when the user performs a specific gesture on the underlying UI. This pattern should be reused for any future gesture-teaching reveal. The implementation hook:
+
+- Popup overlay accepts a "dismiss-on-event" parameter.
+- Underlying UI emits the relevant gesture signal.
+- Coordinator listens for the signal while the popup is showing and dismisses on match.
 
 ## Cross-cutting hooks for current and planned tiles
 
-Tiles that should be designed with staggered disclosure in mind:
-
-- **Tile 3.1-3.9 (Onboarding)** — be ruthless about what stays. Anything
-  that can wait until day 2+ should wait. MOTD specifically was removed
-  from onboarding (session 6) — first MOTD lands in first morning
-  sequence, not in onboarding.
-- **Tile 4.6 (Morning sequence)** — natural surfacing window for
-  scheduled reveals. "Yesterday wrapped + here's the new thing."
-- **Tile 4.5 (MOTD reroll)** — Reroll is a power feature. Could be
-  introduced day 5+ rather than day 1. (Cost model superseded session
-  5 — see four_tasks_morning_sequence_design_notes.md Q8 section for
-  flat 90-110 per press.)
-- **Tile 4.11 (Help menu)** — exists for users who want everything at
-  once. Always-available escape hatch from the staggered approach.
-- **Tile 4.14a (Basic sticker picker — pre-fork)** — pool toggle (tap)
-  is available immediately, no reveal needed. APPtrioc inherits this
-  picker.
-- **Tile 4.14b (Sticker picker context menu — post-fork, Four Tasks
-  only)** — the long-press context menu (per-slot element-icons under
-  the feature-catalogue model — see theme doc) is a scheduled reveal
-  at day 7+. APPtrioc never gets this surface; APPtrioc users see the
-  picker without the context menu (which is the conversion mechanic).
-- **Tile 4.16 (Partner reactions)** — day-4 scheduled reveal (primary
-  teaching) + trigger-gated reaffirmation (if partner reacts earlier).
-  Session 5 refinement; see Q7 section in morning sequence design doc.
-- **Day-21 subscription disclosure** — VALUE SUMMARY against actual
-  play history under monetisation v2.0, not a trial-end nag. Examples
-  of what could surface: coins earned, packs owned vs catalogue size,
-  days played, longest streak, "subscribe to access partner's library
-  and grind faster." Copy authoring job, lands Phase 5 alongside
-  paywall UI.
-- **Coin name reroll** — example time-gated reveal, unlocks first time
-  user has enough coins (post-v1.0).
+- **Onboarding (tiles 3.1-3.x)** — locked at the eight-screen flow documented in onboarding design notes. Includes theme, MOTD, partner panel intro, coin grant, library sharing plant. Anything beyond that floor waits for the staggered schedule.
+- **Morning sequence (tile 4.6)** — natural surfacing window for scheduled reveals on subsequent days. Day-2 long-press philosophy fires here. Day-3 rest day intro fires here. Day-4 partner reactions fires here.
+- **Week mode tutorial** — chained off the day-2 long-press philosophy reveal. Implementation lands alongside week mode feature in v1.0.
+- **MOTD reroll** — fully introduced in onboarding screen 6. No separate reveal needed.
+- **Help menu (tile 4.11)** — always-available escape hatch from the staggered approach.
+- **Basic sticker picker (tile 4.14a, pre-fork)** — pool toggle is available immediately. No reveal needed. APPtrioc inherits this picker.
+- **Sticker picker context menu (tile 4.14b, post-fork)** — trigger-gated on first picker open, not day-7 scheduled. APPtrioc never gets this surface (it's the conversion mechanic).
+- **Partner reactions (tile 4.16)** — day-4 scheduled reveal + trigger-gated reaffirmation if reaction lands earlier.
+- **Day-21 subscription disclosure** — value summary against actual play history per monetisation v2.0. Builds on the day-0 library-sharing plant. Copy authoring job, lands Phase 5 alongside paywall UI.
+- **Coin name personalisation** — trigger-gated by affordability, not strict day count.
 
 ## Open questions
 
-- **Schedule data structure:** time-based ("day N of use") vs
-  event-based ("after first 5-day streak"). I've sketched both above;
-  real implementation might want a unified abstraction.
-- **Holdouts for re-engagement:** are some features surfaced *only*
-  if the user comes back after a lapse, as a "welcome back, did you
-  know..." nudge? Probably yes, post-v1.0.
-- **Skip-everything mode:** for power users (Morgan testing on his
-  own device), a devkit toggle to dismiss all tutorial reveals
-  immediately. Implementation hook in tile 0.4's devkit pattern.
+- **Schedule data structure:** time-based ("day N of use") vs trigger-based ("after first 5-day streak"). The current schedule uses both. Real implementation might want a unified abstraction with trigger overrides.
+- **Holdouts for re-engagement:** are some features surfaced *only* if the user comes back after a lapse, as a "welcome back, did you know..." nudge? Probably yes, post-v1.0.
+- **Skip-everything mode:** devkit toggle to dismiss all tutorial reveals immediately. Implementation hook in tile 0.4's devkit pattern.
+- **Order conflicts:** if a trigger-gated reveal fires on the same day as a scheduled reveal, which goes first? Likely the trigger-gated one (because it's responding to a user action), but worth spec'ing.
 
 ## Cross-references
 
-- `four_tasks_coin_name_design_notes.md` — feature that *requires*
-  this principle to land well (reroll unlocking later).
-- `four_tasks_partner_reactions_design_notes.md` — day-4 scheduled
-  reveal (per Q7 session 5 refinement).
-- `four_tasks_morning_sequence_design_notes.md` — Q7 partner
-  reaction surfacing model + the day-4 vs day-6 timing rationale.
-- `four_tasks_theme_design_notes.md` — sticker picker context menu
-  is a post-fork (Four Tasks only) reveal at day 7. Under the
-  feature-catalogue model (session 7), the context menu shows
-  per-slot element icons rather than the old two-icon (leader/palette)
-  pattern.
-- `four_tasks_onboarding_design_notes.md` — onboarding flow honours
-  the "minimum to land in the app" rule from this doc.
-- `four_tasks_monetisation_position.md` — subscription disclosure
-  reveal copy (day 21) lives in the v2.0 model.
-- `four_tasks_achievements_brainstorm.md` — counter-example: hidden
-  Easter-egg achievements explicitly DO NOT use staggered disclosure.
-  They are pure discovery, no scheduled reveal. The brainstorm doc
-  acknowledges this departure from the staggered principle.
+- `four_tasks_coin_name_design_notes.md` — feature surfaced day 14 trigger-gated. Provides the schema reservation pattern that `tutorial_progress` follows.
+- `four_tasks_partner_reactions_design_notes.md` — day-4 scheduled reveal + trigger-gated reaffirmation.
+- `four_tasks_morning_sequence_design_notes.md` — natural surfacing window for daily reveals. The day-1 morning sequence is the user's first encounter with the ritual.
+- `four_tasks_theme_design_notes.md` — sticker picker context menu is a trigger-gated reveal on first picker open (session 8 change from day-7 scheduled).
+- `four_tasks_onboarding_design_notes.md` — onboarding floor. Substantially expanded session 8 to include theme, MOTD, partner panel, coin grant. Anything beyond the floor lives in this doc's schedule.
+- `four_tasks_monetisation_position.md` — day-21 subscription disclosure builds on the day-0 library-sharing plant.
+- `four_tasks_week_mode_design_notes.md` — week mode is v1.0 scope (session 8 decision). Tutorial fires via the day-2 long-press philosophy cascade.
+- `four_tasks_achievements_brainstorm.md` — counter-example: hidden Easter-egg achievements explicitly DO NOT use staggered disclosure. Pure discovery, no scheduled reveal.
 - Tile 4.11 (help menu) — the "show me everything" escape valve.
-- Future tile: TutorialCoordinator autoload + tutorial_progress
-  schema reservation on `users`.
+- Future tile: TutorialCoordinator autoload + `tutorial_progress` schema reservation on `users`.
+
+## Session 8 changes summary
+
+- Onboarding scope expanded: theme, MOTD, partner panel, coin grant, library sharing plant all now day-zero.
+- Day-2 coins tutorial removed (covered by onboarding).
+- Day-2 long-press philosophy reveal added, with gesture-dismissal pattern and week mode tutorial cascade.
+- Day-7 theme picker context menu hint changed from scheduled to trigger-gated on first picker open.
+- Partner reactions framing clarified for solo users (still day-4 scheduled, recruitment nudge for solo).
+- Gesture-dismissal popup pattern introduced as new tutorial language primitive.
+- Week mode pulled into v1.0 scope, tutorial chained off day-2 long-press reveal.
+- Cross-reference to onboarding design notes updated to reflect expanded floor.

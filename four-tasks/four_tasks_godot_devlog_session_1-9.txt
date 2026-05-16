@@ -1,0 +1,3775 @@
+FOUR TASKS — Godot Devlog
+==========================
+Last edit: 2026-05-16 22:36 AWST
+Last updated: May 2026 (session 9, closed)
+Engine: Godot 4.x
+Studio: THE PICKLE MOON
+Target stores: Google Play, Apple App Store
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AI READING GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+This devlog is the primary context document for continuing development of the
+Four Tasks Godot port. Read it fully before writing any code.
+
+The web build (single HTML file at fourtasks.morgan91ryan.workers.dev) is
+historical reference — it is frozen and not actively developed except for
+critical patches affecting current users (mum, Ayshi, friends). Its devlog
+and todo (`four_tasks_devlog.txt`, `four_tasks_todo.txt`) are reference docs
+for the port, not active working documents.
+
+Design notes (read whichever is relevant to the tile being worked on):
+  - `four_tasks_pair_key_identity_design_notes.md`  — v1 identity sketch
+    from session 13. Background only.
+  - `four_tasks_pair_key_design_notes.md`           — Session 9
+    rewrite (UNLOCKED pending Section 4 decision). Filename
+    canonical without _v2_ suffix despite older references.
+    Six-value pair-key, partner-app-mediated recovery, migration
+    semantics. Session 9 closed seven gaps: convergence proof,
+    polling staleness during migration, threat model honest
+    pass (3 attack scenarios), canonical string assembly spec,
+    ambiguous-match resolution, post-pair username revert flow.
+    SECTION 4 OPEN: data model decision — Option A (pair-key
+    as partition key, O(n_days) migrations) vs Option B
+    (stable pair_id + lookup pair_key, O(1) migrations).
+    Recommended B. BLOCKS tile 1.3 implementation.
+  - `four_tasks_partner_reactions_design_notes.md`  — LOCKED partner
+    reactions design. Schema reserved v1.0; feature ships v1.x. First
+    feature with field-level write rules (partner writes other user's
+    row). (Session 2)
+  - `four_tasks_coin_name_design_notes.md`          — LOCKED coin name
+    generator design. Server-side rule-driven affix system that
+    transforms username into flavoured coin economy name. Schema
+    reserved v1.0; feature ships v1.x. (Session 2)
+  - `four_tasks_staggered_disclosure_design_notes.md` — LOCKED meta-
+    principle. Features reveal over days/weeks, not at onboarding.
+    Schema (tutorial_progress) reserved v1.0; coordinator + reveal
+    content land in Phase 4. (Session 2 foundation; session 9
+    rewrite — day-2 long-press philosophy reveal + gesture-
+    dismissal pattern + trigger-gated picker hint + week mode
+    cascade.)
+  - `four_tasks_architectural_preference.md`        — LOCKED meta-rule.
+    Clarity over cleverness for Four Tasks' low-throughput load
+    profile. (Session 2)
+  - `four_tasks_write_rules_design_notes.md`        — LOCKED write
+    rules for tile 1.3. Field-level permissions, validation, state
+    preconditions, migration semantics, rejection codes for all
+    three write endpoints (POST bug_report, PUT day, PUT user).
+    Design closed session 4; implementation lands in a future
+    session against this spec.
+  - `four_tasks_theme_design_notes.md`              — LOCKED (session 5
+    foundation, session 6 size/TIER 0 additions, session 7 full
+    rewrite to feature-catalogue model)
+    theme + sticker system. Two layers: STICKER POOL (Lever 1,
+    tap-to-toggle) and ACTIVE THEME SLOTS (per-slot selection
+    via long-press context menu). Slot catalogue enumerates
+    every named slot a sticker can fill (leader, palette,
+    background, cell variants, dead-cell, grid_tile, flourish,
+    label, active fx, ambient fx, audio). Each sticker ships
+    whatever subset of slots makes sense for it — no tier
+    bucket, no "full theme" bar. Long-press shows element-icons
+    for shipped features; tap an icon to claim that slot for
+    this sticker. INSTANT FEEDBACK, no commit-on-close.
+    Sparsity is a design axis. Palette-agnostic art rule.
+    Folder-per-sticker, file existence is declaration. Sticker
+    canvas locked at 32×32 (session 6). MOTD font + UI fonts
+    are LOCKED GLOBAL (not per-theme). Schema is JSON-based
+    (active_theme map, day_theme_state on days). Long-press
+    surfaced via day-7 staggered disclosure reveal. Required
+    reading before tile 4.14a (basic picker), tile 4.14b
+    (theme manager + per-slot context menu), tile 4.D (sticker
+    art), and any Aseprite work on stickers.
+    SESSION 7 REWRITE NOTES: previous "Tier 0/1/2/3 coverage
+    gradient" framing is SUPERSEDED. The doc still references
+    TIER 0 in some legacy comments but the operative model is
+    the slot catalogue. Migration_005 shape changed from two
+    columns (day_leader + day_palette) to a single JSON column
+    (day_theme_state). The previous picker UX (two-icon context
+    menu: calendar/palette) is SUPERSEDED by per-slot icon
+    menu.
+  - `four_tasks_morning_sequence_design_notes.md`   — LOCKED (session 5)
+    full design of the morning ritual / daily ceremony. 12 beats,
+    rest-day variant, partner panel visibility model, crash-resistance,
+    claim endpoint architecture, MOTD reroll cost change (supersedes
+    doubling). Eight design questions (Q1-Q8) landed answers here.
+    Required reading before tile 4.6 (morning sequence coordinator),
+    tile 4.4 (slot machine), tile 4.5 (MOTD reroll), tile 4.7 (stamp
+    slap), tile 4.8 (rest day), tile 4.16 (partner reactions
+    surfacing).
+  - `four_tasks_marketing_notes.md`                 — RUNNING DOC
+    (started session 5, promo codes added session 7). APPtrioc
+    launch play, 9 subculture targets, streamer outreach
+    economics, long-tail community plan, open questions,
+    journal section. SESSION 7 ADDITION: full promo code +
+    subculture-targeted launch model (Section 6) — 3-month
+    free trial → soft landing into founders pricing tier,
+    caps small (50-200 per code), short expiry (14 days),
+    wave-based retargeting (no waitlist), library sharing
+    included in trial, starter pack = choice from existing
+    catalogue not bespoke. Required reading before Phase 5b
+    work and any subreddit outreach.
+  - `four_tasks_timezone_and_sealing_design_notes.md` — LOCKED (session 6)
+    timezone localisation + lazy-seal-on-open architecture.
+    Replaces tile 1.4's "nightly cron sweep" framing. Each user
+    has stored IANA timezone; sealing happens in claim endpoint
+    transaction when user opens app on a later local date.
+    Cross-user reads only (multiplier check, partner panel
+    rendering). Non-goal: anti-date-scrubbing. Required reading
+    before tile 1.3 implementation and tile 1.4 (now reframed).
+  - `four_tasks_onboarding_design_notes.md`         — LOCKED (session 6
+    foundation; session 9 full rewrite — solo-as-default with no
+    fork screen, 8-screen flow with full copy locked screen-by-
+    screen, pairing-by-typed-values with server-side ambiguous-
+    match resolution via 409, theme + MOTD moved into day-zero
+    onboarding, library sharing soft-plant on partner-calendar
+    screen). Single /join_by_values endpoint (collapses old
+    join_by_link + join_by_values). Four-tasks entry screen
+    placement PENDING — copy locked, slot TBD. Required reading
+    before any Phase 3 tile.
+  - `four_tasks_sticker_pack_brainstorm.md`         — RUNNING DOC
+    (started session 6 part 2). Content brainstorm — pack ideas
+    with leader + companions + background + notes per entry.
+    Initial six pack entries (frog, chilli, vampire, wizard, car,
+    fairy). Parked ideas section. Edited freely as inspiration
+    arrives. Reference for tile 4.D (sticker art) when packs
+    graduate to paint-ready.
+    SESSION 7 NOTE: brainstorm entries use the old "leader +
+    companions + background" framing; under the new feature-
+    catalogue model from session 7 theme doc rewrite, each pack
+    entry would ideally list which slots it ships. Rewrite of
+    individual pack entries is parked admin work — does not
+    block painting since the same art still serves the same
+    slots; the metadata listing just needs updating.
+  - `four_tasks_monetisation_position.md`           — LOCKED v2.0
+    (session 6 part 2 — supersedes v1.1 session 1, session 7
+    schema+cadence updates). Subscription delivers BILATERAL
+    LIBRARY ACCESS within pair + small stacking coin bonus.
+    All packs bought with coins by all users, permanently
+    owned. Past days immutable (preserve full historical slot
+    state). Founders pricing tier (launch cohort) distinct
+    from founders flag (prototype era). Per-sticker coin bonus
+    stacking rejected as non-goal. Coin economy tuning
+    (rest-day cadence, pack cost curve) captured as placeholders
+    pending balance pass.
+    SESSION 7 UPDATES: FORTNIGHTLY ALTERNATING DROP CADENCE
+    LOCKED — week 1 subscriber-only drop, week 3 free-user
+    thank-you drop, repeat. Migration_005 schema updated from
+    two columns to single JSON column (day_theme_state) to
+    align with feature-catalogue theme model. Tier language
+    dropped from pricing curve — single ramp 300→600 cap
+    regardless of pack feature-richness. Required reading for
+    Phase 5 (RevenueCat, paywall, lapse flow) and Phase 4
+    pack pricing.
+  - `four_tasks_achievements_brainstorm.md`         — BRAINSTORM
+    (started session 7). NOT LOCKED — prompt-as-document for
+    future-Morgan. Hidden Easter-egg achievements rewarding
+    global-first unlockers with lifetime subscriptions. Ten
+    starting candidates spanning emotional registers (Embrace
+    the Chaos, Espresso Heart, Confess Nothing, The Buddy
+    Exchange, The Ghost Calendar, Nine Nines, etc). Server-
+    side adjudication architecture sketched (atomic UPDATE
+    race, lifetime sub award flow, studio announcement
+    pipeline). Anti-cheat posture: explicitly tolerant.
+    Implementation may never ship — captured to prevent the
+    idea going undocumented. Reference for future v1.x design
+    pass if pursued.
+
+THE APPTRIOC FORK ARCHITECTURE (locked session 5):
+  APPtrioc is no longer a marketing fork of the prototype. It is a
+  Godot HTML5 export from a snapshot of Four Tasks at the moment
+  tile 4.14a is closed (basic picker, pre-context-menu). The fork
+  point sits between tile 4.14a (pre-fork, APPtrioc inherits) and
+  tile 4.14b (post-fork, Four Tasks exclusive — theme depth
+  features). Launch is SEQUENCED, not simultaneous: Four Tasks ships
+  to stores first (Phase 5), APPtrioc is built+deployed afterward
+  (Phase 5b), the atrioc video drops once both are live.
+  See top of `four_tasks_godot_todo.txt` for the full fork
+  architecture and launch sequence. Both backends (Four Tasks +
+  APPtrioc) run on Cloudflare in separate Workers + D1 instances
+  in the same Cloudflare account — Firebase considered and rejected
+  for APPtrioc; separate-Workers-in-one-account gives isolation
+  without the two-vendor tax.
+
+The design docs above collectively serve as both port plan and roadmap.
+Earlier session 1 docs referenced standalone `four_tasks_godot_port_plan.md`
+and `four_tasks_godot_roadmap.md` files but those were aspirational and
+never written — every architectural decision lives in a focused design
+doc instead, and the phased tile list lives in `four_tasks_godot_todo.txt`.
+
+When starting a fresh session:
+  1. Ask Morgan to upload any changed files (devlog, todo, schema.sql,
+     index.ts) since the last session.
+  2. Read this devlog and `four_tasks_godot_todo.txt`.
+  3. Consult the design doc relevant to the tile being worked on (see list above).
+  4. Use str_replace for code patches — never rewrite whole files unless asked.
+  5. Verify changes before reporting them complete.
+
+Morgan's preferences:
+  - Full explanation before writing code.
+  - Confirm understanding, then write.
+  - One tile per session. Discipline > total motion.
+  - No partial snippets — output complete patched files when patching.
+  - Concise, no filler.
+  - Don't use Australian slang.
+  - Morgan has no prior coding experience; all code is written by Claude
+    via step-by-step guidance. GDScript is being learned alongside the port.
+  - Break information into one decision at a time. Don't pile multiple
+    options on screen; walk through them sequentially. (Session 2)
+  - Architectural preference: Four Tasks is low-throughput. When a
+    design choice is between correctness/legibility/robustness and
+    performance/cleverness, prefer the former. The clever option is
+    reserved for cases where performance is genuinely constrained.
+    This rule pre-empts a class of premature-optimisation debates.
+    (Session 2; see four_tasks_architectural_preference.md for the
+    canonical statement.)
+
+Convention (set session 2): every tile entry in this devlog AND in the
+todo gets a "Time: ~Xh" or "Time: ~Xmin" log on its title line. Times
+are approximate, rounded to the nearest useful chunk. The data feeds
+back into realistic estimation for future tiles.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Native rebuild of the Four Tasks habit tracker for Google Play and Apple App
+Store. Two-user pair model. No third-party login, no email collection.
+Pair-key identity (see v2 design notes). Hand-painted assets. Curated palette
+themes. 1080×2400 portrait.
+
+Backend: Cloudflare Worker + D1 (locked decision, session 1; D1 region OC).
+Identity: pair-key v2 (locked decision, see v2 design notes).
+Theme: per-sticker palette.tres + folder-per-sticker assets, retint at
+render time (locked session 5; see theme design notes — supersedes
+prior "curated lookup table tier (b)" framing).
+Assets: hand-drawn / hand-painted by Morgan.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PROJECT STRUCTURE (canonical)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+res://
+├── scenes/          — all .tscn files
+├── scripts/         — all .gd files (autoloads + non-scene helpers)
+├── assets/
+│   ├── icons/       — hand-painted emoji icons (calendar + picker sizes)
+│   ├── stamps/      — hand-painted stamp variants (complete/rest/partial-N)
+│   └── ui/          — chrome, buttons, popup borders, dividers
+├── data/            — Resource files (palette table, etc.)
+└── server/          — Cloudflare Worker source code (TypeScript)
+    ├── src/
+    │   └── index.ts
+    ├── schema.sql
+    ├── wrangler.toml
+    ├── package.json
+    └── package-lock.json
+
+Outside the Godot project (gitignored):
+  source_assets/     — raw Aseprite / etc. files
+  server/node_modules/  — npm dependencies (reproducible from package.json)
+  server/.wrangler/     — Wrangler local cache
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ARCHITECTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Top-level scene tree:
+  Main (Node)
+  ├── Backend (Autoload — singleton)        — server I/O, signals
+  ├── State (Autoload — singleton)          — in-memory mirror of pair data
+  ├── ThemeManager (Autoload — singleton)   — palette swap, theme_changed signal
+  ├── Audio (Autoload — singleton, v1.x)    — slot ticks, coin sounds, stamp thump
+  ├── Loader (Scene)                        — identity check, pair-key resolve
+  ├── Onboarding (Scene)                    — name, tasks, slot intro, emoji pick
+  ├── App (Scene)                           — main two-panel UI
+  └── DevKit (Scene, debug-only)            — bug inbox, seed tools
+
+Source of truth: server. State is a mirror.
+Write flow: UI → State.set_*() → Backend.save() → server confirms
+            → State emits signal → UI updates from signal.
+Optimistic local updates with rollback on server reject.
+
+Server architecture (locked session 2):
+  - Cloudflare Worker (TypeScript) at four-tasks-api.thepicklemoon.workers.dev
+  - D1 SQL database (Oceania region) bound as env.DB
+  - Four tables: pairs, users, days, bug_reports
+  - Pair-key migrations are re-entrant + transaction-wrapped
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 1 (May 2026) — Project bootstrap
+[x] Tile 0.1 — Create the Godot project. Time: ~1h.
+  - Godot 4.x project named four-tasks created with Mobile renderer.
+  - Local path: C:\Users\Necruccio\Documents\four-tasks\
+  - Folder structure: scenes/, scripts/, assets/{icons,stamps,ui}/, data/,
+    server/. source_assets/ outside the project, gitignored.
+  - Git initialised on main branch.
+  - .gitignore extended from Godot's default to also cover /ios/, *.import,
+    /source_assets/, OS files (.DS_Store, Thumbs.db), editor backups.
+  - Godot's auto-created files captured in initial commit: .editorconfig,
+    .gitattributes, .gitignore, icon.svg, project.godot.
+  - Initial commit d25ad2f pushed to private GitHub repo:
+    https://github.com/thepicklemoon/four-tasks
+  - GitHub username: thepicklemoon (separate account on THE PICKLE MOON gmail).
+
+[x] Tile 0.2 — Project settings. Time: ~1h.
+  - Display → Window → Size: Viewport 1080×2400.
+  - Display → Window → Stretch: mode canvas_items, aspect keep_height.
+  - Display → Window → Handheld → Orientation: portrait (locked).
+  - Input Devices → Pointing: emulate_touch_from_mouse + emulate_mouse_from_touch
+    both enabled (touch-first dev workflow on desktop).
+  - Application → Config → Name: "Four Tasks". Description set.
+  - Rendering → Textures → Canvas Textures → Default Texture Filter: Nearest
+    (critical for crisp pixel-art icons / stamps).
+  - All settings saved to project.godot, verified by quit + reopen.
+  - Commit c049d24 pushed.
+
+[x] Tile 0.3 — Font choice (working set imported, decision deferred to context). Time: ~1h.
+  - Two free-licensed fonts imported into assets/fonts/:
+    - Departure Mono (departuremono.com, OFL) — distinctive pixel monospace.
+    - JetBrains Mono Regular + Bold (jetbrains.com/lp/mono, OFL) — clean
+      modern monospace, glitch role fallback.
+  - License files (OFL.txt / LICENSE.txt / AUTHORS.txt / README.md) kept
+    alongside font files for license compliance on redistribution.
+  - Web format files (.woff, .woff2) and unused weights stripped — only
+    the .otf/.ttf we'll ship are committed.
+  - Body font NOT chosen yet. Departure Mono pulls strong as a candidate
+    for body (whole-app pixel monospace, identity-forward) but legibility
+    at body size on mum's iOS PWA is a real concern. Decision deferred to
+    Phase 2/3 when scenes exist and the fonts can be compared in context.
+  - Dengxian was investigated as a third candidate. Dropped — likely
+    licensed by Founder for Microsoft and not freely redistributable
+    even though aggregator sites label it "free for commercial." Red
+    herring; not worth the licensing dig at decision-time.
+  - Commit bd08906 pushed.
+
+[x] Tile 0.4 — Devkit skeleton. Time: ~30min.
+  - scenes/devkit.tscn — empty Control-rooted scene.
+  - scripts/devkit.gd — minimal script extending Control, _ready prints
+    "[DevKit] loaded" as a sanity check.
+  - Verified the scene runs: F6 in Godot opens a blank tall portrait
+    window, console prints the load message.
+  - NOT yet gated to debug-only loading. That's tile 5.2 in Phase 5 —
+    depends on a real Main scene existing first (Phase 2). For now the
+    scene is standalone and only runs when explicitly opened in Godot.
+  - Initial commit e0258c2 used "dev_kit.tscn" filename — corrected to
+    "devkit.tscn" in 06796ec to match script naming and Godot single-word
+    convention. Commit message typo "Tie" instead of "Tile" left in
+    history (rewriting git history not worth it for a typo).
+
+[~] Tile 0.5 — ABN registration + accountant consult. Time: ~30min.
+  - ABN registered as Sole Trader at abr.gov.au.
+  - Main business activity: Software Publishing (except Customised
+    Software Publishing) — ANZSIC 5910.
+  - Position held: Sole Trader.
+  - Business start date: today (May 2026).
+  - GST registration declined (turnover well below $75k threshold).
+  - ABN should be live on ABN Lookup within an hour of submission.
+  - Accountant consult portion of this tile still outstanding — book
+    a one-hour with a WA small business accountant familiar with
+    Division 35 / non-commercial losses / creative industries.
+    Tile remains open until that part lands.
+
+[x] Tile 0.9 — Monetisation strategy discussion. Time: ~1.5h.
+  - Tile pulled forward in session 1 because the privacy policy draft
+    couldn't be finalised without the monetisation question answered
+    (privacy policy v2's "the app is free" line was wrong).
+  - Locked direction: subscription model. $1/week or $4/month.
+    30-day free trial → 30-day half price → full price.
+  - Founders model for prototype-era users (permanent free access
+    via baked-in flag, not redemption codes).
+  - Pair pricing structure deferred — Morgan wants longer to think
+    on whether one-pays-both-get-access vs each-pays-individually
+    vs user-choice. Notes captured in position doc.
+  - Full written position doc saved as
+    four_tasks_monetisation_position.md alongside other planning
+    artefacts. Becomes the stable reference for monetisation
+    decisions; privacy policy v3 will reference it.
+  - The conviction line that anchors all future monetisation
+    decisions: "nothing turns me off faster than the greed i see in
+    the mobile app market. i want to exist where being patient and
+    respectful of their money is legible." Quoted directly in the
+    position doc as the brand check.
+
+SESSION 1 CONTINUED (11 May 2026) — Phase 0 finished
+[x] Tile 0.5 — ABN active + accountant consulted. Time: ~1.5h total.
+  - ABN issued 92 231 512 645, sole trader, Software Publishing.
+  - Free accountant consult on 11 May confirmed business expenses do
+    NOT offset personal (BHP) income. Expenses accumulate against
+    future THE PICKLE MOON revenue, deducted on the first business
+    return that shows earnings. Division 35 / Commissioner's discretion
+    only becomes relevant once there's a business return with a loss
+    — future-Morgan problem.
+  - The 30 June tax-year pressure is therefore gone entirely. No urgency
+    around the Mac purchase. Records still matter (tile 0.11) so
+    expenses are deductible whenever revenue eventually lands.
+  - Accountant didn't have a view on the business-name registration
+    question — "not their area." Tile 0.7 became a standalone decision.
+
+[x] Tile 0.6 — myGovID + RAM linked. Time: ~25min.
+  - myGovID app installed, identity verified.
+  - RAM linked to ABN 92 231 512 645 via info.authorisationmanager.gov.au.
+    Sole trader = principal authority automatically.
+  - Now ready for Apple Developer business identity verification
+    (Phase 5) and any ATO interactions going forward.
+
+[x] Tile 0.7 — Business name registered. Time: ~20min.
+  - THE PICKLE MOON registered as a business name via ASIC Connect.
+    3-year registration, $104 AUD by credit card. Transaction ref
+    1-Z7CGQ6B. Renewal due 11 May 2029.
+  - All studio prose normalised to THE PICKLE MOON across devlog,
+    todo, monetisation doc, and privacy policy in one batch. gmail
+    address, GitHub handle, and example domain (pickle-moon.com) left
+    untouched — those are literal identifiers, not display strings.
+  - First real business expense. Logged in tile 0.11.
+
+[x] Tile 0.8 — Mac access strategy resolved (by removal of constraint).
+  - Accountant outcome removed the only forcing function for buying
+    a Mac before 30 June. Pure business-need decision now: needed in
+    Phase 5 for iOS submission, ~6 months out.
+  - Deferred to Phase 5. Logged as a >>> BUY A FUCKIN MAC <<< reminder
+    at the top of that phase in the todo so future-Morgan can't miss it.
+
+[x] Tile 0.10 — Privacy policy under version control. Time: ~30min.
+  - Privacy policy iterated up to v7 across the session (ABN fold-in,
+    monetisation reflection, studio-name normalisation, business name
+    fold-in).
+  - Created second private GitHub repo on thepicklemoon:
+    https://github.com/thepicklemoon/pickle-moon-public
+  - v7 dropped in as privacy_policy.md (version now lives in git
+    history + the doc's own metadata, not in filenames). README.md
+    added to explain the repo's purpose, contents, and conventions.
+  - Initial commits c13b2e2 + cc7bb53 (README rename — accidentally
+    landed as ledger_README.md, fixed with git mv).
+  - Cloudflare Pages hosting deferred to Phase 5 — the doc will rot
+    if hosted before store submission needs the live URL.
+  - Slotted tile 5.9a into Phase 5: Terms of Service drafting + hosting.
+    Optional for store submission but worth having before paying users
+    exist. Sits next to the privacy-policy-hosting tile.
+
+[x] Tile 0.11 — Record-keeping structure live. Time: ~45min.
+  - Decision: git repo, plain CSV + receipts folder. Punk, free,
+    survives any vendor outliving us. Re-evaluate at >50 entries or
+    when revenue starts.
+  - Created third private GitHub repo on thepicklemoon:
+    https://github.com/thepicklemoon/pickle-moon-ledger
+  - Structure: README.md (conventions + rationale), ledger.csv (single
+    source of truth — date, vendor, amount_aud, category, description,
+    receipt_file, notes), receipts/ folder. Annual summary files
+    (summary_FY2025-26.md etc.) to be generated at end of each
+    Australian financial year (30 June; first one covers FY2025-26).
+  - First ledger row: $104 AUD to ASIC, 11 May 2026, business name
+    registration. All four supporting docs in receipts/:
+    payment-confirmation.png, record-of-registration.pdf,
+    cover-letter.pdf, application.pdf.
+  - ASIC key (1-76631528107) stored separately in password manager,
+    not in the repo. Repo is private but credentials don't belong in
+    plain-text CSV either way.
+  - Commits 19e88a6 (scaffold), 4645430 (receipts), fc67261 (ledger row).
+  - First commit message dropped the "$104" — PowerShell expands "$1"
+    as a variable. Fixed by escaping with backtick or using single
+    quotes. Won't rewrite history for it; new commit has the clean
+    message. Lesson logged.
+
+PHASE 0 COMPLETE. Every tile landed:
+  0.1 Godot project    0.5 ABN + accountant     0.9  Monetisation
+  0.2 Settings         0.6 myGovID + RAM        0.10 Privacy policy in git
+  0.3 Fonts (decided)  0.7 Business name        0.11 Ledger live
+  0.4 Devkit           0.8 Mac → Phase 5
+
+NOTES FOR NEXT SESSION:
+  - Three GitHub repos exist now on thepicklemoon:
+      four-tasks            — the Godot project (private)
+      pickle-moon-public    — privacy policy + future public docs (private)
+      pickle-moon-ledger    — expense ledger + receipts (private)
+  - All three use the same THE PICKLE MOON gmail identity. Reuse for
+    Cloudflare (Phase 1) and store accounts (Phase 5).
+  - The end-of-session git workflow now lives in three repos; remember
+    to commit + push each one that received work in a session.
+  - PowerShell gotcha: $ in commit messages expands as a variable.
+    Always escape with backtick (`$104) or wrap the message in single
+    quotes. Affects any command with literal dollar signs.
+  - Body font decision (Departure for everything vs Departure for
+    headings only) is still open — pick up in Phase 2/3.
+  - Phase 1 starts fresh next session: Cloudflare account creation,
+    then Worker scaffold + D1 schema (tile 1.1).
+
+[x] Tile 1.0 — Cloudflare account live. Time: ~10min.
+  - Signed up at dash.cloudflare.com using thepicklemoon@gmail.com
+    (same identity as the three GitHub repos).
+  - Email verified. Onboarding domain/DNS push skipped — we're here
+    for Workers + D1, not the CDN product.
+  - 2FA enabled via authenticator app (not SMS). Recovery codes saved
+    to password manager.
+  - Account ready to receive Wrangler CLI logins and host the Worker
+    + D1 backend in tile 1.1.
+
+[x] Tile 1.0a — Domain decision + registration. Time: ~30min.
+  - DECISION: thepicklemoon.com via Cloudflare Registrar. Single studio
+    domain. Subdomains for project-specific URLs (planned:
+    fourtasks.thepicklemoon.com, api.fourtasks.thepicklemoon.com).
+  - Considered .dev seriously — would have signalled indie-developer
+    identity to peers and gained free enforced HTTPS. .com won as more
+    legible to non-technical users (mum, customers reading the privacy
+    policy URL, app store reviewers). The brand-side identity outweighs
+    the dev-side signal.
+  - Registered via Cloudflare Registrar at cost (no markup, no upsells).
+    Account type set to Personal — correct for sole trader (no separate
+    legal entity; Morgan Ryan is the legal person, THE PICKLE MOON is
+    just the registered business name he trades under).
+  - WHOIS contact details match ASIC public register (already public
+    information, no privacy concern).
+
+[x] Tile 1.0b — Toolchain prep. Time: ~25min.
+  - Node.js v24.15.0 LTS installed via the official Windows .msi
+    installer. Standard defaults, "Tools for native modules" left
+    unchecked (Chocolatey + Python + VS build tools not needed for
+    Wrangler). Required PowerShell restart for PATH to pick up.
+  - Wrangler 4.90.0 installed globally via npm install -g wrangler.
+  - OAuth auth flow failed first attempt — Cloudflare auth hiccup
+    immediately after account creation. Re-logged into dashboard,
+    retried, succeeded.
+  - wrangler whoami confirms thepicklemoon@gmail.com account,
+    Account ID a0e8193e760facf82a31c6d3992cd7c9, broad permission
+    scope. Account ID saved to password manager for use in Worker
+    configs.
+  - Tile 1.1 (Worker scaffold) now starts at code rather than
+    toolchain setup.
+
+PHASE 0 + Phase 1 OPENING + Toolchain prep COMPLETE.
+
+(Session 1 closed. Phase 0 in the bag. Phase 1 ready to write code.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 2 (12 May 2026) — Worker scaffold + D1 schema, identity v2 lock-in
+
+Two threads ran today: a ledger admin tidy at the start, and tile 1.1
+in earnest after that. The schema design conversation surfaced a
+significant refinement to the locked pair-key identity model, which
+got written up as its own design doc (v2 notes) rather than ballooning
+the devlog.
+
+LEDGER ADMIN (pre-tile work, ~30min):
+  - Aseprite receipt logged. itch.io order #34095350, 5 March 2026,
+    USD $20.99 → A$30.06 (card statement confirmed). Pre-ABN expense,
+    deductible against future PICKLE MOON revenue (accountant's
+    guidance from session 1).
+  - Inserted as new earliest ledger row. Existing ledger was found
+    to be unordered — Morgan spotted that line 4 (Anthropic Pro,
+    1 March) was older than the ASIC row but appearing later in
+    the file. Sorted chronologically in a separate commit, then
+    added Aseprite row above the existing March 1 Anthropic entry.
+  - Commits in pickle-moon-ledger:
+      0050652  Add receipt: 2026-03-05 itch.io Aseprite license
+      ed23b94  Sort ledger chronologically and add expense
+  - Filename convention held: 2026-03-05_itch-io_aseprite-license.pdf
+  - Note: PowerShell $ gotcha caught at commit-message time. Used
+    single quotes per session 1 lesson — worked correctly.
+
+[x] Tile 0.12 — Dev environment setup. Time: ~15min (mid-tile-1.1).
+  - Retroactively added after the cost of working in Notepad became
+    obvious during tile 1.1 file editing. Tile 1.1 needed an editor
+    and didn't have one budgeted; this tile fills that gap and lives
+    in Phase 0 for ordering correctness.
+  - VS Code installed via official .msi from code.visualstudio.com.
+    Standard defaults. "Add to PATH" left enabled so `code .` works
+    from any PowerShell directory.
+  - GitHub integration connected (signed in via VS Code's built-in
+    GitHub auth flow). Future repo work can use VS Code's source
+    control panel as an alternative to PowerShell git commands.
+  - No extensions installed preemptively. Will add Even Better TOML,
+    Godot Tools, etc. as needs surface naturally during work.
+  - Built-in terminal (Ctrl + backtick) replaced standalone PowerShell
+    windows for the rest of the session. Two-terminal pattern (one
+    for dev server, one for curl) supported via the + icon in the
+    terminal panel.
+  - Noted: VS Code ships with a Copilot-style "Chat / Sessions" panel
+    on the right. Disabled for now to avoid two AIs editing the same
+    files without coordination. Re-evaluate if Copilot becomes useful.
+
+[x] Tile 1.1 — Cloudflare Worker scaffold + D1 schema. Time: ~3h.
+
+  Worker side (part 1):
+  - server/package.json created. Three dev dependencies:
+    @cloudflare/workers-types, typescript, wrangler 4.90.0.
+    npm install pulled 36 packages, zero vulnerabilities.
+  - server/wrangler.toml created. Worker name "four-tasks-api",
+    main = "src/index.ts". Compatibility date set initially to
+    2026-05-12, hit error "compatibility date in the future and
+    unsupported" because wrangler 4.90.0 shipped before that date
+    in its release-included runtime catalogue. Pinned to 2026-01-01
+    which is within the 4.90.0 release window. Will bump forward on
+    future wrangler upgrades.
+  - server/src/index.ts created. Single /health endpoint returning
+    JSON. Helper jsonResponse() for consistent envelope. Env
+    interface defined but DB binding commented out until D1 created.
+  - npx wrangler dev confirmed locally — Ready on 127.0.0.1:8787,
+    curl returned {"status":"ok","service":"four-tasks-api"}.
+  - npx wrangler deploy succeeded. First-deploy prompted for
+    workers.dev subdomain — chose "thepicklemoon". URL now live at
+    https://four-tasks-api.thepicklemoon.workers.dev. This subdomain
+    is account-wide and will be reused for any future Workers.
+  - Live verification: initial curl hit a TLS handshake error
+    (SEC_E_ILLEGAL_MESSAGE on Windows curl) — DNS/edge cert lag.
+    Browser succeeded immediately, curl caught up after ~30min.
+    Worker side proven end-to-end.
+
+  Identity model refinement (mid-tile):
+  - When walking the schema, Morgan flagged that my initial sketch
+    underspecified the pair-key system. The v1 design (session 13)
+    treated the pair-key as just a hash of two names; Morgan's
+    actual mental model includes username and icon as part of the
+    recovery credential, with the partner's app acting as the
+    visible source of truth.
+  - Long design conversation that surfaced and locked:
+      • Six-value pair-key (name+username+icon × 2 users)
+      • Name immutable, username + icon freely mutable
+      • Username and icon changes trigger pair-key migration
+      • Migration is re-entrant by design, wrapped in D1 transactions
+      • Emoji picker uses preview-on-press / commit-on-close to
+        collapse the race-condition window
+      • Pair-key stored as SHA-256 truncated to 16 hex chars
+  - Full write-up: four_tasks_pair_key_v2_design_notes.md. The
+    v1 doc remains for background but is superseded on recovery
+    semantics by v2.
+  - This was the right level of design conversation to have *before*
+    cementing the schema. Worth the time. Pattern to repeat: when
+    a schema or interface decision touches identity/recovery, slow
+    down and write the design out fully.
+
+  Schema side (part 2):
+  - server/schema.sql created. Four tables: pairs, users, days,
+    bug_reports. One index on days (pair_key, user_name, date DESC).
+    Long comment block at the top of the file captures every locked
+    decision from the v2 design conversation inline so future-Claude
+    reading the file gets the design intent without needing to find
+    the separate doc.
+  - Filename typo caught: created as "scheme.sql", renamed to
+    "schema.sql" via VS Code. Caught when ls showed the typo before
+    `wrangler d1 execute` ran against it. Five-message-long design
+    discussion about *the schema* had been mis-spelled the whole time
+    on disk — easy miss, easy fix.
+  - D1 database created: `npx wrangler d1 create four-tasks` →
+    database_id 439855c8-e0cc-4241-bbdc-5a0a00e0f681, region OC
+    (Oceania — closest to WA, lowest latency for live users).
+  - wrangler.toml updated with the [[d1_databases]] binding active.
+    Wrangler suggested binding name "four_tasks"; overrode to "DB"
+    by convention (env.DB.prepare(...) reads cleaner than
+    env.four_tasks.prepare(...)).
+  - Schema applied: `npx wrangler d1 execute four-tasks --remote
+    --file=schema.sql` — 5 commands executed (4 CREATE TABLE +
+    1 CREATE INDEX), 14 rows written, 0.05 MB DB size.
+  - Verification query against sqlite_master returned all four
+    expected tables plus sqlite_sequence (AUTOINCREMENT helper)
+    and _cf_KV (Cloudflare internal bookkeeping, harmless).
+  - Worker redeployed to pick up the D1 binding. Output now confirms
+    "env.DB (four-tasks) D1 Database" in bindings list. /health
+    still responds correctly post-redeploy.
+
+  Git work:
+  - .gitignore extended for Node/TypeScript: node_modules/, *.log,
+    .wrangler/, dist/. Verified with git check-ignore before
+    adding server/ to the stage.
+  - Five commits on main in four-tasks repo:
+      (previous)  Extend .gitignore for Node/TypeScript
+      (previous)  Scaffold Cloudflare Worker with /health endpoint
+      fa0e618     Add D1 schema: pairs, users, days, bug_reports
+      f103435     Wire D1 binding in wrangler.toml
+
+NOTES FOR NEXT SESSION (written mid-session 2 after tile 1.1 only —
+SUPERSEDED by the UPDATED NOTES FOR NEXT SESSION block at the end of
+this session 2 entry below):
+  - All servers live: Worker, D1 binding, /health proven end-to-end
+    via curl. Ready for tile 1.2 (Worker endpoints v1).
+  - The schema's identity model documentation is the source of
+    truth for tile 1.3's defensive write rules — re-read both the
+    schema comments AND four_tasks_pair_key_v2_design_notes.md
+    before writing migration logic.
+  - Tile 4.14 (theme manager) now has UX hooks defined for the
+    picker. Implementation can refer to the v2 doc's
+    "Emoji picker UX" section.
+  - Outstanding ledger items for when receipts/statements land:
+      • Cloudflare domain (thepicklemoon.com) — invoice IN-64839053,
+        USD $10.46, expected ~A$16-17, paid 11 May. Card statement
+        will confirm AUD figure. Receipt files already saved to
+        pickle-moon-ledger/receipts/.
+      • Bitwarden — subscription starts after trial, ~1 week from
+        end of session 2. New software_subscription expense incoming.
+  - VS Code in regular use now. Future tiles will use Source Control
+    panel + integrated terminal rather than separate PowerShell
+    windows. Workflow is meaningfully faster.
+  - PowerShell single-quote pattern for $-containing commit messages
+    is now second nature. No further reminders needed.
+
+END-OF-SESSION REVIEW NOTE:
+  After the planning docs were drafted, ran a five-point concerns check.
+  Morgan signed off on four of them as "deal with it when we get there"
+  (schema-username untested in production, recovery UI undrawn, collision
+  popup copy unwritten, bug_reports deletion strategy). One produced a
+  real design contribution: the morning sequence's coin-payout animation
+  doubles as a natural migration window. UI non-interactive for the
+  duration = server gets uninterruptible time for the day's biggest
+  writes. Folded into v2 design notes and tile 4.6. Tile 1.3 also
+  gained an explicit note about HTTP 409 stale-pair-key handling for
+  the rarer intra-day collision case.
+
+  LATER IN SESSION: started tile 1.2 (Worker endpoints v1) — the
+  three pre-code decisions surfaced two more architectural additions.
+
+  (1) Locked the response envelope shape: uniform {ok, data} / {ok, error}
+  on every endpoint. Kills the inconsistent-error-handling bug class
+  that hurt the web build.
+
+  (2) Locked a meta-rule: "clarity over cleverness." Four Tasks is a
+  low-throughput calendar app; when a design choice is between
+  correctness/legibility and performance/cleverness, prefer the former.
+  Captured in four_tasks_architectural_preference.md (originally
+  written as a port-plan insert before we realised no port plan
+  document exists — the file lives as a standalone reference doc now)
+  and added to Morgan's preferences block in this devlog. Pre-empts
+  a class of premature-optimisation debates.
+
+  (3) Mid-decision, Morgan flagged a feature that hadn't been discussed:
+  partner reactions on MOTD and task tray. This is the first feature
+  where one user writes data attached to the other's row, breaking the
+  "owner-only writes" symmetry baked into the original schema. Stopped
+  tile 1.2 to bake reactions into the schema before any endpoints
+  reference it. After several iterations the locked model is:
+    • Two reaction targets per day (MOTD + tray)
+    • Reactions ONLY land on SEALED days (post-midnight)
+    • Each reaction is IMMUTABLE once placed (server-enforced — reject
+      writes to non-NULL reaction columns with 404)
+    • Client-side confirmation popup on first reaction per user, with
+      "don't show this again" checkbox (single dismissal kills the
+      popup forever for both MOTD and tray)
+    • Surfacing to the receiver is push-based (small notification/badge)
+    • Two phases to a day: live (own focus) + post-seal (mutual
+      appreciation). The temporal split is the design.
+  Full design captured in four_tasks_partner_reactions_design_notes.md.
+  Schema gained five columns total: four reaction columns on `days`,
+  one popup-dismissal flag on `users`. Migration script
+  migration_001_partner_reactions.sql created to bring the live D1 up
+  to date (since the v1 schema was already applied). Tile 1.3 expanded
+  to handle the immutability gate and the post-seal/live-day field
+  permissions table. New tile 4.16 added to Phase 4 for the v1.x picker
+  UI with confirmation popup.
+
+  This conversation took multiple iterations to settle — initial sketch
+  had reactions on live days, freely changeable. Working through it
+  landed somewhere quite different and (Morgan and I both agreed) much
+  better: the "two phases of a day" model gives reactions emotional
+  weight they wouldn't have as casual real-time gestures.
+
+  (4) Then Morgan opened phone notes and surfaced TWO more design
+  reservations to bake into the schema in the same session:
+
+  COIN NAME GENERATOR. Currently coins are flat "[username]-coins"
+  (e.g. "morgan-coins"). Replacement: a server-side rule-driven affix
+  system that transforms username into something with flavour
+  ("morgan" -> "morginks", "lara" -> "larinos"). Rule table lives
+  server-side, generator is deterministic by (username, reroll_count),
+  rerolls cost coins with doubling progression. Three offensive-output
+  mitigations: curated affix pool, server-side blocklist auto-reroll
+  loop, user-facing paid reroll. Plus leaderboard censorship layer for
+  outputs visible to non-partners. Schema reservation: two columns on
+  users (coin_name + coin_name_reroll_count). Full design captured in
+  four_tasks_coin_name_design_notes.md. Future tile 4.17 (generator)
+  + 4.18 (reroll UI).
+
+  STAGGERED FEATURE DISCLOSURE. Surfaced while discussing when the
+  coin-reroll feature should appear to users — Morgan flagged that
+  it shouldn't land day 1, and that this is a broader principle
+  applying to many features (rest day intro, coin tutorial,
+  subscription nudge, leaderboard, etc.). Locked as a meta-principle:
+  features reveal over days/weeks of use, not all at onboarding. Each
+  user has a tutorial_progress JSON column on users tracking which
+  reveals they've seen. A TutorialCoordinator autoload (future tile
+  4.19) picks the next eligible reveal per session boot. Trigger-
+  gated reveals (partner reaction first-seen, etc.) wired via signals.
+  Devkit gets a skip-all-reveals toggle for Morgan's own testing.
+  Schema reservation: one column on users (tutorial_progress JSON).
+  Full design captured in four_tasks_staggered_disclosure_design_notes.md.
+
+  Both additions applied to live D1 via migration_002_coin_name_and_tutorial.sql
+  in the same session as migration_001. Three users columns added,
+  zero days columns. Combined commit covers schema.sql + migration_002.
+
+  Pattern emerging across session 2 (cementing now): when a feature
+  or interface decision has architectural shadow, capture the full
+  design in its own doc rather than burying it in todo lines. FIVE
+  design docs now exist for what would have been five throwaway
+  paragraphs in earlier sessions. The total time spent on design
+  capture this session is genuinely high — comparable to the time
+  spent on code — and worth it. Better to write the design once,
+  carefully, when fresh than retrofit a half-baked design at
+  implementation time.
+
+  (5) Finally, returned to tile 1.2 and locked the third pre-code
+  decision: AUTH. Caller named in the URL (Option A) rather than a
+  separate request header. Self-writes have the caller's name as
+  the path segment. Cross-user writes (the reaction case) append
+  ?caller=name as a query param. No 403s in our model — "permission
+  denied" semantics fold into 404. Tile 1.3 description updated to
+  capture the full defensive-write decision flow.
+
+  All three pre-code locks for tile 1.2 now in place:
+    • Response envelope: uniform {ok, data} / {ok, error}
+    • HTTP status codes: 200/400/404/409/500
+    • Auth: caller in URL, ?caller= for cross-user writes
+
+  D1 MIGRATIONS APPLIED THIS SESSION:
+    • migration_001 (partner reactions) — 4 columns on days + 1 on users.
+      Initial run hit a Cloudflare auth blip (error code 10000) on the
+      D1 import endpoint despite the OAuth token still being valid for
+      most operations. `wrangler logout` + `wrangler login` cleared it;
+      retried successfully. Worth noting: D1 import is a separate API
+      surface that can have token-refresh issues independent of the
+      main account auth. Re-auth fixes it cleanly.
+    • migration_002 (coin name + tutorial progress) — 3 columns on users.
+      Clean execution after the re-auth.
+  Both verified via PRAGMA table_info() on days and users. Final
+  column counts: days 12, users 11.
+
+  GIT COMMITS THIS SESSION (four-tasks repo, on top of session-1 history):
+    (.gitignore) Extend .gitignore for Node/TypeScript
+    (scaffold)   Scaffold Cloudflare Worker with /health endpoint
+    fa0e618      Add D1 schema: pairs, users, days, bug_reports
+    f103435      Wire D1 binding in wrangler.toml
+    c8a79f0      Reserve partner-reaction schema (reactions + popup dismissal)
+    84a7694      Reserve coin name + tutorial progress schema
+
+  pickle-moon-ledger repo:
+    0050652      Add receipt: 2026-03-05 itch.io Aseprite license
+    ed23b94      Sort ledger chronologically and add expense
+
+UPDATED NOTES FOR NEXT SESSION (supersedes the older "next session" block above):
+  - Tile 1.2 fully unlocked for code. Three pre-code decisions locked
+    (envelope, status codes, auth). Endpoint walkthroughs start with
+    GET /pair/:key as the canonical example, then /resolve as the
+    first real test of the v2 identity model end-to-end.
+  - Realistic session-3 scope: read endpoints only
+    (GET /pair/:key, POST /pair/:key/resolve, GET /leaderboard).
+    Writes wait for session 4 — they're tied to tile 1.3 defensive
+    logic and warrant their own focused session.
+  - The design docs need to be read in this order if returning cold:
+    v2 identity → partner reactions → coin names → staggered disclosure.
+    The v1 identity doc is background only. All five plus this devlog
+    + the todo now live in the new `pickle-moon-design-notes` repo
+    (private, on `thepicklemoon` GitHub account, structured as
+    `four-tasks/<files>` + `four-tasks/privacy/<drafts>` + empty
+    `studio/` placeholder).
+  - Repository inventory (THE PICKLE MOON, all private):
+      • four-tasks                 — Godot project + Cloudflare Worker
+      • pickle-moon-design-notes   — devlogs, todos, design notes (NEW session 2)
+      • pickle-moon-public         — published privacy + future ToS
+      • pickle-moon-ledger         — expense records
+  - Schema is comprehensively reserved through v1.x for partner
+    reactions, coin names, tutorial progress. No more migrations
+    expected before tile 1.2 endpoints land. The "we keep finding
+    more architectural reservations" wave appears to have settled
+    after the schema absorbed everything from session 2's phone notes.
+  - Tile 1.2 is fully unlocked for code — all three pre-code locks
+    (response envelope, status codes, auth) recorded in the tile
+    description in the todo. Recommended session 3 scope: read
+    endpoints only (GET /pair/:key, POST /pair/:key/resolve,
+    GET /leaderboard). Write endpoints depend on tile 1.3 defensive
+    logic — give them their own session.
+  - Going forward, session bootstrap uses a Claude Project with all
+    design docs attached, eliminating the per-session "paste a zip"
+    pattern from the prototype era. Project system prompt drafted at
+    end of session 2.
+  - Outstanding ledger items:
+      • Cloudflare domain (thepicklemoon.com) — invoice IN-64839053,
+        USD $10.46, expected ~A$16-17, paid 11 May. Card statement
+        will confirm AUD figure.
+      • Bitwarden — subscription starts after trial, ~1 week from
+        end of session 2. New software_subscription expense incoming.
+  - Wrangler D1 token-refresh quirk now documented. If a D1 import
+    fails with "Authentication error [code: 10000]" first try
+    `wrangler logout` + `wrangler login` before assuming worse.
+  - Near-miss with credentials during the design-notes repo creation:
+    Cloudflare 2FA recovery codes were sitting in
+    `pickle-moon-design-notes/four-tasks/privacy/` as a .txt file from
+    earlier in the session, would have been committed to the initial
+    repo state if not caught. Caught before commit, removed from the
+    folder, copied to Bitwarden notes + Desktop. Lesson: scan for
+    plaintext credentials in any folder going into a new git repo,
+    especially during folder migrations where files can drift between
+    locations without conscious tracking.
+
+SESSION 2 CLOSED. Total session time: ~10h across continuous work
+(architectural design was roughly half of that, code + commits + repo
+admin the other half).
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 3 (12 May 2026) — Tile 1.2 read endpoints
+
+Focused session on the read half of tile 1.2. Tile started fully unlocked
+(all three pre-code decisions from session 2 already locked: envelope,
+status codes, auth). Goal: GET /pair/:key, POST /resolve, GET /leaderboard.
+Closed with the first two done, leaderboard moved out to a new Phase 4
+tile after a scoping conversation.
+
+[~] Tile 1.2 (continued) — Read endpoints. Time: ~3h.
+
+  GET /pair/:key:
+  - Three pre-implementation decisions surfaced and locked:
+    1. Day history cap: calendar year + previous year (not rolling
+       365 days). The calendar-year choice creates a natural
+       annual ritual — Jan 1 the previous year drops off, app
+       offers the keepsake export (new future feature, see below).
+       Server-side date computation so client clocks can't affect
+       what's returned.
+    2. Missing-pair-key handling: split 400 (malformed) vs 404
+       (not found). The auth conversation's "permission denied
+       folds into 404" rule didn't apply here — no caller, no
+       permission to deny. Pair-key itself is the credential;
+       anyone holding the right 16-hex string gets the data.
+    3. JSON-string columns parsed server-side, returned as real
+       arrays/objects (task_labels, tutorial_progress, tasks_done).
+       Removes a double-parse step on the client.
+  - Helper functions extracted: ok() and err() for envelope
+    construction. Removes the risk of envelope drift across
+    endpoints — the shape is enforced by construction. Worth the
+    minor indirection.
+  - One D1 batch() call for the three queries (pair + users +
+    days). Single round-trip per request. Not optimisation — just
+    the natural way the D1 client exposes "run these together".
+  - All three paths curl-verified end-to-end:
+    • 200 with seeded test pair returned full payload with
+      correctly-typed nested arrays/objects
+    • 400 rejected three malformed-key variants (empty, too short,
+      non-hex 16-char)
+    • 404 returned correct envelope for a well-formed but
+      non-existent key
+
+  POST /resolve:
+  - URL correction caught mid-walkthrough: the todo said
+    POST /pair/:key/resolve but that's nonsense — the whole point
+    of resolve is "I don't have the key, derive it for me from
+    the six values." Fixed to POST /resolve. Captured in this
+    session's todo edits.
+  - Decision: return the full pair payload on success, not just
+    the key. Reuses GET /pair/:key's getPair() function internally
+    — single source of truth for the response shape, saves the
+    client a round-trip.
+  - Input validation conversation produced a useful clarification.
+    The canonical-form rules (no '|', no '__') will be enforced
+    client-side at onboarding tiles 3.3 / 3.3a, AND server-side
+    at /resolve (and at tile 1.3's write endpoints). Morgan
+    initially pushed back on the server-side check as redundant
+    given onboarding enforces it. The case for keeping it:
+    onboarding stops a USER from typing bad input; server
+    validation stops bad input from existing in the database,
+    regardless of source. Different jobs, same rule. Cost is six
+    lines of code, benefit is data integrity guarantees that
+    survive client regressions, raw API access, and data
+    restoration paths. Asymmetry is huge enough that "always
+    write the server check" is just a free habit.
+  - derivePairKey() helper extracted as a standalone function.
+    Web Crypto API (not Node's crypto module) since Workers run
+    in a different environment. Tile 1.3's pair-key migration
+    logic will use the same function.
+  - Sort-by-name happens server-side after input is received. The
+    caller's "self" vs "partner" labelling doesn't affect the
+    derived key — server resolves canonical A/B ordering from
+    name alphabetical sort. Tested end-to-end and works correctly.
+  - All three paths curl-verified:
+    • 400 for missing body fields, invalid JSON, forbidden
+      characters (with specific field/character named in error
+      message)
+    • 404 for valid input that doesn't match any stored pair
+    • 200 for valid input matching a stored pair, returns full
+      payload identical in shape to GET /pair/:key
+
+  Doc consequences:
+  - Tile 1.2 moved to [~] in todo. Description rewritten to show
+    what's done vs what's still TODO. Session 3 notes appended.
+  - Tile 4.13 split into 4.13 (UI) + 4.13a (endpoint). The
+    leaderboard endpoint moved out of tile 1.2 because its shape
+    isn't specced anywhere — it tangles with the coin-name
+    censorship layer (4.17) and the opt-out UX (4.13). Needs a
+    focused design conversation when 4.13 lands, not a snap
+    decision in this session. Schema impact likely small (maybe
+    one opt-out flag) but not yet committed.
+  - Year-end keepsake export feature captured to ACTIVE. Surfaced
+    naturally from the calendar-year cap decision — Jan 1 each
+    year, older days fall off the GET /pair/:key response, but
+    the data remains in DB. Keepsake feature offers the user a
+    composite image of the closed year. Hand-painted, matches
+    app aesthetic. Architectural cost: zero (schema unchanged,
+    new endpoint just queries the existing days table for an
+    arbitrary year). Target launch timing: store launch by July
+    2026 latest, so first cohort of users gets a few months of
+    data accumulated before NYE 2026/2027 — keepsake feature
+    fires for the first time Jan 1 2027 with real emotional
+    weight rather than just being an export button.
+  - Phase 3 onboarding tiles (3.3 / 3.3a) gained a note in ACTIVE
+    pinning the validation rules they must enforce at name +
+    username + icon entry: no '|', no '__', non-empty strings.
+    Mirrors server-side rules from /resolve as defence-in-depth.
+
+GIT COMMITS THIS SESSION (planned at session-close batch):
+  four-tasks repo:
+    (will commit)  Tile 1.2: implement read endpoints (GET /pair/:key,
+                   POST /resolve) with envelope helpers and pair-key
+                   derivation utility.
+  pickle-moon-design-notes repo:
+    (will commit)  Session 3 update: tile 1.2 partial close, leaderboard
+                   tile split, year-end keepsake export feature captured,
+                   PowerShell/curl/wrangler conventions logged.
+
+DEV ENVIRONMENT LESSONS:
+  - Windows PowerShell `curl` is an alias for Invoke-WebRequest, NOT
+    real curl. Different semantics, security prompt UX, different
+    output format. Adopted convention: use `curl.exe` explicitly on
+    this project, always. Same flags as everywhere else, same output
+    as everywhere else.
+  - PowerShell mangles JSON bodies on the command line — backslash-
+    escaped quotes don't survive interpolation. Stored JSON in a file
+    and used `--data-binary "@file.json"` to sidestep quoting. Adopted
+    as the convention for any curl-with-body command going forward.
+  - `npx wrangler dev` drifted to remote mode mid-startup twice during
+    this session (no clear root cause — possibly hotkey, possibly
+    config). Workaround: `npx wrangler dev --local` with the explicit
+    flag prevents the drift. Adopted as the convention.
+  - Local D1 is a separate SQLite file from remote D1. Tile 1.1 only
+    applied schema to remote. First time `--local` ran, `pairs` table
+    didn't exist locally and the endpoint 500'd. Fix: apply schema.sql
+    with `--local`. Migrations 001/002 are baked into schema.sql so
+    re-applying them to a fresh local DB fails with "duplicate column"
+    — harmless, skip them for local seed. Will document the fresh-
+    clone setup sequence in the /server/README.md when that lands in
+    tile 1.3.
+  - SQL seed via shell: PowerShell escaped-quote interpolation
+    corrupted a JSON string column on first insert attempt (stored
+    `\workout\` instead of `"workout"`). Caught immediately because
+    the endpoint 500'd on JSON.parse — the try/catch did exactly what
+    it was designed for. Fix: put SQL in a .sql file, use `--file=`,
+    no shell escaping in play. Convention adopted: anytime SQL needs
+    quoted strings, write the SQL to a file.
+
+  Pattern across these: PowerShell's argument handling is a
+  consistent source of friction. The fix is the same every time —
+  use an explicit executable (curl.exe), use file references over
+  inline strings (--data-binary @file, --file=seed.sql). Doing this
+  by default removes a class of mystery bugs.
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.2 still [~]. Remaining endpoints (writes): PUT user,
+    PUT day, POST bug_report. These depend on tile 1.3's defensive
+    write rules being designed alongside. Logical session-4 scope:
+    tile 1.3's full rule-table design + the three write endpoints
+    implementing it. Will be denser than session 3 — schema
+    interactions, migration logic for username/icon changes, the
+    409 stale-key handling, the partner reaction immutability gate.
+  - Local D1 wiped at end of session — fresh tables, no rows.
+    Reseed at start of session 4 if testing needs seeded data.
+  - Wrangler dev --local is the project convention. curl.exe is the
+    project convention. --data-binary @file.json is the project
+    convention. Captured in todo PARKED + ACTIVE.
+  - The leaderboard tile reposition (4.13a) is now its own thing —
+    don't lump it back into tile 1.2 scope when writes land.
+
+SESSION 3 CLOSED. Total session time: ~4h (mostly endpoint
+walkthrough + curl verification; modest amount of doc updates).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 4 (May 2026) — Tile 1.3 design close
+[~] Tile 1.3 — Worker defensive write rules. DESIGN CLOSED, implementation
+  remains for a future session. Time: ~3h.
+  - Realised at session open that the session 3 close pitched tile
+    1.3 as "design + three write endpoints in one session." On
+    fresh inspection that bundling is the trap session 2 explicitly
+    warned against: the write endpoints depend on a rule-table
+    design that doesn't exist yet, and the migration logic on PUT
+    user is dense enough to merit its own design conversation.
+    Followed the architectural-shadow pattern: capture the design
+    in its own doc, lock it, defer implementation.
+  - One ledger expense logged before code work: Bitwarden Premium
+    annual subscription (A$30.26, 11 May 2026). Standard one-commit-
+    per-expense flow, no friction. Ledger now at 10 entries.
+
+  POST /pair/:key/bug_report (specced):
+  - URL kept under /pair/:key/ despite earlier consideration of an
+    anonymous /bug_report flat URL. Reasoning shifted during the
+    conversation — initial lean was anonymous (less data, simpler),
+    but the correlation argument (filed reports become actionable
+    when you can see the reporting pair's actual DB state) carried
+    the day. Privacy cost is small and easily disclosed in the
+    bug-report UI.
+  - Bug reports are paired-only: onboarding-stage users can't reach
+    the bug button. The `pair_key` column in `bug_reports` remains
+    nullable as a zero-cost hedge for future "stuck-on-loader bug
+    report" flows; v1.0 never writes a NULL there.
+  - Body: { message (non-empty, max 2000 chars), app_version
+    (optional, no format check) }. app_version is for human eyes,
+    not structured query — format checking would be theatre.
+  - Server fills id, submitted_at, pair_key (from URL). Response
+    returns just { id } on success.
+  - NO pair-existence check before INSERT. This was the most
+    instructive sub-decision in the bug_report design. Morgan
+    initially asked "what's the cost?" — answer: practically
+    nothing (one indexed SELECT). But the conversation turned on
+    a different axis: the existence check would create a SECOND
+    pair-key oracle beyond GET /pair/:key. Pair-keys are 64-bit
+    credentials; the fewer endpoints that disclose "this key is
+    real" via their response code, the better. Junk-in-the-table
+    is the wrong problem to solve at the endpoint layer; rate
+    limiting at Cloudflare's edge is the right tool. Captured
+    "rate limiting design" as a separate ACTIVE todo.
+
+  PUT /pair/:key/users/:target/days/:date (specced):
+  - URL: nested path (users/:target/days/:date) over flat
+    alternatives. Mirrors schema hierarchy, reads cleanly in logs,
+    URL length doesn't matter in this codebase. The cross-write
+    case uses ?caller=name per the locked session 2 auth
+    convention.
+  - Day rows auto-create on first write. Considered the
+    alternative of "create-on-app-open" (Morgan's instinct) at
+    length — it had appeal but doesn't solve the midnight-rollover
+    bug (which is client-side date-tracking, present in either
+    model) and would produce empty rows for non-acting users.
+    Auto-create on first write keeps reads pure (GET stays a GET,
+    not a write-in-disguise), produces zero empty rows, and
+    matches HTTP PUT's "create or update" semantics naturally.
+  - Body is partial: client sends only changing fields. Tap a
+    task → send { tasks_done: [...] } only. Important for the
+    most common write (single task toggle) — a full payload on
+    every tick/untick/edit would be wasteful and force the client
+    to track values it shouldn't need to know.
+  - Field-level rules: owner writes tasks_done, diary, rest_day
+    (unsealed only); partner writes motd_reaction, tray_reaction
+    (sealed only AND currently NULL). Stamp is server-only — IT
+    LANDS DURING THE MORNING PAYOUT, not user-written. Morgan
+    surfaced this mid-conversation: stamps are part of the
+    nightly-close ritual, with tier 1-4 (completed tasks count)
+    determining colour and message pool. The clarification
+    reshaped the rule table cleanly.
+  - Reaction immutability: the four reaction columns each accept
+    exactly one write. Subsequent writes to a non-NULL reaction
+    column reject with 409 reaction_already_set. Matches the
+    partner-reactions design doc.
+  - diary column is the MOTD (legacy name from web build), not
+    free-text. Generated by the slot-machine spinner (adverb +
+    verb + noun + emoji), client-side wordlists, commit-on-exit
+    pattern matching the emoji picker. Server trusts the
+    committed string — duplicating ~300 words server-side would
+    create two sources of truth that drift. Validation is
+    non-empty + max 200 chars (DoS guard).
+  - Rejection codes: 400 for input/shape issues (including
+    server-only column in body, redundant ?caller=, etc), 404
+    for missing pair/user/target AND for permission denied
+    (locked convention), 409 for state conflicts (day_sealed,
+    day_not_sealed, reaction_already_set).
+
+  PUT /pair/:key/users/:target (specced):
+  - Always self-write, no ?caller. Partner writes never touch
+    the users table.
+  - Owner-writable (no migration): task_labels, reaction_confirm_
+    dismissed, tutorial_progress.
+  - Owner-writable (triggers pair-key migration): username, emoji.
+  - Server-only: name (immutable!), coins, streak, coin_name,
+    coin_name_reroll_count, morning_payout_due_for. Coins and
+    reroll_count look user-controlled but are actually side-
+    effects of dedicated endpoints (morning claim, reroll). PUT
+    user keeps the column closed.
+  - emoji column clarification: despite the column name, content
+    is a short string ID for a hand-painted icon asset (e.g.
+    "frog_01"), NOT a unicode emoji codepoint. The picker (tile
+    4.14 / 3.7) presents hand-painted images. Column name not
+    renamed (cosmetic, would require migration). Captured in the
+    design doc.
+  - task_labels: 4 strings, each max 49 chars (Morgan's choice,
+    "because I said so"). UX cap will be tighter in input field.
+  - tutorial_progress: JSON object, MERGED into stored value (not
+    replaced). The state is accretive; merge avoids clobbering
+    parallel-client updates. Unique to this column.
+
+  SCHEMA ADDITION SURFACED DURING DESIGN — morning_payout_due_for:
+  - Mid-conversation, Morgan flagged that the layer we were
+    designing was the natural home for the firebase prototype's
+    `morningDue` concept — the flag indicating "this user has a
+    pending morning payout to receive on next app open."
+    Considered three options for where the state should live:
+    derived from days.sealed_at + days.stamp (clever but conflates
+    visual stamp with payout-received state), explicit days column
+    (bloats the high-volume table for per-user UX state), or new
+    users column. Locked on the third: nullable TEXT column on
+    users, set to YYYY-MM-DD by nightly cron when sealing days,
+    cleared by a dedicated morning-payout claim endpoint.
+  - The claim endpoint is its own thing — atomic transaction that
+    stamps the day (server-side, based on tasks_done tier),
+    deducts/credits coins, updates streak, clears morning_payout_
+    due_for. Deferred to its own design conversation; blocks tile
+    4.6 (morning sequence animation) which needs the response
+    shape. Captured in design doc "Deferred / parked items".
+  - Schema change captured as migration_003_morning_payout.sql:
+    ALTER TABLE users ADD COLUMN morning_payout_due_for TEXT;
+
+  MIGRATION LOGIC — the dense part of PUT user:
+  - When username or emoji changes, the pair-key changes.
+    Migration is the re-entrant, transaction-wrapped flow already
+    sketched in v2 design notes. This session locked the response
+    shape, collision handling, and client-side defensive write
+    requirements.
+  - Atomic transaction inside a D1 batch(): re-derive new key,
+    INSERT new pair row, INSERT both users under new key, COPY
+    all days rows under new key, DELETE old days/users/pair rows.
+    Insert-new-then-delete-old rather than UPDATE pair_key in
+    place — D1 (SQLite) doesn't handle primary-key column updates
+    cleanly; copy-then-delete is the natural fit.
+  - Response shape locked: always includes `migrated` boolean,
+    always returns full pair payload. When migrated: true, also
+    includes new_pair_key. Same shape regardless of path so the
+    client always branches on data.migrated, no special case for
+    "did the response include a new key?"
+  - Collision (1-in-5-billion hash collision): server lets the
+    INSERT into pairs fail naturally with primary-key violation,
+    transaction rolls back, returns 409 pair_key_collision.
+    Client surfaces as "that username is taken, sorry try
+    another" — same UX as onboarding collision. No pre-emptive
+    check. Discussed the information-leak angle: pre-checking
+    would leak "this exact six-tuple combination is taken," but
+    the leak is near-zero since the attacker would need the
+    partner's full six-tuple to construct a collision, at which
+    point they already have recovery credentials. Decision was
+    "let it fail" for simplicity, not security.
+  - PARTNER EXPERIENCE during migration is silent and automatic.
+    Their next poll on the old key returns 404, client recovery
+    path re-derives the new key from the six values they still
+    hold (five visible on screen + own name), client updates
+    stored identity and re-polls. No popup, no error, just a
+    re-themed partner panel. The 404 recovery is the same code
+    path that handles any stale-key situation, not migration-
+    specific.
+  - CLIENT-SIDE DEFENSIVE WRITES required to avoid lockout from
+    in-flight failure. The conversation surfaced four
+    requirements: persist pending change to identity.cfg before
+    sending, use pending values during 404 recovery, clear
+    pending slot on confirmed success, retry against new key
+    on concurrent-migration race. These are picked up by tile
+    1.7 (Godot identity layer) and tiles 4.14 / 4.15 (emoji and
+    username edit flows). Captured in design doc as a section.
+  - NICE-TO-HAVE captured for tile 4.15: small dismissible
+    popup on username change ("changes may take a minute to
+    take effect", "don't show again"). UX layer over the
+    defensive writes, not a correctness layer.
+
+  KEY ARCHITECTURAL CALLS THIS SESSION:
+
+  1. "Oracle" discussion on bug_report existence check. Adding
+     the check would have created a second pair-key disclosure
+     endpoint. Pair-keys are the credential; oracling them on
+     a write endpoint for no functional benefit is a free-cost
+     security mistake. Resolved by deferring spam defence to
+     the rate-limit layer (its own future design).
+
+  2. diary content validation: trust the client + length cap,
+     not mirror the wordlists. The architectural preference
+     doc's "clarity over cleverness" rule applied directly —
+     two sources of truth for the same 300-word lists would
+     drift. Defence-in-depth at /resolve made sense (small
+     ruleset, security-sensitive); defence-in-depth on MOTD
+     wordlists doesn't (large ruleset, low security stakes).
+
+  3. Strict input validation across the board. Redundant
+     ?caller= rejected with 400, server-only columns in body
+     rejected with 400. Client bugs surface early.
+     Strict-not-lenient pattern; the cost is zero in a single-
+     client codebase.
+
+  4. morning_payout_due_for as a new column rather than derived
+     state. Per-user UX state belongs on users; per-day state
+     belongs on days. Conflating "visual stamp" with "payout
+     received" would have broken future features (year-end
+     keepsake decoration of old days, etc.).
+
+  5. Migration logic stays inside the existing 404 recovery
+     path on the client. Don't invent a "migration in progress"
+     state machine — the existing recovery code already does
+     the right thing when the key it has stops working, for
+     any reason. Re-use over reinvention.
+
+  Doc consequences:
+  - four_tasks_write_rules_design_notes.md written (594 lines).
+    Specifies all three write endpoints in full, captures
+    rejection-code reference table, schema delta (migration_003),
+    and four deferred items: rate limiting, migration UX popup,
+    morning-payout claim endpoint, future enum tightening.
+  - Tile 1.2 remains [~] (write endpoints still TODO, blocked
+    on tile 1.3 implementation tile).
+  - Tile 1.3 status: design closed, implementation pending.
+    Will reference the new design doc when the implementation
+    tile lands. Likely a session in its own right.
+  - Schema change captured: migration_003_morning_payout.sql
+    pending application to local + remote D1 alongside the
+    tile 1.3 implementation.
+
+  Design-vs-implementation split mirrors the session 2 pattern
+  (partner reactions, coin names, staggered disclosure all
+  captured as design-only docs while schema was reserved). The
+  split keeps tile boundaries clean: design tile produces a
+  doc, implementation tile produces code against the doc.
+  Pre-empts the "wait, what did we decide about X?" mid-
+  implementation tax.
+
+GIT COMMITS THIS SESSION (planned at session-close batch):
+  pickle-moon-design-notes repo:
+    (will commit)  Session 4 update: tile 1.3 design close, new
+                   write_rules design doc, devlog + todo updates,
+                   schema migration_003 captured.
+  pickle-moon-ledger repo:
+    (committed)    Add expense: 2026-05-11 Bitwarden $30.26
+                   password manager annual.
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.3 implementation tile is the obvious next thing.
+    Reference the new design doc; the rule tables are
+    enumerated and ready to translate into endpoint code.
+    Likely scope: all three endpoints + migration_003.sql
+    applied to local + remote D1 + curl-verification across
+    every rejection path.
+  - Rate limiting design is now an ACTIVE-tier todo. Not
+    blocking tile 1.3 implementation. Belongs in its own
+    short design conversation after a few more write
+    endpoints exist.
+  - Morning-payout claim endpoint design is its own future
+    conversation. Blocked on migration_003 landing (which
+    happens with tile 1.3 implementation). Blocks tile 4.6
+    (morning sequence animation).
+  - Phase 3 onboarding tiles (3.3 / 3.3a / 3.7) now also
+    need to enforce username max 40 chars, emoji asset-ID
+    max 50 chars, task_labels max 49 chars per label. These
+    are the SERVER caps from the design doc; the UX caps in
+    onboarding will be tighter.
+
+SESSION 4 CLOSED. Total session time: ~3h (one tile design, no
+implementation work). One ledger expense logged as a warm-up.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 5 — Away-time planning + theme + marketing + APPtrioc architecture
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTEXT:
+  Morgan heading FIFO. Limited home-office access for the next
+  stretch — phone-during-job, laptop-in-quarters (Aseprite +
+  scratchy mouse). Tile 1.3 implementation needs the home setup
+  (Wrangler dev loop, curl, local D1), so it's parked for the
+  next roster off. Session 5 scoped to: figure out how to spend
+  away-time well, then use the remaining bandwidth on design
+  conversations that don't need code-execution tooling. Father
+  unwell — family takes precedence over launch timing.
+
+AWAY-TIME PLAN ESTABLISHED:
+  Three threads:
+    1. Marketing-insight capture (phone, anywhere). Running doc
+       in pickle-moon-design-notes; collects positioning thoughts,
+       taglines, channels, anti-patterns as they arrive.
+    2. Design framing conversations (laptop, focused). Higher-
+       leverage than implementation work for away-time, because
+       design docs pay back across many future tiles.
+    3. Art (laptop, when in a making mood rather than thinking
+       mood). Aseprite work on stickers + theme art. Blocked on
+       asset dimensions being locked.
+
+THEME SYSTEM — DESIGN FOUNDATION:
+  Morgan flagged that the original four_tasks_theme_design_notes.md
+  referenced in the AI Reading Guide is missing from the repo —
+  either lost or never committed. Status confirmed unclear; doc was
+  described as "centrifugal" so the absence is non-trivial. Decision:
+  treat the new doc as canonical; if the original surfaces, cross-
+  reference rather than merge.
+
+  THE PROTOTYPE'S SYSTEM (read and confirmed):
+    One source emoji per user (headerEmoji), defaulting to 🐸.
+    Picker opens via long-press on top-left emoji. In the picker,
+    tap toggles pool membership (activeEmojis), long-press sets as
+    headerEmoji and triggers applyAppPalette() — canvas pixel
+    extraction at 60ms setTimeout, RGB quantisation, greedy
+    contrast search picks 3 colours, surfaces to bgMine (gradient)
+    + streak bar (tinted). That's it. Everything else (day cells,
+    task list, popups, util bar, calendar grid) hardcoded slate/zinc.
+    Clever for prototype scope; small in actual reskin reach.
+
+  THE GODOT PORT'S SYSTEM (locked this session):
+    Three INDEPENDENT levers, all from the same picker grid:
+      LEVER 1 — Pool membership (tap, identical to prototype).
+      LEVER 2 — Calendar leader (long-press → 📅 in context menu).
+      LEVER 3 — Palette source (long-press → 🎨 in context menu).
+    None constrains the others. A sticker can be all three, two,
+    one, or none.
+    The context menu replaces the prototype's "long-press = set as
+    header" which conflated leader and palette into one action.
+    Splitting them is the substantive UX change.
+
+  THE PALETTE-AGNOSTIC ART RULE:
+    All theme art (including the sticker itself) painted in a
+    canonical reference palette. Each sticker ships palette.tres
+    mapping reference colours to that sticker's natural-state RGB.
+    At render time, the engine substitutes the reference palette
+    for the active palette source's tagged colours.
+    Consequences: one source of truth per sticker (no "sticker
+    frog" + "theme frog" duplication); cross-theme clash solves
+    itself (lily pads retint when vampire becomes palette source,
+    no bright-green-on-black-and-red clash).
+    Exception: the picker grid renders each sticker in ITS OWN
+    palette, not the active palette source's, otherwise every
+    sticker looks identical in the picker. Picker preserves
+    visual identity for choosing.
+
+  FILE ARCHITECTURE — FOLDER PER STICKER:
+    res://assets/stickers/<id>/ contains sticker.png + palette.tres
+    minimum, plus optional theme art files (cell_unmarked.png,
+    grid_tile.png, flourish_name.png, etc.). The engine discovers
+    sticker capability by which optional files exist. No separate
+    manifest.
+    Sprite-sheet-per-sticker considered and rejected — sprite
+    sheets force a fixed slot layout up front, gap-handle poorly
+    when stickers want different theme pieces. Folder-per-sticker
+    matches Aseprite's one-project-per-sticker workflow.
+
+  THEME COVERAGE GRADIENT:
+    Not every sticker ships with a theme art set. Tier 1 (full
+    theme), Tier 2 (partial), Tier 3 (palette only). Launch
+    catalogue skews Tier 3 with a small set of Tier 1 showpieces.
+    Each new themed sticker over time is a content drop, marketing
+    beat, reason to revisit the picker. Themed stickers visually
+    MARKED in the grid (style TBD — glint, badge, border).
+
+MARKETING NOTES DOC — STARTED:
+  Morgan dumped a substantial marketing plan: atrioc-themed gift
+  app (APPtrioc), simultaneous launch via 10-minute YouTube video,
+  password hidden in atrioc's chat 1-2 weeks pre-launch, default
+  partner = atrioc, three-button onboarding (atrioc / Ari / everyone
+  else), subculture seeding across ADHD / wellness / productivity /
+  indie dev / FIFO / couples / LGBT, paid streamer reads (GinoMachino,
+  IronPineapple) as Phase 2 once revenue allows. Added by Claude:
+  recovery/sobriety and long-distance friendships as two more
+  subculture targets, channel triage (YouTube primary, Reddit if
+  subculture native, defer Discord), collaboration template
+  thinking for future artist/musician partnerships, natural
+  marketing beats baked into the product (NYE keepsake, monthly
+  theme-seal, sticker drops).
+
+  Iterated through 10 structured questions to lock decisions:
+    - Web-only APPtrioc, NO Capacitor (PWA install ceiling).
+    - Three-button onboarding with two hidden passwords.
+    - Unilateral pairing (users see atrioc's calendar, he doesn't
+      see theirs; Ari is the bilateral exception).
+    - 5-8 stickers in APPtrioc, mix of inside-joke specific and
+      palette-only.
+    - Chain-import sweetener for atrioc.
+    - Self-shot video, voice-over, hard 20h edit budget, no
+      licensed music.
+    - July 2026 launch ideal, slips OK (family priority).
+    - Streamer outreach scoping pre-revenue without commitment.
+    - Tip jar dropped entirely (clean gift framing).
+
+THE APPTRIOC FORK-POINT ARCHITECTURE (the session 5 capstone):
+  Late-session conversation rewrote the APPtrioc plan structurally.
+  The original frame ("clone the web prototype, skin it for atrioc,
+  ship it") had two problems:
+    1. The prototype is "barebones and buggy" by Morgan's own
+       admission. Shipping a buggy gift makes the "by the way, the
+       full version is on stores" pitch feel like a bait-and-switch,
+       not a sample.
+    2. Maintaining two backend stacks (Firebase for APPtrioc,
+       Cloudflare for Four Tasks) doubles operational complexity
+       for zero benefit.
+
+  Morgan's reframe: "build the full build in Godot, and as we reach
+  the point where we'd add the contextual menu and theme system,
+  STOP. Ship that snapshot as APPtrioc, work out its backend, then
+  go back into Godot and keep pushing to finish line."
+
+  This is structurally cleaner than anything previously proposed.
+  APPtrioc becomes:
+    - A snapshot of the Four Tasks Godot project at a defined
+      tile boundary (4.14a closed, 4.14b not yet started)
+    - Exported via Godot's HTML5 target
+    - Deployed to Cloudflare Pages (NOT app stores, no Capacitor)
+    - Pointed at its own Worker + D1 (separate from Four Tasks,
+      same Cloudflare account, full isolation between products)
+    - Skinned with atrioc-community theming (5-8 stickers)
+    - Configured for unilateral pairing with atrioc as default
+      partner + three-button password-gated onboarding
+
+  Tile 4.14 SPLIT into two:
+    - 4.14a (PRE-FORK): basic sticker picker — tap toggles pool
+      membership only. Long-press does nothing. APPtrioc inherits
+      this. Themed-sticker marker rendered but inert in APPtrioc
+      (creates conversion pull toward Four Tasks).
+    - 4.14b (POST-FORK): long-press context menu, theme manager,
+      preview-on-press / commit-on-close, palette source switching,
+      retint mechanism. Four Tasks exclusive.
+
+  NEW PHASE 5b created for the fork+ship workflow: snapshot, repo
+  setup (pickle-moon-apptrioc), APPtrioc Worker + D1, themed
+  sticker painting, skin/config code changes, chain-import sweetener,
+  HTML5 export, Cloudflare Pages deploy, password leak, video
+  recording, launch.
+
+  LAUNCH SEQUENCE CHANGED from simultaneous to sequenced:
+    Phase 5: Four Tasks ships to stores. Quiet launch via
+             subculture seeding.
+    Phase 5b: APPtrioc gets built, deployed. Video drops alongside.
+    The atrioc beat is now a FORCE MULTIPLIER on an already-shipped
+    product, not the launch driver. Reduces risk significantly —
+    if atrioc never engages, Four Tasks is already launched and
+    finding its audience through other channels.
+
+  CLOUDFLARE-FOR-BOTH CONFIRMED:
+    Morgan suggested Firebase for APPtrioc ("just because I thought
+    Firebase was the play for a PWA"). Clarified: PWA is a browser
+    concept independent of backend. Firebase Spark tier (50k reads
+    / 20k writes daily) caps out fast against potential atrioc
+    audience (~100k); Blaze tier has unbounded billing risk.
+    Cloudflare Workers free tier 100k requests/day with $5/month
+    paid tier for 10M — predictable cost ceiling, hard-cappable bill.
+    Same Cloudflare account, different Workers, different D1
+    databases = full operational isolation between products without
+    the two-vendor mental tax. The "easier to clone the prototype"
+    instinct is correct for the frontend (it's a Godot-snapshot,
+    not a prototype-clone, but same idea — fork an existing thing
+    rather than rewrite); the Firebase backend that prototype
+    happens to use is incidental and gets replaced.
+
+KEY ARCHITECTURAL CALLS THIS SESSION:
+
+  1. Hand-tagged palette over runtime extraction. The prototype's
+     canvas-pixel-sampling has no Godot equivalent and was fragile
+     even in the browser (setTimeout, alpha-channel hacks, font-
+     rendering dependence). Replacing it with palette.tres per
+     sticker is the architectural-preference-doc move applied to
+     theming: clarity over cleverness for a problem solvable at
+     art time.
+
+  2. One file per sticker, not duplication. Morgan independently
+     arrived at the right answer mid-conversation: ship the frog
+     palette-agnostic with a palette key, code handles retint, vs
+     ship sticker-frog and theme-frog as two files. Authoring
+     discipline + mental model simplicity + code simplicity all
+     point the same direction.
+
+  3. Folder-per-sticker over sprite-sheet-per-sticker. Gap-handling
+     in sprite sheets and the impossibility of knowing in advance
+     which theme pieces each sticker will want make folders
+     strictly better. Aseprite workflow matches.
+
+  4. Three levers, fully independent. Pool / leader / palette
+     source don't constrain each other. Simplest model. Casual
+     users pick one sticker for all three; advanced users decouple.
+
+  5. Retint mechanism deferred. Three viable approaches (shader,
+     pre-bake, indexed-palette). Decision needs prototyping data
+     and theme-art-count data; can't be made in pure design
+     conversation. Authoring workflow is invariant across the
+     three options, so art work can start with dimensions locked
+     even before retint mechanism is chosen.
+
+  6. APPtrioc as a snapshot, not a fork-and-diverge. APPtrioc
+     development stops at the fork point. After Phase 5b ships
+     APPtrioc, that codebase is frozen. Post-fork Four Tasks
+     features (theme depth, contextual menu, palette source) are
+     NEVER backported to APPtrioc. This is the conversion mechanic
+     working as designed — users who want depth go to Four Tasks.
+     Discipline on this prevents APPtrioc-as-parallel-development-
+     track which would re-introduce the operational-burden problem.
+
+  7. Sequenced launch over simultaneous. Force-multiplier framing
+     of the atrioc beat allows Four Tasks to launch on its own
+     merits. Reduces fragility of the launch plan; the atrioc beat
+     is upside, not dependency.
+
+  8. Cloudflare-for-both at the architecture level, full isolation
+     at the operational level. Same toolchain, same conventions,
+     same brain — but completely separate Workers and D1 instances
+     so an outage on one cannot touch the other.
+
+DOC CONSEQUENCES:
+  - four_tasks_theme_design_notes.md created (~250 lines). Captures
+    the three levers, palette-agnostic art rule, folder-per-sticker
+    architecture, picker UX with context menu, coverage gradient,
+    schema implications, related-doc cross-refs. Explicitly leaves
+    items open for the implementation session.
+  - four_tasks_marketing_notes.md created (~480 lines). Top-of-doc
+    snapshot reflects sequenced launch (was simultaneous in first
+    draft). APPtrioc spec section captures unilateral pairing as
+    real architectural divergence. Chain-import sweetener captured
+    as part of video plan. Open questions list seeded with deferred
+    items.
+  - Both new docs added to AI Reading Guide. The prior one-line
+    "palette system" entry is superseded.
+  - PROJECT block theme line updated: "per-sticker palette.tres +
+    folder-per-sticker assets, retint at render time" replaces the
+    old "curated lookup table tier (b)" framing.
+  - Tile 4.G SUPERSEDED entirely (per-sticker palette.tres replaces
+    central palette_table.tres).
+  - Tile 4.14 SPLIT into 4.14a (pre-fork) and 4.14b (post-fork).
+  - Tile 4.D rephrased — 86 emoji figure dropped, replaced with
+    "small set of tier-1 + larger set of tier-3, final count by
+    painting budget."
+  - Tile 4.E annotated for theme participation vs sacred semantics.
+  - NEW PHASE 5b section added — full APPtrioc fork+ship workflow
+    in 11 tiles.
+  - Phase 5 GATE rewritten to reflect quiet launch (no atrioc
+    beat).
+  - APPTRIOC FORK ARCHITECTURE section added to TOP of todo so
+    future-Claude reads it first.
+  - DEFERRED section pruned — "theme tier (c)" line removed as it
+    belonged to a prior smaller theme system that's been
+    superseded.
+  - Several new ACTIVE-tier items added: marketing notes (status
+    [~] running doc), theme system implementation prep, APPtrioc
+    backend prep, APPtrioc-to-Four-Tasks keepsake export.
+
+GIT COMMITS THIS SESSION (planned at session-close batch when
+Morgan is next at laptop):
+  pickle-moon-design-notes repo:
+    (pending)  Session 5 update: theme system design doc created,
+               marketing notes doc created, devlog + todo updates
+               (APPtrioc fork architecture, Phase 5b created, tile
+               4.14 split, theme-related tile annotations).
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.3 implementation is still the obvious "back at the
+    home office" next code thing. The session 5 design work
+    doesn't change tile 1.3 priority.
+  - Theme system implementation prep is the obvious "at the
+    laptop with Aseprite open" thing. Locks the open items in
+    four_tasks_theme_design_notes.md that block tile 4.14b
+    AND first sticker paint (tile 4.D).
+  - Marketing notes doc is now a running doc. New entries land
+    in the journal section as marketing thoughts arrive. Re-shape
+    when critical mass justifies it.
+
+CROSS-REFERENCE VERIFIED THIS SESSION:
+  The theme design doc references "ThemeManager.preview_emoji() /
+  commit_emoji() hooks" from four_tasks_pair_key_v2_design_notes.md
+  "Emoji picker UX" section. Verified accurate against v2 doc this
+  session — v2 spec lines 161-181 do define these exact hooks.
+  Small naming evolution noted: the v2 doc uses preview_emoji /
+  commit_emoji (when icon was a single concept); the session-5
+  theme doc introduces preview_palette / commit_palette and
+  preview_leader / commit_leader because the new system splits
+  what was one concept into two independent levers. Functionally
+  consistent; just renamed for clarity. Worth a small doc-sync
+  pass at tile 4.14b implementation time.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 5 EXTENDED — Morning sequence design closeout
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTEXT:
+  Slow shift at work. Morgan in good headspace for design
+  conversation between calls — phone-friendly cognitive load.
+  Used the time to chew through eight discrete design questions
+  about the morning sequence, the daily ritual that the devlog
+  has been calling "the centrepiece" since session 1 but had
+  never fully documented.
+
+  The morning sequence kept being referenced in other design
+  conversations (the "natural migration window" property in v2
+  identity notes, the claim endpoint sketch in write rules doc,
+  scattered comments in tile 4.6's todo entry) but no single
+  doc captured what the sequence actually IS. This session
+  fixes that with a focused design doc that answers eight real
+  questions and consolidates the scattered references.
+
+PROTOTYPE SCREENSHOT PROVIDED:
+  Morgan uploaded an iPhone screenshot of the prototype showing
+  the calendar view with "eerily ignored the mind 👽" circled
+  in red — the MOTD's permanent header position. Several days
+  on the calendar visible with completed-day stickers
+  (alternating alien faces and pixel-art space invaders). This
+  was the first time the morning sequence's *output* (the daily
+  fingerprint) was rendered in concrete form for Claude to read
+  against. The screenshot drove several of the locked
+  decisions, notably Q1 (MOTD is four spinners) and the
+  alternation-bug-to-fix in tile 4.4.
+
+EIGHT DESIGN QUESTIONS LOCKED:
+
+  Q1 — THE MOTD STRUCTURE.
+    The MOTD is FOUR spinners (adverb + verb + noun + emoji),
+    not three. The emoji slot reads from the SAME pool the user
+    has curated as Lever 1 pool membership in the sticker
+    picker. Single source of truth — change your pool, your MOTD
+    emoji vocabulary changes with it.
+    PROTOTYPE BUG: spinners alternate visibly rather than
+    randomising truly. Fix at tile 4.4 implementation (true
+    independent randomisation per slot).
+    SUPERSEDES: implicit assumption in theme doc that the pool
+    was only for day-cell stickers. Theme doc now updated to
+    note the dual purpose.
+
+  Q2 — CRASH RESISTANCE.
+    The morning sequence is PURELY COSMETIC. Server-side, coins
+    are updated as a number by the nightly cron and the claim
+    endpoint, not derived from animation events. Crash mid-
+    sequence has three cases:
+      (a) Before claim fires: replay on next open. No loss.
+      (b) After claim, before animation completes: skip on next
+          open (server flag cleared). User missed the ceremony
+          but data correct.
+      (c) Network/server failure on claim: retry on next open
+          via still-set flag. Robust.
+    The "infinite coins" failure mode is structurally impossible
+    because the claim endpoint is atomic and idempotent.
+
+  Q3 — BASE STATE IS ALWAYS CALENDAR-FLAT.
+    When the user opens the app, the first frame is the calendar
+    in its normal state. No trays open, no animations in progress.
+    Then the morning sequence fires (if a payout is pending) as
+    an OVERLAY-ON-TOP, not as a boot mode.
+    Implications: Loader scene (tile 2.1) doesn't check for
+    pending payout — that's App scene's job after it boots. Same
+    code path always; sequence is an interaction layered on the
+    calendar.
+
+  Q4 — PARTNER PANEL VISIBILITY MODEL.
+    Your morning sequence is PRIVATE. Partner doesn't see it.
+    More importantly: the partner panel reflects YOUR yesterday
+    as UNSTAMPED until you've claimed. Your claim is the moment
+    state becomes visible to your partner.
+    The "dead until they've claimed" property is intentional
+    design, not a limitation. Makes the connection feel alive —
+    state moves when partner moves it, not when the server
+    seals it. The textural moment of "I see their stamp appear
+    live on my partner panel because they just opened their app"
+    is the connection mechanic. iMessage-like quality.
+    Polling (tile 2.8, 30s cadence) catches the change. Tile
+    2.8 must refresh day-cell state, not just metadata.
+    CRITICAL BUG TO AVOID: the prototype had a "prestamped"
+    bug where days appeared stamped before claim. Morgan
+    identified and fixed. The Godot port enforces this through
+    the claim endpoint being the moment of state-becomes-visible.
+
+  Q5 — NO MULTI-DAY BACKLOG.
+    "What if user is away a week?" → at most ONE pending payout.
+    Data model enforces it for free: payout requires tasks_done
+    > 0, which requires the app open that day, which requires
+    the user's engagement. Days between the last-played day and
+    today are EMPTY days — no payout earned, no ceremony due.
+    The walkback algorithm finds the most recent unclaimed-but-
+    completed day and plays sequence for that. Streak breaks
+    naturally during absence (no four-of-four days), resets
+    silently — no special "you broke your streak" announcement.
+
+  Q6 — REST DAY VARIANT.
+    Rest day plays the SAME morning sequence. NOT a separate
+    sequence. Same beat structure, same timing, same lockout —
+    just different content slots:
+      - Tasks typewriter-glitch into rest-vocabulary phrases
+        ("relaxed", "had a cheat meal", "unworried", etc.) over
+        the user's original labels.
+      - Checkboxes get purple ticks/hearts instead of green/red.
+      - No coins fly out (rest cost was paid in advance at
+        rest-day designation, tile 4.8).
+      - Stamp is purple with a rest-pool message ("good on you
+        for the rest", "earned", "well-deserved", "soft day,
+        well chosen").
+    Single parameterised animation — cleaner than two parallel
+    sequences. New content pools needed: rest-day task labels
+    (~15-30 phrases) and rest-day stamp messages (small pool
+    with affirmation tone).
+
+  Q7 — PARTNER REACTION SURFACING.
+    Reactions are TIME-AGNOSTIC, not event-driven. Surface via
+    benign visual indicators on past-day cells in BOTH
+    directions. No push notifications, no animation, no urgent
+    badges.
+      Direction 1 (your view of partner's panel): partner's
+        sealed days you haven't reacted to yet get an ambient
+        marker. Clears on react-or-skip.
+      Direction 2 (your view of your own panel): your past-day
+        cells that received a reaction get a marker drawing
+        eye to them. Clears on view.
+    Same indicator pattern in both directions. Symmetric
+    vocabulary.
+    Tutorial reveal at day 4 (preferred) or day 6 (backup) per
+    staggered disclosure schedule. Discovery is taught BEFORE
+    a reaction necessarily arrives, so users have the vocabulary
+    to notice the indicator when one does.
+    SUPERSEDES: four_tasks_partner_reactions_design_notes.md
+    "Surfacing reactions to the receiver" section which had
+    described push-based surfacing. Push is no longer the
+    model.
+    SUPERSEDES: staggered disclosure framing of partner
+    reactions as purely trigger-gated. Scheduled day-4 reveal
+    is now the primary teaching moment; trigger-gated reaffirm
+    can fire if a reaction lands before that.
+
+  Q8 — MOTD REROLL COST.
+    Substantive change from prototype.
+    PROTOTYPE: day-1 free, day-2+ DOUBLING cost from 1 coin.
+    PROBLEM: doubling uncapped means user not paying attention
+    could blitz through tens of thousands of saved coins in
+    ~12 presses (cost goes 1, 2, 4, 8, 16... reaches 4096 at
+    press 13). A casual aesthetic preference becomes a major
+    economic event. Wrong mechanic for casual reroll.
+    LOCKED: flat random range 90-110 coins per press, no
+    escalation. Approximately 1/10 of an unmultiplied daily
+    task payout. The 90-110 range (vs flat 100) creates a
+    small textural moment of uncertainty per press.
+    Architectural principle that fell out: doubling-cost
+    belongs on features where the user output should ESCALATE
+    in significance (coin name reroll = persistent identity,
+    keep doubling). Flat-cost belongs on features that should
+    stay CASUAL (MOTD reroll = transient aesthetic, drop
+    doubling).
+    MOTD reroll is a coin economy VENT, not a sink. Real sinks
+    are emoji packs (planned 1-3x rest day cost) and rest days
+    themselves.
+    SUPERSEDES: tile 4.5's prior description (doubling cost)
+    and the prototype's mechanic.
+
+KEY ARCHITECTURAL CALLS THIS EXTENDED SESSION:
+
+  1. The morning sequence is an overlay-on-top of calendar
+     base state, not a boot mode. Same code path always.
+
+  2. Server is the source of truth for coin balance, stamp,
+     streak; animation is the user's EXPERIENCE of these, not
+     the data itself. Decouples robustness from animation
+     correctness.
+
+  3. Claim endpoint atomically updates server state at the
+     START of the sequence. Server response drives the rest
+     of the animation. Animation never plays content the
+     server might disagree with.
+
+  4. Partner panel state lags behind the user's own panel by
+     "until the user claims." This is connection-making, not
+     latency.
+
+  5. Rest day = same sequence, parameterised content. One
+     animation maintained, not two. Clarity over cleverness.
+
+  6. Time-agnostic features (partner reactions) get ambient
+     visual indicators, not push or animation. Surface
+     vocabulary follows feature rhythm.
+
+  7. Doubling-cost vs flat-cost reroll mechanic is determined
+     by whether the feature should feel ESCALATING vs CASUAL.
+     This is now a general principle in the project.
+
+  8. Migration time budget is the morning sequence duration
+     (~15-30s), not "indefinite." Real upper bound. Operations
+     that exceed it need to split pre/post-claim or accept
+     follow-up sync.
+
+DOC CONSEQUENCES:
+  - NEW: four_tasks_morning_sequence_design_notes.md (~640
+    lines). Captures Q1-Q8 in dedicated sections, plus claim
+    endpoint architecture, interruption model, migration
+    window budget, related tiles, what's left open.
+  - UPDATED: four_tasks_partner_reactions_design_notes.md.
+    "Surfacing reactions to the receiver" section rewritten
+    per Q7. "Setting to null = removing the reaction" line
+    fixed (contradicted immutability rules). Cross-reference
+    to morning sequence doc added.
+  - UPDATED: four_tasks_staggered_disclosure_design_notes.md.
+    Example schedule adds day-4 partner reactions reveal.
+    Cross-cutting hooks section reflects tile 4.14 split.
+    Cross-references to morning sequence + theme docs added.
+  - UPDATED: four_tasks_theme_design_notes.md. Header tile
+    references updated (4.14 → 4.14a + 4.14b). APPtrioc fork
+    note added at top. Q1 pool-sharing note added to Lever 1
+    description. Cross-reference to morning sequence doc
+    added.
+  - UPDATED: AI Reading Guide gets morning sequence entry.
+  - UPDATED: todo tile 4.4 (alternation bug fix), tile 4.5
+    (Q8 supersedes doubling), tile 4.6 (full design doc
+    reference), tile 4.7 (rest pool authoring), tile 4.8
+    (rest task label pool authoring), tile 4.16 (Q7 surfacing
+    model).
+  - UPDATED: ACTIVE-tier "Morning-payout claim endpoint
+    design" item from "open" to "[~] design closed" — design
+    pulled into morning sequence doc.
+
+GIT COMMITS THIS EXTENDED SESSION (planned at next laptop
+access):
+  pickle-moon-design-notes repo:
+    (pending) Session 5 morning sequence design: new doc +
+              updates to partner reactions, staggered
+              disclosure, theme docs + devlog/todo sync.
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.3 implementation is STILL the next code thing when
+    at the home office. None of this session's design work
+    changes that priority.
+  - When tile 1.3 implementation lands, the claim endpoint
+    can land alongside (or immediately after) since it shares
+    write-rules patterns and the migration_003 column it
+    consumes.
+  - When tile 4.6 implementation lands, the morning sequence
+    doc has the full beat-by-beat and the claim endpoint
+    contract ready to code against.
+  - Marketing notes journal entries can land any time. Slow
+    shifts at work are good for them.
+
+SESSION 5 (FULL) CLOSED. Total session time: ~6.5h across
+multiple sub-sessions over the FIFO roster. Three design docs
+created (theme, marketing, morning sequence). Two architectural
+reframes locked (APPtrioc fork-point, morning sequence as
+overlay-on-top). Six existing design docs updated for
+consistency.
+Running project total: ~32.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+INTER-SESSION ADMIN (13 May 2026, evening) — Mobile workflow setup. Time: ~1.5h.
+
+  Standalone session between session 5 and session 6. No tile work,
+  no design work. Pure tooling.
+
+  Problem: keeping Project files synced with the repo across two
+  machines (laptop + mobile) was friction-heavy, especially during
+  FIFO shifts where mobile is the only available context. Project
+  files were drifting from repo state, and updates required laptop
+  access.
+
+  Fix:
+  - `pickle-moon-design-notes` repo made PUBLIC. Content is design
+    notes with no secrets; competitor risk is zero. Trade-off
+    accepted for fetch convenience.
+  - GitSync installed on Android, authed via GitHub OAuth (scoped
+    initially, broadened to all-repos after the scoped token hit
+    403 on push — issue was missing write scope on the secondary
+    metadata endpoint, not the contents endpoint).
+  - Repo cloned to `/storage/emulated/0/pickle-moon-design-notes/`.
+    Edits land there, sync pushes to GitHub.
+  - Claude can now `web_fetch` files directly from raw GitHub URLs.
+    Per-session permission quirk: the first fetch in a session
+    needs a user-pasted URL; subsequent siblings can be derived.
+
+  New canonical doc: `pickle_moon_repo_index.md` at repo root.
+  Lists every file across all four PICKLE MOON repos with a
+  one-line description each. Claude reference doc — "fetch the
+  marketing notes" resolves to a specific raw URL via this index.
+
+  Project files trimmed to three: devlog, todo, prototype index
+  (HTML reference for porting). All design docs removed from
+  Project — fetched from repo as needed during sessions.
+
+  Lessons:
+  - GitSync scoped permissions are fiddly; all-repos is the
+    pragmatic default for a solo-dev account where every repo is
+    yours anyway.
+  - GitHub raw URL CDN has propagation lag of ~1-3min after push.
+    Don't panic when an immediate fetch 404s.
+  - Auto-generated commit messages ("Last Sync: <timestamp>
+    (Mobile)") are noise. Configure GitSync to prompt for commit
+    message per push.
+
+  Running project total: ~33.75h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 6 PART 1 (14 May 2026, late-night/early-morning — mobile) — Timezone + onboarding design closeouts. Time: ~3h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Pure mobile design session — no code, no tile implementation. Two
+  architectural locks landed, both with significant cascading
+  implications across Phase 1 and Phase 3 tiles.
+
+  Started open-ended. Asked "what's worth locking from mobile that
+  has real shadow." Filtered candidates against the test: does this
+  decision touch schema, write rules, or three+ future tiles?
+  Cron-timezone-vs-localisation passed the test first.
+
+  LOCK 1 — TIMEZONE LOCALISATION + LAZY SEAL ON OPEN
+  (four_tasks_timezone_and_sealing_design_notes.md, new):
+
+    Reframes tile 1.4 entirely. The prior "Worker scheduled cron —
+    nightly UTC sweep" model doesn't survive localisation —
+    sealing yesterday at UTC midnight fires at the wrong wall-
+    clock time for any user outside UTC±a-few-hours. Globally
+    available app needs per-user day boundaries.
+
+    Decision: each user has stored IANA timezone (e.g.
+    "Australia/Perth"). Mutable. Not part of pair-key hash.
+    Migration_004 adds users.timezone TEXT DEFAULT 'UTC'.
+    Onboarding captures device tz silently. Boot-time tz check
+    fires PUT user if device tz differs from stored.
+
+    Sealing becomes LAZY. No cron job. Seal logic lives inside
+    the claim endpoint transaction (tile 1.3 territory). When a
+    user opens the app and the claim endpoint fires, any
+    unsealed days <= local_date - 1 get sealed in the same
+    transaction. User offline for three days → server walks the
+    gap on next open (bounded work — even a year offline is 365
+    row updates).
+
+    Client sends local_date on every relevant write. Server
+    validates plausibility against stored tz (±4hr window).
+    Single source of truth: the user's lived reality, told by
+    the client, sanity-checked by the server.
+
+    Cross-user interaction stays minimal. Each user's seal is
+    their own concern only. Partner panel renders truthfully
+    from whatever's in the DB — if their day rolled and they
+    haven't opened the app, panel shows their incomplete day
+    frozen. The 1.5x multiplier check is a read, no side effect.
+    No bridging code beyond what already exists.
+
+    Non-goal: anti-date-scrubbing. The morning_payout_due_for
+    column already makes the payout a single-use voucher.
+    Rolling clock forward skips days, doesn't farm them. No
+    leaderboard planned, removing the primary motivation. The
+    cost of pretending to defend against clock manipulation is
+    UX friction (false-positive rejections for legitimate
+    timezone changes); the cost of ignoring it is zero in the
+    product as designed.
+
+    DST handled by IANA names via a date library (Luxon
+    recommended — runs in Cloudflare Workers' modern V8, handles
+    DST transitions correctly). Don't roll your own.
+
+  LOCK 2 — ONBOARDING WITH SOLO MODE + INVITE LINK
+  (four_tasks_onboarding_design_notes.md, new):
+
+    The big one. Morgan started with a rough flow sketch ("name,
+    partner name, tasks, sticker, done") and asked whether
+    partner steps should be skippable. The shadow cascaded
+    immediately — the pair-key v2 model needs all six values to
+    compute a real pair-key, so "skippable" can't mean "the
+    server just creates a half-pair." Real options surfaced:
+
+      (a) Non-skippable, gated until both users entered.
+      (b) Solo provisional — full app local-only until partner joins.
+      (c) Self-pair stub — type placeholder partner values, replace later.
+
+    All rejected initially in favour of (a) for architectural
+    cleanliness. Then Morgan flagged the adoption-killing
+    friction of locking out users who can't reach their partner
+    right now. "Don't otherise loners." Re-derived solo mode
+    from the user-needs angle — option (b) re-emerged as the
+    right answer.
+
+    Morgan's lightbulb: invite link. Solo user shares a URL
+    carrying their three values + their solo UUID. Recipient
+    taps, onboarding prefills, enters their own three values,
+    pair-key resolves. This is the unblock — pairing has a
+    low-friction primary path that doesn't require both users
+    online simultaneously.
+
+    Pushed back on encryption: the three values aren't secrets
+    (already visible on the inviter's screen to anyone they show
+    their phone to). Pair-key v2 threat model already accepts
+    shoulder-surfing all six values is out of scope. URL is
+    plaintext.
+
+    Pushed back on putting the pair-key itself in the URL:
+    inviter's icon/username can change between link generation
+    and link use. URL carries the VALUES (which resolve to the
+    current key at server-side resolve time), not the key.
+
+    Morgan asked the right question: three-value collision risk.
+    Two unrelated solo users with identical "Sarah / sarah /
+    frog" is plausible at scale. Without protection, a join-by-
+    values request could hijack the wrong solo user.
+
+    Fix: solo users are keyed server-side by a UUID, not by
+    their three values. The invite link carries the UUID, so
+    link-path joins are unambiguous regardless of value
+    collisions. Manual-path joins (B types A's values from
+    memory/screenshot) handle the rare collision by returning
+    "ambiguous_match" — client surfaces "ask your partner for
+    the link instead." Server-side switch that almost never
+    fires; benefit is "A doesn't randomly get paired with the
+    wrong person."
+
+    Pushed back hard on the "prompt partner addition semi-
+    frequently" idea. The empty partner panel is already an
+    always-visible recruitment surface. Adding modals on top is
+    nagware. Trust the silent always-on prompt. Single
+    contextual nudge at celebration moments only (first streak,
+    first stamp) — once per moment, never repeated.
+
+    Pushed back on MOTD-at-onboarding: the morning sequence
+    design lives or dies on the first morning's emotional
+    impact. Showing the MOTD twice (now and tomorrow morning)
+    dilutes it. Onboarding ends on sticker pick + a calendar
+    tour overlay. Morning sequence handles the MOTD reveal.
+
+    Pushed back on Morgan asking whether (x) solo data migrates
+    in or (y) pairing resets to zero. Morgan correctly pointed
+    out that (y) is MORE work (extra wipe code) and that the
+    pair-key migration machinery already does what (x) needs.
+    Locked (x) immediately.
+
+    Final flow:
+      - Primary install (paired): 12 screens.
+      - Primary install (solo): 9 screens.
+      - Invite link install: 7 screens.
+      - Manual fallback: 12 screens, handles ambiguous match
+        gracefully.
+
+    Tile structure changes: old tile 3.6 (slot intro + diary
+    popup) dropped — MOTD no longer at onboarding. Phase 3
+    expanded to ~10 tiles to accommodate solo fork, invite link
+    entry, sticker pick screen.
+
+    Cross-platform pair concerns: NONE. Architecture is platform-
+    agnostic. iOS-Android pair works identically to same-platform
+    pair. iOS install-referrer SDK (Branch.io etc.) only affects
+    one narrow case: iOS user with app NOT installed receives
+    invite link. Without SDK, link parameters lost across App
+    Store roundtrip — user lands on fresh onboarding, uses manual
+    fallback path. Deferred to Phase 5 polish decision.
+
+  KEY ARCHITECTURAL CALLS THIS SESSION:
+
+    1. Lazy seal-on-open replaces scheduled cron. No Worker
+       cron triggers. Worker only runs on incoming HTTP. The
+       user opening the app IS the trigger.
+
+    2. Solo mode is a first-class state, not a degraded
+       fallback. Pair-key prefix convention (`solo:<uuid>`)
+       distinguishes solo from real with zero schema cost.
+
+    3. Invite link UUID is what makes link-path joining safe
+       against three-value collisions. Solo users are
+       server-keyed by UUID, not values.
+
+    4. Solo data migrates into pair on join. Re-uses existing
+       pair-key migration transaction — no new code path.
+
+    5. MOTD ceremony lives in the morning sequence, not
+       onboarding. Preserves first morning's emotional weight.
+
+    6. Empty partner panel IS the recruitment surface. Single
+       contextual nudge per celebration moment, otherwise
+       silent.
+
+    7. Name remains immutable in solo mode too. A solo user who
+       later pairs cannot change their own name to better match
+       partner expectations. Be deliberate at onboarding.
+
+  DOC CONSEQUENCES:
+    - NEW: four_tasks_timezone_and_sealing_design_notes.md
+      (~210 lines). Captures full localisation architecture,
+      lazy-seal logic, claim endpoint contract additions,
+      cross-user interaction recap, DST handling, anti-scrubbing
+      non-goal, related tiles, open questions (none at draft).
+    - NEW: four_tasks_onboarding_design_notes.md (~370 lines).
+      Captures full onboarding flow (three install patterns),
+      solo identity model, join endpoints, invite link format,
+      platform configuration, screen-by-screen breakdown, tile
+      structure updates, open work.
+    - UPDATED: AI Reading Guide gets both new entries.
+    - UPDATED: Tile 1.4 reframed in todo (cron sweep → seal-on-open).
+    - UPDATED: Phase 3 tile structure restructured in todo to
+      match onboarding doc's screen sequence.
+    - UPDATED: Tile 4.G note carried forward — superseded.
+    - REPO INDEX needs updating to add both new docs
+      (pickle_moon_repo_index.md, mobile push by Morgan).
+
+  GIT COMMITS THIS SESSION (Morgan to land at next sync):
+    pickle-moon-design-notes repo:
+      (pending) Session 6: timezone + onboarding design docs +
+                devlog/todo updates + index update for both new
+                docs.
+
+  NOTES FOR NEXT SESSION:
+    - Tile 1.3 implementation STILL the next code thing at the
+      home office. Now includes the seal-on-open logic from the
+      timezone doc, plus migration_004 (users.timezone column)
+      alongside migration_003.
+    - Phase 3 tile work has a clear path now — onboarding doc
+      is the implementation reference. Solo mode, invite link
+      handling, and manual fallback all specified.
+    - iOS install-referrer SDK decision still parked for Phase 5.
+    - Open work in onboarding doc: placeholder task pool content
+      (~50 examples, content authoring tile), exact copy on every
+      screen (UX writing pass), two-solo-users pair-merge flow
+      (v1.x defer), recruitment surface visual design (art tile).
+
+  SESSION 6 PART 1 CLOSED. Two foundational design locks captured
+  before any code touched them. Both with significant cross-tile
+  shadow that would have been expensive to retrofit at
+  implementation time. Pattern from session 2 continues to pay off
+  — write the design once, carefully, when fresh.
+
+  Part 1 running total: ~36.75h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 6 PART 2 (14 May 2026, afternoon-onward — mobile) — Theme depth, sticker brainstorm, monetisation v2.0. Time: ~3.5h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Same calendar day as part 1 but a distinct working session
+  starting after a sleep break. Split into part 2 for clarity —
+  different design focus (theme + sticker + monetisation rather
+  than timezone + onboarding).
+
+  Mobile-only the whole way. Three locks landed plus a sticker
+  brainstorm doc.
+
+  LOCK 3 — STICKER CANVAS SIZE
+  (four_tasks_theme_design_notes.md update):
+
+    Morgan asked about getting Aseprite work started at FIFO
+    shifts. Needed a locked canvas size before painting. First
+    pass recommended 256×256 source for downscale-and-paint
+    workflow — Morgan correctly flagged this as "disgustingly
+    huge" given the pixel-art aesthetic the rest of the project
+    has been pointing at.
+
+    Re-derived from the right side of the question. Pixel-art
+    workflow paints AT logical pixel size, lets Godot's Nearest
+    filter scale up. Not high-fi paint-and-downscale.
+
+    Math (re-done correctly):
+      - 1080×2400 portrait viewport.
+      - 7-column calendar, ~12px padding, 6×6px gaps → cell
+        ~134px wide at native resolution.
+      - Sticker renders at ~75% of cell width (prototype ratio)
+        → target on-screen size ~100px.
+      - At 32×32 source → ~3x integer scale on cell, ~6x scale
+        in picker grid. Clean Nearest, no fractional artefacts.
+
+    Locked: 32×32 RGBA, transparent background. Effective art
+    area ~26×26 inside with margin for rotation wobble (the
+    prototype's stickerOffset rotate() applies on day cells).
+
+    Reasoning for the upper end of pixel-art viability (32 vs
+    16/24):
+      - Detail headroom for a novice pixel artist. Easier to
+        simplify a 32 down to 24 later than add detail to a 16.
+      - Future "chunkier, more stylised" releases can re-export
+        at 16 or 24 from 32 sources; forward-compatible.
+      - Picker grid render needs the sticker to SELL its theme;
+        32×32 at 6x upscale fills the picker confidently.
+
+    Practical Aseprite setup captured in part 2 conversation:
+    Indexed mode recommended (option C for retint mechanism
+    leaves cleanest), three palette slots reserved for themed
+    roles (primary/secondary/tertiary) painted in reference
+    values at export.
+
+    Aseprite working files live in source_assets/stickers/<name>/
+    (gitignored). Exports go to assets/stickers/<name>/sticker.png
+    at implementation time.
+
+  LOCK 4 — TIER 0 ANIMATED / PREMIUM PACKS
+  (four_tasks_theme_design_notes.md update):
+
+    Morgan raised the idea of "premium stickers like frog swamp
+    with animated effects" — touch ripples on cell press, lily
+    pads that bob and drift after tap, that kind of behaviour.
+
+    Initial instinct: bolt animation onto TIER 1. Wrong. Animated
+    behaviour is categorically different from theme art — it's
+    BEHAVIOUR alongside ART. Created TIER 0 above TIER 1 as a
+    distinct tier in the theme coverage gradient.
+
+    TIER 0 architecture:
+      - Folder-per-sticker convention extended:
+          effects.tres  — declarative animation spec (preferred path)
+          effects.gd    — custom code (escape hatch, avoid where possible)
+      - Generic effects coordinator reads .tres and runs spec.
+      - File existence is declaration — no central manifest.
+
+    Performance rules baked in:
+      - Touch-triggered effects: one-shot tweens, fire-and-forget.
+      - Continuous ambient effects: only run on visible viewport,
+        pause when backgrounded, particle count caps per pack.
+      - Reduce-motion accessibility branch — iOS/Android system
+        preference respected.
+
+    APPtrioc gets none of TIER 0. TIER 0 is post-fork, Four Tasks
+    exclusive. The atrioc-themed sticker shipped with APPtrioc is
+    TIER 1 at most.
+
+    Other plausible TIER 0 effects sketched: vampire pack dust
+    motes drifting from castle bricks, cooking pack chilli sizzle,
+    wizard pack drifting clouds + sparkle trails on tap, car pack
+    exhaust puff.
+
+    Background.png slot raised by Morgan's frog "swamp overlaps
+    day tiles" idea. Pulls at rendering model — full-grid layer
+    rather than per-cell asset substitution. Added to the
+    convention listing + open work, deferred to first
+    implementation pass.
+
+  STICKER PACK BRAINSTORM DOC
+  (four_tasks_sticker_pack_brainstorm.md, new):
+
+    Morgan dropped six initial pack ideas (frog/lily, chilli/
+    cooking, vampire/castle, wizard/orb-staff-tome, car/racing,
+    fairy/woodland). Each with leader + companions + background
+    treatment + light notes.
+
+    Decided to ship as its own doc rather than fold into theme
+    doc. Reasoning: theme doc is locked architecture (low churn);
+    brainstorm is running content development (high churn).
+    Mixing them muddies what's locked vs what's still being
+    kicked around.
+
+    Doc shape: one entry per pack with leader / companions /
+    background / notes. Parked ideas section for half-thoughts.
+    Convention for tier-graduation when packs are ready to paint.
+
+  LOCK 5 — MONETISATION v2.0 (BILATERAL LIBRARY SHARING MODEL)
+  (four_tasks_monetisation_position.md update, v1.1 → v2.0):
+
+    The big one. Morgan had been losing sleep over this and
+    wanted to talk through it while everything was loaded.
+
+    The conversation moved through several drafts:
+
+    DRAFT A — Coin multiplier subscription. Subscriber gets 2x
+    coin earn rate. Free user gets 1x. Rejected: creates two-
+    class economy, intra-pair FOMO if only one partner subs.
+
+    DRAFT B — Pair-level coin bonus. Either user subbed → both
+    get the bonus. Closer to buddy-ware, but still framed
+    subscription as "earn-rate accelerator." Underwhelming value
+    prop.
+
+    DRAFT C (Morgan's lightbulb) — Subscription as bilateral
+    library KEY. Each user grinds their own coins and buys their
+    own packs (permanently). Subscription unlocks access to
+    PARTNER's library while subbed. Subscription doesn't buy
+    content; it buys SHARED LIVING.
+
+    This was the unlock. The model became coherent immediately:
+      - All packs are bought with coins by all users.
+      - All bought packs are PERMANENT.
+      - Subscription unlocks bilateral library sharing within pair.
+      - Subscription also adds small stacking coin bonus per
+        active subscription in pair.
+      - Library access is binary at pair level (any one sub
+        unlocks it for both). Coin bonus is linear (stacks per sub).
+
+    IMMUTABLE PAST refinement (Morgan): past calendar days
+    preserve the themes that were active on each day, even after
+    unsubscription. Your three months of using partner's wizard
+    pack are FOREVER wizard-themed in the calendar history, even
+    after you lose live access.
+
+    This is the marketing copy writing itself. No nag screen
+    needed — the user's own past behaviour shows them what
+    they lost when their subscription lapsed. Loss aversion
+    without theft. Gentle but sticky.
+
+    Schema implication: days table gains day_leader + day_palette
+    columns. Written at seal time, never modified after.
+    Migration_005.
+
+    SOLO SUBSCRIBERS: Morgan kept this open rather than the
+    initial draft's "solo can't subscribe" rule. Their value
+    prop is the small coin bonus (no library benefit — no
+    partner). And — crucially — they retain founders price
+    eligibility, locking in the cheap rate before they pair.
+
+    FOUNDERS PRICING TIER (new, Morgan-introduced): launch users
+    get permanent founders rate lasting at least until year 2.
+    Distinct from the existing prototype-era "founders flag"
+    which grants permanent free access. Two different mechanisms
+    for two different audiences:
+      - founders FLAG: prototype-era friends and family. Free
+        forever. Carries from v1.1.
+      - founders RATE: launch-cohort subscribers. Permanent
+        discount until year-2 cutoff date.
+
+    Pushed back hard on:
+      - PER-STICKER COIN BONUS STACKING (The Tower model). Morgan
+        floated, conversation interrogated. Rejected as economy-
+        breaker: exponential earn growth dissolves the rest-day
+        cadence tuning, forces invented late-game money sinks,
+        turns "do four tasks" into "play to earn to play more"
+        MMO logic. Wrong genre. Locked as non-goal. If collector
+        instinct ever surfaces, satisfy it with non-economic
+        cosmetics (badges, ambient flourishes), not earn-rate
+        stacking. Defer to v1.x.
+
+      - Punitive ownership on unsub. Morgan was already aligned
+        but worth re-stating: "packs are permanent absolutely,
+        this app is only going to succeed if the underlying
+        approach is generous and ungreedy." Locked.
+
+    Revenue math note: bilateral library sharing creates a
+    revenue trade-off. One-sub pairs deliver half the revenue of
+    two-sub pairs. The stacking coin bonus incentivises both-
+    partners-sub but doesn't force it. Net expected average:
+    1.3-1.5 subscribers per pair. The 5000-user goal stands;
+    "user" in that count is "subscriber."
+
+  KEY ARCHITECTURAL CALLS THIS PART:
+
+    1. Sticker canvas locked at 32×32. Painting can start at FIFO
+       shifts this week without further architectural locks.
+
+    2. TIER 0 is a categorically distinct tier (behaviour +
+       art), not a TIER 1 upgrade. Theme architecture extended
+       to support effects.tres + optional effects.gd.
+
+    3. Sticker pack brainstorm gets its own doc — content
+       brainstorming has different churn rate than locked
+       architecture.
+
+    4. Subscription mechanic fundamentally reframed v1.1 → v2.0.
+       Content is universal (everyone grinds for it). Subscription
+       is RELATIONAL (shared library) + ACCELERATOR (small coin
+       bonus). The previous "subscribers get new content drops"
+       model is superseded.
+
+    5. Immutable past calendar history. Subscription is "time-
+       windowed richness," not "content ownership." The
+       psychologically generous frame is also mechanically
+       retentive.
+
+    6. Per-sticker stacking coin bonus rejected as non-goal.
+       Captures a category of premature mechanic for future-
+       Morgan to not re-litigate.
+
+    7. Founders pricing tier distinct from founders flag. Two
+       mechanisms, two audiences, both preserved.
+
+  DOC CONSEQUENCES:
+    - UPDATED: four_tasks_theme_design_notes.md — added STICKER
+      CANVAS SIZE section (asset dimensions block), added TIER 0
+      section (animated/interactive packs + monetisation shadow),
+      updated tier gradient (TIER 0 above TIER 1), added
+      background.png slot to folder convention, updated open
+      work list, status header updated.
+    - NEW: four_tasks_sticker_pack_brainstorm.md — running
+      content brainstorm doc, six initial pack entries, parked
+      ideas section.
+    - UPDATED v1.1 → v2.0: four_tasks_monetisation_position.md.
+      Complete reframe of subscription mechanic. v1.1 sections
+      that survive are marked "carries from v1.1"; v2.0 sections
+      are new. Coin economy tuning section captures rest-day
+      cadence per tier, pack cost curve, partner multiplier,
+      subscription bonus rate (all placeholders pending balance
+      pass). Marketing shadow section captures trial extension
+      cohort mechanism for buddy-ware viral mechanic.
+    - REPO INDEX needs updating with the new brainstorm doc and
+      both updated docs (Morgan to sync).
+
+  GIT COMMITS THIS PART (Morgan to land at next sync):
+    pickle-moon-design-notes repo:
+      (pending) Session 6 part 2: theme doc updates (canvas size
+                + TIER 0), sticker brainstorm doc new, monetisation
+                v1.1 → v2.0, devlog/todo sync, repo index sync.
+
+  NOTES FOR NEXT SESSION:
+    - Aseprite work can start this FIFO swing. 32×32 canvas,
+      indexed mode, three palette slots for themed roles. First
+      paint candidate: frog leader sticker (likely the day-1
+      onboarding showpiece).
+    - Tile 1.3 implementation STILL the next code thing at home
+      office. Now also picks up day_leader + day_palette schema
+      columns from monetisation v2.0 — migration_005 sits
+      alongside 003 and 004 in the same implementation pass.
+    - Coin economy balance pass needs proper attention in Phase 4
+      once the prototype rates can be measured against actual
+      grind feel.
+    - Subscription mechanic affects Phase 5 work — RevenueCat
+      integration, paywall UI, library access renderer, lapse
+      notification flow.
+    - Day-21 staggered disclosure reveal copy needs writing
+      against the v2.0 model — value summary framing, not
+      trial-end nag.
+
+  SESSION 6 PART 2 CLOSED. Five locks total across both parts
+  of session 6 (timezone, onboarding, sticker canvas, TIER 0,
+  monetisation v2.0). One new brainstorm doc. Two updated
+  architectural docs. Significant cumulative shadow captured
+  before any code touched it. The "stop the tile and write the
+  design when fresh" pattern from session 2 has now demonstrated
+  itself across two more major architectural reframes.
+
+  Part 2 time: ~3.5h.
+  Session 6 combined total: ~6.5h.
+  Running project total: ~40.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 7 (14 May 2026 evening / 15 May 2026 work shift — mobile) — Marketing promo codes, theme rewrite, achievements brainstorm, cadence lock. Time: ~5h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  All-mobile session spanning two distinct working windows
+  (post-work evening + next-day work shift). Three major design
+  threads landed plus a brainstorm doc plus several admin
+  updates. The "stop the tile and write the design" pattern from
+  session 2 continues to deliver — each thread had real cascading
+  shadow that would have been expensive to retrofit later.
+
+  LOCK 1 — PROMO CODES + SUBCULTURE-TARGETED LAUNCH
+  (four_tasks_marketing_notes.md Section 6, new):
+
+    Morgan joined a handful of relevant subreddits this evening
+    (FIFO, indie dev, ADHD, others) and started thinking about
+    acquisition mechanics. Conversation moved through three
+    drafts before locking.
+
+    Draft A — 12-month free trials via promo codes. Rejected as
+    too generous; commits a year of revenue per redeemer.
+
+    Draft B — Gate library sharing behind paywall, give free
+    trial users 90% of the experience but not the signature
+    feature. Rejected — library sharing is the v2.0 signature
+    feature, a trial without it isn't a trial of the product.
+
+    Locked C — 3-month free trial + soft landing into founders
+    pricing tier. Library sharing INCLUDED in trial. Starter
+    pack = choice of existing catalogue pack (not bespoke art).
+    Caps small (50-200 per code) with 14-day expiry. Wave-based
+    retargeting: wave 1 (initial offer), wave 2 (same offer 30+
+    days later if demand exceeded cap), wave 3 (drop trial
+    extension, offer founders rate access directly to larger
+    pool).
+
+    Three psychological mechanics stacked deliberately:
+      - Free trial period (acquisition urgency).
+      - Founders price lock (loyalty reward, lifetime to year 2).
+      - Year-2+ standard pricing +50% above founders
+        (retroactive validation of early adoption).
+
+    Morgan flagged his initial year-2 pricing hike of +100% as
+    "latent greed speaking" and walked back to +50%. Going in
+    generous and earning the right to raise is the values-
+    consistent posture; going in high and walking back is
+    harder.
+
+    Waitlist mechanism considered + REJECTED. Psychologically a
+    queue, which is a control mechanism, which clashes with the
+    buddy-ware tone. Over-cap redeemers see "this code is
+    closed, next wave coming" instead of "you're in line."
+
+    Server work captured for Phase 5: /redeem endpoint,
+    promo_codes + redemption_attempts tables, two new users
+    columns (trial_extension_days, founders_rate_eligible).
+    Bundled as migration_006 at Phase 5 entry. NOT v1.0
+    launch-critical for store ship — but IS a blocker for the
+    first targeted post since the first promo code can't be
+    issued until the redeem endpoint exists.
+
+    Apple/Google policy compliance noted: server-side trial
+    extension does NOT touch store-level subscription state.
+    Users still progress through the standard store trial; our
+    server treats them as entitled for an additional period
+    beyond the store trial. Stores get paid when the user
+    converts. No policy violation.
+
+  LOCK 2 — THEME SYSTEM REWRITE TO FEATURE-CATALOGUE MODEL
+  (four_tasks_theme_design_notes.md rewrite):
+
+    The bigger architectural shift this session. The previous
+    tier-based theme model (TIER 0/1/2/3 from session 6)
+    presented a tidy hierarchy but didn't match how Morgan
+    actually wanted to ship content.
+
+    Morgan's reframe: "I don't see these tiers being as clear
+    as you want them to be. Frog might have 7/10 elements, vamp
+    may have 4, fairy might have 2, maybe chilli just has a
+    theme song and a palette." Each sticker as its own
+    inventory of features rather than slotting into a
+    completeness bucket.
+
+    Drove the rewrite to a FEATURE-CATALOGUE model:
+      - The theme system has named SLOTS (leader, palette,
+        background, cell variants, dead-cell, grid_tile,
+        flourish, label, active fx, ambient fx, audio).
+      - Each sticker ships whichever subset of slots its art
+        actually fills.
+      - The user's active theme is a per-slot selection from
+        their accessible library — each slot independently
+        filled by tapping the relevant element-icon in a
+        long-press context menu over the contributing sticker.
+      - One element per slot. No stacking. No collisions to
+        negotiate.
+      - The user's library is a menu of options per slot.
+      - Instant feedback on slot change — no commit-on-close
+        pattern (that exists for identity, doesn't apply here).
+      - Design sparsity is its own axis. A minimal sticker
+        with one exquisite element can be more compelling than
+        a maximal one with all of them.
+      - Sustainable content cadence — each sticker contributes
+        what makes sense for it, no "TIER 1 bar" forcing
+        completeness per pack.
+
+    Morgan's lightbulb on the picker UX: "long-press a sticker
+    pops a context menu of element icons. If locked, just a
+    preview button showing all of it at once. If unlocked, one
+    icon per shipped element + an apply-all button. Visual
+    language only, no text, for screen economy and style."
+
+    Pushed back on stacking elements across stickers — Morgan
+    correctly rolled it back: "you're never stacking effects
+    that collide, you simply build up a library of stickers
+    that have effects you like and you can matrix them up as
+    you please." Each slot holds one thing. The library is the
+    menu, the active theme is the meal.
+
+    Pushed back hard on per-theme MOTD font; Morgan agreed and
+    LOCKED MOTD FONT GLOBAL: "lock global font I am way too
+    scared to start fucking with that. I'm hoping the
+    aesthetic gels well over all packs as the art style should
+    aid in binding it together as well, pix art but not too
+    blocky, pix sorta font, should make all packs sing." All
+    UI fonts also locked global. Label *background* themes per
+    pack; label *typography* stays global.
+
+    Splash effects on cell-tap (water splash for frog, sizzle
+    for chilli, drip for vampire) initially proposed as TIER 1
+    feature; Morgan flagged this as too heavy a commitment per
+    pack ("places a huge onus upon me to deliver an animation
+    every month"). Resolved by collapsing the tier system
+    entirely — splashes are just one of many possible slots,
+    sparingly shipped, not a per-pack expectation.
+
+    SCHEMA SHIFT FROM SESSION 6:
+      Previously sketched in monetisation v2.0 as
+      `days.day_leader + days.day_palette` (two TEXT columns).
+      Updated to `days.day_theme_state` (single JSON column)
+      capturing the full slot map at seal time. Migration_005
+      shape changed accordingly. Forward-compatible — adding a
+      new slot later doesn't need a schema migration.
+
+      Per-user theme state also reorganised:
+        users.active_leader TEXT (identity-hashed, in pair-key)
+        users.active_theme TEXT  (JSON map for all other slots)
+        users.active_stickers TEXT (JSON array, pool members)
+
+    APPLY ALL button in the context menu fills every slot a
+    sticker contributes to in one tap. The user can build up
+    their theme element-by-element OR claim a full pack at once.
+
+  LOCK 3 — FORTNIGHTLY ALTERNATING PACK DROP CADENCE
+  (four_tasks_monetisation_position.md update):
+
+    The catalogue cadence question had been parked since v2.0
+    locked the catalogue purchase gate. Tonight Morgan
+    decided.
+
+    Locked: FORTNIGHTLY drops, alternating between subscriber-
+    only purchasable and free-user-purchasable:
+      Week 1: Subscriber-only drop
+      Week 3: Free-user-thank-you drop
+      Week 5: Subscriber-only drop
+      ...repeating.
+
+    Net effect: each user (free or subbed) gets one drop they
+    can buy each month. Neither tier feels locked out for long.
+    Subscribers get faster catalogue growth + access to the
+    week-1 drops; free users get the week-3 thank-you packs
+    plus everything from before launch.
+
+    Cadence calibrated against sustainable painting budget for
+    a solo painter. Monthly is too slow (subscriber retention
+    promise weakens); weekly is unsustainable. Fortnightly is
+    the sweet spot, especially because per-pack effort variance
+    under the feature-catalogue model lets some packs be
+    minimal (weekend's work) and some be maximal (month's
+    work). Buffer queue of 3-4 packs absorbs life-event
+    interruptions.
+
+    The "thank-you drop" may be review-gated unlock (mentioned
+    as a possibility, not locked) — captured in theme doc
+    Open work.
+
+  LOCK 4 — ACHIEVEMENTS BRAINSTORM
+  (four_tasks_achievements_brainstorm.md, new — NOT LOCKED):
+
+    Morgan, tired, dropped a thought experiment about hidden
+    Easter-egg achievements rewarding the global-first
+    unlocker with a lifetime subscription. Asked for the idea
+    captured-while-fresh as a prompt for future-Morgan to
+    react against rather than locked.
+
+    Pushed back on the lifetime-sub stake before drafting —
+    it's the biggest gun in the marketing arsenal, using it
+    for global-firsts commits a permanent revenue floor of
+    however many achievements ship. Morgan accepted the
+    trade-off: "I just like the thought experiment at this
+    stage, don't want it going undocumented."
+
+    Doc captures ten starting achievement candidates:
+      1. Embrace the Chaos — random reroll on + no coin spends
+         for a calendar month
+      2. Espresso Heart — claim within 60s of 5am local for 7
+         consecutive days
+      3. The Longest Shortest Day — both partners 4T + MOTD on
+         the solstice in their local zone
+      4. Confess Nothing — 100 MOTDs each exactly one character
+      5. The First and Last Chilli — full chilli day, all four
+         tasks contain 🌶️, pool is just chilli
+      6. The Buddy Exchange — pair swaps usernames + icons on
+         the same day (name immutable, so partial swap)
+      7. One Hundred Rerolls — 100 coins on MOTD rerolls in a
+         single day
+      8. Equal and Opposite — for a calendar month, exactly
+         one partner 4Ts each day, exactly the other rests
+      9. Nine Nines — streak hits exactly 999. The "almost" is
+         the joke.
+      10. The Ghost Calendar — 14 consecutive rest days,
+          honoring the use of the app as permission slip to
+          rest. Most emotionally loaded.
+
+    Plus a seed-ideas section for undeveloped concepts
+    (palindrome usernames, date-specific, sticker-thematic
+    matchups, network-chain pair history, etc).
+
+    Adjudication architecture sketched — atomic SQL UPDATE
+    for global-first race, server-side detection only,
+    anti-cheat posture explicitly tolerant. Studio
+    announcement flow captured: webhook ping to studio when
+    global-first fires, decision to announce same-day or
+    wait for user to share, cryptic announcement copy
+    preserves the discovery game for future achievements.
+
+    NOT v1.0 BLOCKER. NOT FORMALLY LOCKED. The doc exists to
+    prevent the idea going undocumented. Future-Morgan may
+    pursue, modify, defer, or abandon.
+
+  KEY ARCHITECTURAL CALLS THIS SESSION:
+
+    1. Promo codes are a real acquisition lever, designed to
+       NOT clash with buddy-ware tone (no waitlist, no
+       gating of signature features, choice not exclusivity
+       on starter packs).
+
+    2. Theme system is per-slot selection from a feature
+       catalogue, not a tier-based completeness hierarchy.
+       Each sticker is its own inventory of features. The
+       user's active theme is a personal assembly from the
+       library.
+
+    3. MOTD font + all UI fonts are LOCKED GLOBAL. Cohesive
+       brand voice across themes. Label backgrounds change
+       per theme; typography does not.
+
+    4. Migration_005 schema updated to single JSON column
+       (day_theme_state) to handle the full slot map.
+       Forward-compatible with future slot additions without
+       further migrations.
+
+    5. Fortnightly alternating drop cadence locked.
+       Subscriber-only on odd weeks, free-user-thank-you on
+       even weeks. Net one drop per month per tier. Buffer
+       queue smooths painting effort variance.
+
+    6. Year-2+ standard pricing +50% above founders (walked
+       back from initial +100% instinct).
+
+    7. Library sharing INCLUDED in promo trials. Signature
+       feature must be lived during trial.
+
+    8. Hidden Easter-egg achievement framework captured as
+       brainstorm prompt. NOT locked. May ship, may not.
+       Documentation prevents idea decay.
+
+  DOC CONSEQUENCES:
+    - UPDATED: four_tasks_marketing_notes.md — added Section
+      6 (promo codes + subculture-targeted launch). Section 5
+      Q10 marked RESOLVED with reference to monetisation v2.0.
+      New journal entry covering today's design conversation.
+    - REWRITTEN: four_tasks_theme_design_notes.md — feature-
+      catalogue model replaces tier gradient. Slot catalogue
+      enumerated explicitly. Per-slot context menu picker UX.
+      MOTD font lock + global UI fonts. Schema reorganised
+      around JSON columns. Asset architecture extended (audio,
+      label backgrounds, dead-cell treatments, ambient + active
+      effects as separate slots).
+    - UPDATED: four_tasks_monetisation_position.md — fortnightly
+      cadence locked, schema sketch updated to JSON column,
+      tier language dropped from pricing curve (single ramp
+      300→600 cap regardless of pack feature-richness).
+    - NEW: four_tasks_achievements_brainstorm.md — hidden
+      Easter-egg achievement prompt-as-document. Ten starting
+      candidates + seed ideas + adjudication architecture
+      sketch + studio announcement flow. NOT LOCKED.
+    - REPO INDEX needs updating with the new achievements doc
+      and refreshed descriptions for the theme + monetisation +
+      marketing docs (Morgan to sync).
+
+  GIT COMMITS THIS SESSION (Morgan to land at next sync):
+    pickle-moon-design-notes repo:
+      (pending) Session 7: marketing promo codes Section 6,
+                theme doc rewrite (feature-catalogue model),
+                monetisation cadence + schema updates,
+                achievements brainstorm new doc, devlog/todo
+                sync, repo index sync.
+
+  NOTES FOR NEXT SESSION:
+    - Tile 1.3 implementation STILL the next code thing at
+      home office. Schema bundle now includes migrations 003
+      (morning payout), 004 (timezone), 005 (day_theme_state
+      JSON, supersedes earlier day_leader+day_palette sketch).
+      Per-user theme state schema (active_leader column +
+      active_theme JSON + active_stickers JSON) also lands
+      around the same time.
+    - First sticker paint can begin at FIFO shifts using the
+      32×32 canvas locked session 6. The feature-catalogue
+      model gives freedom on which slots each sticker fills —
+      paint whatever feels right for each.
+    - Sticker pack brainstorm doc entries are written against
+      the old "leader + companions + background" framing.
+      Updating each entry to the new "this pack ships these
+      slots" framing is parked admin work. Doesn't block
+      painting.
+    - Promo code infrastructure (migration_006, /redeem
+      endpoint, attempt logging) lands as Phase 5 prep work,
+      NOT v1.0 blocker — but IS blocker for the first
+      subreddit outreach post.
+    - Fortnightly cadence kicks in post-launch. Studio
+      content buffer should be 3-4 packs ahead by ship date.
+    - Day-21 subscription disclosure reveal copy needs
+      writing against the v2.0 model. Phase 5 work.
+    - Achievement framework not implemented. Future v1.x
+      consideration. Brainstorm doc carries the seed.
+
+  SESSION 7 CLOSED. Three locks (promo codes, theme feature-
+  catalogue model, fortnightly cadence) plus one brainstorm
+  capture (achievements). All mobile, no code touched. The
+  cumulative architectural shadow of the last three sessions
+  has been substantial — when Phase 1 code work resumes at
+  the home office, tile 1.3 will land against a much richer
+  spec than it would have had without these mobile design
+  passes.
+
+  Session 7 time: ~5h.
+  Running project total: ~45.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 8 (15 May 2026 — pre-night-shift, mobile + home) — Repo index sync, palette derivation lock, first sticker paint started. Time: ~2.5h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Short pre-shift session that produced one substantial
+  architectural lock plus a round of doc housekeeping. Started
+  as a "what's doable in an hour" question, became a paint
+  session that surfaced a palette-system simplification, became
+  a doc rewrite. The "stop the tile and write the design"
+  pattern continued to earn its keep.
+
+  HOUSEKEEPING — REPO INDEX SYNC:
+    Repo index (pickle_moon_repo_index.md) was stale relative
+    to recent doc activity. Index update brought in seven
+    missing entries (achievements_brainstorm, onboarding,
+    timezone_and_sealing, sticker_pack_brainstorm, leaderboard,
+    rate_limiting, stamp_tier), corrected the pair_key v1
+    filename, rewrote stale descriptions for theme +
+    morning_sequence + monetisation + marketing docs, fixed
+    the subfolder path (four-tasks/ now correctly shown as a
+    subfolder with its own raw URL prefix), and reorganised
+    the four-tasks doc list into thematic groupings (architecture
+    /meta-rules, server/backend, gameplay/UX, commercial,
+    running, background/superseded).
+
+    The flat list had become hard to scan at 15+ docs. Thematic
+    clusters make "fetch the rate limiting doc" resolve faster
+    when Claude scans for the right URL.
+
+    Pre-existing inconsistencies flagged but not blocking:
+      - Stamp tier doc references "nightly cron, tile 1.4" in
+        its first paragraph; tile 1.4 has been reframed to
+        lazy seal-on-open (session 6). Line edit needed at next
+        housekeeping pass.
+      - Leaderboard doc names migration_004_lifetime_coins.sql
+        but 004 is already user_timezone and 005 is theme_state.
+        Lifetime coins is migration_006 or later. Naming fix
+        needed in the leaderboard doc.
+
+    Also confirmed during housekeeping: sticker_pack_brainstorm
+    doc was already rewritten to the feature-catalogue model
+    (the "parked admin work" from session 7 close is done).
+    Todo line item to be removed accordingly.
+
+  PAINT SESSION — FIRST FROG:
+    First Aseprite work on the frog leader sticker at the
+    locked 32×32 canvas. Cosy/wholesome direction per the
+    sticker pack brainstorm. Initial pass produced a readable
+    silhouette with eyes, mouth, body, blush cheeks, and
+    contrasting belly. Picker readability confirmed at small
+    scale; character beats land at picker scale.
+
+    During paint, conversation drifted toward palette anxiety —
+    "do I need to lock total palette and cohesion now." Claude
+    pushed back that the locked theme architecture handled the
+    cohesion problem already (per-sticker palette + active leader
+    propagation means there's no "two palettes on screen"
+    scenario to defend against). Painter can paint freely;
+    palette decisions are reversible per-pack.
+
+    Conversation about a "control palette" surfaced — an
+    intentionally ugly diagnostic palette for testing whether
+    art truly survives retinting under any palette. Recognised
+    as standard pixel-art discipline (Lospec has an "ugly"
+    tag for this exact purpose).
+
+  LOCK 1 — PIXEL-FREQUENCY PALETTE DERIVATION
+  (four_tasks_theme_design_notes.md — major rewrite):
+
+    The architectural shadow of the day. Started as a workflow
+    question ("how do I include palette data alongside the
+    sticker"), ended as a simplification of the previous
+    session 7 model.
+
+    Previous session 7 model:
+      Each sticker ships sticker.png + palette.tres.
+      Art painted in canonical reference colours
+      (#FF0000/#00FF00/#0000FF as primary/secondary/tertiary
+      role-values). palette.tres declares real colours for
+      each role. Renderer substitutes reference → real at draw
+      time for every themed surface (including the sticker
+      itself).
+
+    Morgan's proposal:
+      Drop palette.tres entirely. Paint stickers in their REAL
+      colours (frog as actual mossy green, etc.). At runtime,
+      the engine reads sticker.png pixels, counts colour
+      frequencies, derives primary/secondary/tertiary from the
+      pixel counts (most-painted = primary, etc.). Black, white,
+      and greys excluded from the count entirely (they pass
+      through unchanged as structural — outlines, shadows,
+      highlights).
+
+      Constraint: each sticker uses no more than three non-grey
+      colours, with clear proportional difference (no near
+      50/50 splits).
+
+    Claude initially pushed back on multiple grounds:
+      - Conflates "most painted" with "most important."
+      - Removes authorial control over which colour becomes
+        which role.
+      - Edits to art silently flip ordering.
+      - Can't express "this colour is purely structural."
+      - Debuggability suffers (algorithm vs file).
+
+    Morgan rebutted by clarifying the proportional-difference
+    constraint addresses the ambiguity concern; the B/W/grey
+    exclusion handles the structural-colour concern; the
+    authorial control is preserved by painting (the painter
+    expresses palette intent by how much area each colour gets).
+    Asked Claude to reconsider rather than concede.
+
+    On reconsideration: Morgan's right. Under the painter's
+    constraint, the painted PNG already unambiguously expresses
+    primary/secondary/tertiary. A sidecar palette.tres becomes a
+    redundant second source of truth that can drift from the art
+    when edits happen. Removing it eliminates a class of bugs
+    (art/metadata sync) and one piece of per-sticker authoring
+    overhead.
+
+    The wizard counterexample Claude had raised doesn't survive
+    the painter's constraint: if you want purple as primary you
+    paint purple as the dominant area. The choice of WHAT AREA
+    each colour occupies IS the authorial control. You're not
+    losing control — you're encoding it in the painting itself
+    rather than in a sidecar.
+
+    LOCKED SESSION 8: palette derivation by pixel-frequency
+    counting from sticker.png. No palette.tres file. Sticker.png
+    is single source of truth for both leader visual AND
+    palette declaration.
+
+    Sticker.png is the explicit exception to the
+    palette-agnostic art rule — it's painted in REAL colours
+    (because it IS the palette declaration), not in reference
+    role-values. All OTHER themed surfaces (cell overlays,
+    backgrounds, grid tiles, flourishes, label backgrounds,
+    effect sprites) remain painted in reference role-values and
+    retinted at runtime, exactly as the previous model
+    specified.
+
+    Graceful failure: if a sticker uses more than three non-grey
+    colours, the first three by pixel count become the roles;
+    the rest still render as painted in the sticker but don't
+    propagate to themed art. No load-time validation. The
+    constraint is a discipline; the devtool (below) catches
+    mistakes.
+
+  NEW SECTION — PALETTE DERIVATION DEVTOOL:
+
+    Surfaced during the palette-system conversation: under the
+    new rule, the painter needs to know which colour will become
+    which role BEFORE shipping. Without a visualiser, the
+    options are manual pixel-counting in Aseprite or
+    ship-and-test in the live app — both clunky.
+
+    Spec captured: dev-only utility that loads a sticker.png,
+    displays the derived palette swatches (primary/secondary/
+    tertiary) with RGB values + pixel counts, shows all
+    non-grey colours sorted by frequency, badges the result
+    when adjacent ranks are within tolerance (starting
+    threshold 10% pixel-count difference).
+
+    READ-ONLY by design. The devtool cannot write a sidecar,
+    cannot override the derived ordering, cannot produce any
+    artefact other than displayed information. If the
+    derivation produces the wrong ordering, the fix is to
+    re-paint — adjust pixels in Aseprite until the desired
+    ordering emerges. There is no "the algorithm says X but I
+    want Y" escape hatch, because that hatch would reintroduce
+    the drift problem the no-sidecar rule was designed to
+    prevent.
+
+    Lives in scenes/devkit.tscn (tile 0.4 currently a sanity-
+    check skeleton, fleshed out by tile 5.2). Pre-tile-5.2 it
+    can run standalone via F6.
+
+    Implementation note captured: the grey-exclusion rule used
+    in the devtool MUST match the rule used at runtime in the
+    actual renderer. Shared derivation function. Implementation
+    order: write the function, use it in devtool, validate by
+    eye, then wire into runtime renderer.
+
+  DEFERRED — EXACT GREY DEFINITION:
+    The precise definition of "grey" for the exclusion rule is
+    deferred to implementation time. Open questions: tolerance
+    threshold (R≈G≈B within what delta?), whether a fixed grey
+    ramp is enforced or any near-neutral colour is treated as
+    grey, limit on number of distinct greys per sticker.
+    Low-impact — initial constraint is "use grey for outlines
+    and structural shading, don't overuse" — and the precise
+    rule will be informed by the first few painted stickers.
+
+  ASSET NAMING CONVENTION:
+    Morgan asked for a naming convention before committing the
+    frog. Locked: `<sticker_id>_<role>.png` (snake_case,
+    sticker_id first, role suffix). Examples:
+      frog_sticker.png
+      frog_background.png
+      frog_grid_tile.png
+      frog_cell_overlay_completed.png
+      frog_flourish_name.png
+      frog_effects_active.tres
+    Files live under `pickle-moon-assets/stickers/<id>/`.
+
+    Reasoning: folder is namespaced so role doesn't need to lead
+    the filename; sticker_id first clusters assets by pack in
+    flat views (git diffs, search results); role suffix is
+    self-describing when the file is shared outside its folder.
+    snake_case matches Godot conventions and avoids Windows/git
+    case-sensitivity hazards.
+
+    NOTE FOR NEXT HOUSEKEEPING PASS: the theme doc's "file
+    existence is declaration" paragraph currently specifies
+    bare role filenames (`sticker.png`, `background.png`).
+    Update to `<id>_<role>.png` to match the new convention.
+    Engine's folder scan logic also needs the prefix-aware
+    lookup. One-line change, flagged not landed.
+
+  KEY ARCHITECTURAL CALLS THIS SESSION:
+
+    1. Sticker.png is the source of truth for palette. No
+       sidecar declaration. Painted PNG and palette declaration
+       are now the same artefact — eliminates the drift problem
+       at the cost of requiring painter discipline.
+
+    2. Three-non-grey-colour painter's constraint formalised.
+       Discipline, not validation. The devtool catches mistakes
+       at paint time, not at load time.
+
+    3. Devtool is read-only by design. No override path.
+       Pushback on the derived ordering means re-painting, not
+       authoring metadata. Maintains the single-source-of-truth
+       property.
+
+    4. Asset naming convention locked at `<id>_<role>.png`.
+       Snake_case, sticker_id first, role suffix.
+
+  DOC CONSEQUENCES:
+    - UPDATED: pickle_moon_repo_index.md — seven new doc
+      entries, four stale descriptions rewritten, subfolder
+      path corrected, thematic groupings introduced.
+    - UPDATED: four_tasks_theme_design_notes.md — major rewrite.
+      New session 8 status line at top. THE PALETTE KEY section
+      fully rewritten (derivation rule, painter's constraint,
+      why no .tres, performance, grey deferral, graceful
+      failure). New PALETTE DERIVATION DEVTOOL section. PALETTE-
+      AGNOSTIC ART RULE rewritten (clarified sticker.png is the
+      explicit exception). ASSET ARCHITECTURE updated (palette.tres
+      removed from required files). PALETTE SOURCE slot
+      description updated. THEMED-STICKER MARKING updated.
+      SCHEMA IMPLICATIONS — tile 4.G now superseded by both
+      previous models. WHAT THIS DOC LEAVES OPEN — grey
+      deferral and devtool ambiguity-threshold tuning added.
+      RELATED DOCS — architectural preference cross-reference
+      updated to mention session 8 reasoning.
+    - NEW PAINTING IN PROGRESS: frog leader sticker — work
+      continuing after session close. First file going into
+      pickle-moon-assets/stickers/frog/frog_sticker.png.
+
+  GIT COMMITS THIS SESSION (Morgan to land at next sync):
+    pickle-moon-design-notes repo:
+      (pending) Session 8: repo index sync, theme doc palette
+                derivation rewrite, devtool spec, devlog/todo
+                sync.
+    pickle-moon-assets repo (new commits, first painted asset):
+      (pending) First frog leader sticker painted.
+
+  NOTES FOR NEXT SESSION:
+    - Tile 1.3 implementation STILL the next code thing at
+      home office. Schema bundle now includes migrations 003
+      (morning payout), 004 (timezone), 005 (day_theme_state
+      JSON, supersedes earlier day_leader+day_palette sketch).
+    - Devtool implementation is its own new tile (added to
+      todo this session). Sits in devkit, not Phase 1 work.
+      Wire it up when first batch of stickers painted is
+      ready for palette-derivation testing.
+    - Two cross-doc inconsistencies to fix at next housekeeping
+      pass: stamp tier doc references obsolete "nightly cron,
+      tile 1.4"; leaderboard doc names migration_004 for
+      lifetime_coins when 004 is already taken. Both one-line
+      fixes.
+    - Theme doc's "file existence is declaration" paragraph
+      needs updating to the new `<id>_<role>.png` naming
+      convention. Engine folder-scan logic needs the prefix-
+      aware lookup when implemented.
+    - First sticker paint continuing post-session. Frog leader
+      first; companions and additional packs queue up
+      naturally as painting continues during FIFO swing.
+
+  LATE-SESSION ADDITIONS (after the initial close above):
+
+    The session reopened twice in the evening for additional
+    design conversations. Both produced new design docs.
+
+    TRACKING DISCUSSION DOC
+    (four_tasks_tracking_design_notes.md, new — DEFERRED to
+    non-implementation):
+
+      Brainstormed broad per-user stat tracking (lifetime coins,
+      longest streak, total tasks, source-tagged coin earnings,
+      etc.). Established that capacity is a non-issue at any
+      reasonable scale. Real question is fit with positioning.
+      Morgan's instinct: cuts against the grain. Locked design
+      docs point away from dashboard-style UX. The two trackers
+      with committed UX (lifetime_coins, longest_streak via
+      leaderboard) are the entire scope; everything else stays
+      off. Doc captures the discussion + Goodhart audit framework
+      for future tracker proposals + reversibility argument +
+      event-logging alternative path. Status: DEFERRED, captured
+      for future-Morgan to react against if a real use case
+      surfaces.
+
+    WEEK MODE DESIGN DOC
+    (four_tasks_week_mode_design_notes.md, new — LOCKED v1.x
+    feature):
+
+      Started from a friends-and-family user asking about
+      "weekly tasks." Rejected the request (introduces a second
+      clock, breaks daily rhythm thesis, fractures partner
+      cadence, slope to dashboard-style life-tracker), but the
+      ask pointed at real friction — users with stable weekly
+      rhythms retyping the same Monday tasks every Monday.
+
+      Reshape: WEEK MODE. Per-weekday opt-in toggle. Off by
+      default. Long-press the day name in the task tray heading
+      to toggle. Toggle ON enables long-press-task-label as the
+      template-edit gesture; toggle OFF disables it. Divergence
+      happens on first task edit, not on toggle — so toggling is
+      cheap and reversible with no template lifecycle to track.
+      Toggling off preserves the diverged template silently;
+      toggling back on restores it. No popups, no prompts.
+
+      Cal-icon menu stays the universal standard-four editor.
+      On week-mode days it shows a highly visible warning
+      explaining edits won't affect today, redirecting to
+      task-label long-press. Emergent bonus: templated days
+      bypass the cal-icon's "tick-locked all four" greying,
+      solving a separate flagged frustration.
+
+      Today-only edit rule added late-session: long-press-task-
+      label is live ONLY on today's day view, never on
+      navigated past or future days. Prevents cutover ambiguity
+      where future-Tuesday edits would propagate forward but
+      not back to today's Tuesday.
+
+      Personal not shared (partners don't sync week mode state).
+      Reveal timing deferred to future staggered-disclosure
+      pass. Schema sketch captured (week_mode_weekdays bitmask
+      + user_weekday_overrides table). Lands as v1.x post-
+      launch; not part of any current tile.
+
+      [SESSION 9 SUPERSESSION: status changed v1.x → v1.0.
+      See session 9 entry below for rationale.]
+
+      Prototype-patch feasibility was scoped at end of session
+      (~4-8h work, architecture friendly to the addition).
+      Decision: don't patch the prototype. The friends-and-
+      family prototype is being replaced by the Godot port;
+      better to land week mode properly in Godot than half-do
+      it in HTML. Time-to-discovery on the deployed prototype's
+      version mismatch (phone copy 6853 lines vs Project copy
+      7599 lines) was itself the reason to defer — a missed
+      sync gap that would have produced a bad patch.
+
+    DEVLOG TIMESTAMP CONVENTION ADDED:
+      "Last edit: YYYY-MM-DD HH:MM AWST" line added to devlog
+      and todo headers. Bumped each time files are touched by
+      Claude. Helps spot stale-vs-fresh files during multi-
+      commit days.
+
+  SESSION 8 CLOSED. One architectural lock (palette derivation),
+  one new spec'd dev tool, one naming convention, two new
+  design docs (tracking deferred, week mode locked v1.x), and
+  the start of real painted assets in the asset repo. The day
+  moved from "what's an hour-shaped task" to "let me lock
+  something fundamental and start painting" to "let me capture
+  three more design conversations while they're fresh" — a
+  useful reminder that the best mobile sessions are still
+  architectural.
+
+  Session 8 time: ~5h (initial close was 2.5h; reopened twice
+  for the tracking discussion and week mode design conversation,
+  adding ~2.5h).
+  Running project total: ~50.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 9 (16 May 2026 — mobile + remote shift) — Onboarding copy pass cascades into three locked-doc rewrites + week mode v1.0 promotion. Time: ~4h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Long mobile-only session that started as a UX writing pass on
+  the onboarding flow and cascaded into rewrites of three
+  previously-locked design docs plus a v1.x → v1.0 scope
+  promotion for week mode. The "stop the tile and write the
+  design when fresh" pattern continued to earn its keep — each
+  cascade was a real architectural shadow that would have been
+  more expensive to retrofit at implementation time than to
+  rewrite now.
+
+  CONTEXT:
+    Remote shift, mobile-only. Started with a user-roleplay
+    walkthrough of the session-6 onboarding doc to test the
+    copy in situ — Claude played a fresh installer named Jamie,
+    Morgan steered. The roleplay surfaced the first real friction
+    points within minutes (the partner-fork question, the
+    name-immutability framing, the missing four-tasks screen,
+    the MOTD-onboarding question). Each one expanded into a
+    design conversation that ate the rest of the session.
+
+    Pattern recognised mid-session: the previous onboarding doc
+    (session 6) was written before the onboarding had been LIVED
+    screen-by-screen. The roleplay was the first time the flow
+    was tested against actual user cognition rather than
+    architectural reasoning. Surfacing five distinct issues in
+    that pass was the signal that a copy + flow rewrite was
+    overdue.
+
+  CONTEXT INTEGRITY NOTE — read before trusting this entry:
+    Mid-session Claude was operating against a STALE copy of
+    the devlog. The project mount and the first three web_fetch
+    attempts on the GitHub raw URL all truncated at ~2825 lines
+    (mid-session 6 part 1), so session 8's content was invisible
+    to Claude for most of the session. The discrepancy was
+    caught late by Morgan's memory of session 8 hours pushing
+    the running total over 50h. Resolved by a fresh web_fetch
+    with explicit higher token limit, which returned the full
+    file through session 8 close.
+
+    Consequence: the session 9 work product (8-screen onboarding
+    copy, rewritten staggered disclosure doc, rewritten
+    onboarding doc, rewritten pair-key doc) was produced
+    without sight of session 8's palette derivation lock, week
+    mode design doc, tracking-deferred doc, or asset naming
+    convention. Cross-check on close confirmed no collision
+    with session 8's palette/theme work (this session touched
+    onboarding/identity/disclosure territory only). The one
+    overlap was deliberate: session 8 locked week mode as v1.x,
+    this session promoted it to v1.0 — see WEEK MODE PROMOTION
+    section below.
+
+    Lesson logged for the AI Reading Guide: when devlog content
+    in context appears to end mid-session, treat that as a
+    truncation signal, not an end-of-file signal. Re-fetch with
+    explicit higher token limit before proceeding.
+
+  USER-ROLEPLAY OPENING:
+    Claude played "Jamie," a fresh installer with no prior
+    context on Four Tasks. Walked through the session 6
+    onboarding flow screen by screen. Friction surfaced
+    quickly:
+      - Screen 1 ("first time / returning fork") presented
+        recovery and first-install as equal-weight options;
+        recovery is a tiny minority case in the native install
+        path (the prototype's recovery story was browser-
+        cache-loss recovery, not relevant to a fresh App Store
+        install).
+      - Name screen instruction copy felt UX-scoldy ("write
+        this correctly because you can't change it"); the
+        actual reason name is immutable is partner connection
+        recognition, which is a relational rationale not a
+        UX-policing rationale. Reframing locked.
+      - Confirm-name screen had no forward-reference to the
+        username step, which created commit hesitation
+        ("but what IS this thing I'm typing"). Forward-
+        reference defuses the hesitation.
+      - The four-tasks entry screen wasn't in the session 6
+        flow at all — it had been collapsed into a later
+        "your day" screen without dedicated placement.
+        Surfaced as a real gap.
+      - MOTD-at-onboarding question reopened. Session 6 had
+        explicitly removed MOTD from onboarding to preserve
+        first-morning emotional weight. Roleplay re-surfaced
+        the question because the staggered disclosure doc was
+        starting to feel sparse at day 0 — too much UI
+        appearing without the user understanding any of it.
+
+  LOCK 1 — SOLO MODE IS THE DEFAULT OUTCOME OF ONBOARDING
+  (four_tasks_onboarding_design_notes.md, rewrite):
+
+    The session 6 onboarding doc treated solo and paired as
+    two parallel flows with a fork screen. Roleplay surfaced
+    that the fork is doing real damage — it forces a
+    relational question at the front door of the app.
+
+    Reframe: solo IS the default. There is no fork. Every
+    user finishes onboarding in solo mode. Pairing is a
+    POST-ONBOARDING action via a persistent "Add my partner"
+    button on the always-empty partner calendar.
+
+    Architectural consequences:
+      - The invite link flow doesn't disappear — it's now a
+        deep-link target that opens the existing solo user's
+        app at the "Add my partner" interaction, prefilling
+        the inviter's values.
+      - Manual fallback is the post-onboarding "Add my
+        partner" button — no longer two flow paths through
+        onboarding, just one flow into solo + one button
+        afterward.
+      - "Re-derive solo mode from the user-needs angle"
+        observation from session 6 is now LOAD-BEARING, not
+        a graceful concession.
+
+    Why this is better than session 6's fork model:
+      1. Removes the "are you alone? answer publicly" moment
+         at install time. Friction-cliff for any user who
+         doesn't know yet what their partner will say to the
+         install pitch.
+      2. Single flow simplifies the entire tile structure of
+         Phase 3 — no branch tiles, no fork-screen tile, no
+         invite-link-detection tile inside onboarding.
+      3. Empty partner calendar IS the recruitment surface
+         (already established in session 6). The persistent
+         "Add my partner" button is the natural surfacing of
+         that surface.
+
+  LOCK 2 — PAIRING BY TYPED THREE VALUES
+  (four_tasks_onboarding_design_notes.md, rewrite):
+
+    Considered two alternatives to "type the three values"
+    pairing:
+      (a) Server-issued opaque codes. Joiner types a 6-char
+          code, server resolves to inviter.
+      (b) Pre-computed hash blobs. Joiner types a long hash
+          string carrying full inviter identity.
+
+    Both rejected:
+      - (a) routes the relationship through a system
+        identifier (the code). Feels like a customer-service
+        ticket, not a partnership. Wrong tone for the buddy-
+        ware positioning.
+      - (b) creates an oracle concern (any hash-blob lookup
+        endpoint is a stand-alone identity verifier) and
+        forces UX around copy-paste of an ugly string.
+
+    Locked: typed three values (name + username + icon), same
+    as the inviter's. The values are already on the inviter's
+    screen by design — pair-key v2's recovery story works
+    because of this. The joiner types what they see.
+
+    Ambiguous-match resolution:
+      Two unrelated users with identical (name, username, icon)
+      tuples is plausible at scale. Server returns 409 on
+      ambiguous match. Joiner-side copy asks the INVITER to
+      vary their username temporarily — joiner connects, then
+      inviter reverts. Full pair-key hash includes both halves,
+      so once paired the username can revert without identity
+      disturbance.
+
+    This required pair-key migration logic to support
+    post-pair username revert as a supported, non-extraordinary
+    flow. See LOCK 4 below.
+
+  LOCK 3 — THEME + MOTD MOVED INTO ONBOARDING (DAY-ZERO)
+  (four_tasks_onboarding_design_notes.md, rewrite +
+   four_tasks_staggered_disclosure_design_notes.md, rewrite):
+
+    Reversing session 6's "MOTD removed from onboarding, first
+    MOTD lands in first morning sequence" decision.
+
+    Session 6 reasoning was preservation of first-morning
+    emotional weight. Today's reasoning: theme and MOTD are
+    both PERMANENT, ALWAYS-VISIBLE calendar UI elements. Hiding
+    them at onboarding violates the staggered-disclosure
+    principle's own logic — staggered disclosure is for
+    OCCASIONAL features (rest day, coin reroll, partner
+    reactions, week mode toggle), not for permanent screen
+    furniture.
+
+    A user opening their app on day 1 and seeing an unexplained
+    themed calendar with an unexplained word salad at the top
+    is more confusing than seeing both arrive during a guided
+    onboarding moment. The first morning sequence still has
+    plenty of weight from the morning ritual itself (stamp,
+    coins, the rest of the 12 beats).
+
+    The MOTD onboarding moment also gives the user a chance to
+    spend a few coins on rerolls without economic consequence —
+    establishing the reroll mechanic textually + giving the
+    user a feel for "this is mine, I shape it." Coins given for
+    this purpose are discarded at the transition into the real
+    calendar; the real coin economy starts at zero.
+
+    Theme assembly is presented as a brief "theatre" moment
+    (~2s loading screen with glitch typewriter + bounce-twist
+    staggered spawn-ins of the themed UI elements). Skippable
+    on tap. Pair-key hashes flash in the window as a "the
+    machine is doing something real" cue. Curated launch
+    starter subset of stickers only at this stage.
+
+  LOCK 4 — PAIR-KEY DOC UNLOCKED FOR SECOND PASS
+  (four_tasks_pair_key_design_notes.md, status changed
+   LOCKED → UNLOCKED pending Section 4 decision):
+
+    The pairing-by-typed-values + ambiguous-match resolution
+    work surfaced seven gaps in the v2 pair-key doc that need
+    closing before tile 1.3 implementation:
+
+      (a) Convergence proof in stale-key race. Two clients
+          migrating simultaneously is sketched but not proven.
+      (b) Partner-mirror polling staleness during migration —
+          the silent recovery path's behaviour under heavy
+          load is undocumented.
+      (c) Data model conflation between pair-key as identity
+          and pair-key as addressing. Today's session
+          surfaced this as a real design fork (see Section 4
+          below).
+      (d) Threat model dismissiveness — v2 doc treated
+          shoulder-surfing as the only attack surface. The
+          ambiguous-match work surfaced a "wrong partner
+          attaches to me" scenario that isn't a shoulder-surf.
+      (e) Canonical string assembly + validation explicit
+          spec. Currently implicit.
+      (f) Ambiguous-match resolution (new, this session).
+      (g) Post-pair username revert as a supported flow (new,
+          this session — required to make ambiguous-match
+          resolution work cleanly).
+
+    SECTION 4 DECISION PENDING — DATA MODEL FORK:
+      OPTION A: pair-key as partition key (status quo).
+        Days, users, all child tables addressed by pair_key.
+        Username/icon change = full migration of every row
+        for that pair. O(n_days) work per migration.
+      OPTION B: stable pair_id + lookup pair_key.
+        Each pair gets a stable UUID (pair_id) at first
+        creation. Tables address by pair_id. The pair-key is a
+        lookup index, recomputed when username/icon changes,
+        but rows don't move. O(1) work per migration.
+
+      RECOMMENDATION: Option B. Separates identity (who you
+      are) from addressing (how the database finds you).
+      Migrations stop being expensive operations and become
+      single-row index updates. The threat model gets cleaner
+      too — pair-key becomes a credential string for lookup
+      rather than a partition identifier whose properties
+      cascade through every table.
+
+      Cost: schema change before tile 1.3 implementation. One
+      additional migration (migration_007_pair_id). Refactor
+      of existing INSERT/SELECT statements in the worker scaffold
+      to address by pair_id.
+
+      This decision is a BLOCKER for tile 1.3 implementation.
+      Captured at end of Section 4 in the rewritten doc with a
+      NEXT-MORGAN call-out. Resolve at next home-office
+      session before any tile 1.3 code lands.
+
+    Pair-key doc filename: confirmed as
+    `four_tasks_pair_key_design_notes.md` (NOT _v2_ suffix).
+    The AI Reading Guide, project system prompt, and repo
+    index all reference _v2_ in places — needs cleanup pass.
+    Flagged not landed.
+
+  WEEK MODE PROMOTION (v1.x → v1.0 SCOPE):
+    Session 8 locked week mode as a v1.x post-launch feature.
+    Today's session promoted it to v1.0 ship scope.
+
+    Rationale: week mode touches schema (week_mode_weekdays
+    bitmask + user_weekday_overrides table), calendar UI
+    (per-weekday toggle state, today-only-edit gesture),
+    ritual loop (templated days bypass cal-icon lock), and
+    write rules (template propagation semantics). Features
+    with this footprint don't ship cleanly as v1.x patches
+    against frozen v1.0 code — they require schema migrations
+    against live user data, write-rule changes that interact
+    with existing flows, and UI changes that compete for
+    screen space with established patterns.
+
+    Better to land week mode properly at v1.0 than to ship
+    v1.0, freeze the schema, then thread a complex feature
+    through later. The work doesn't multiply — it just lands
+    at a different point in the timeline.
+
+    Session 8's week mode design doc is otherwise valid and
+    LOCKED. Status line needs updating from "v1.x" to "v1.0".
+
+    Note for next housekeeping pass: tile structure needs
+    a week mode implementation tile added to Phase 4 or
+    Phase 3 (depending on cutover sequencing). Schema
+    migration sits alongside 003/004/005 in the tile 1.3
+    implementation bundle.
+
+  EIGHT-SCREEN ONBOARDING FLOW LOCKED:
+    Working copy locked screen-by-screen in the rewritten
+    onboarding doc:
+      1. Welcome — "Pick four small things. Do them with
+         someone. That's the whole app." [Get started]
+      1a. First-time / returning fork — primary [First time
+         here] + smaller secondary "Recover my calendar".
+         Recovery is rare on native; visual weight matches.
+      2. Your name — name capture + partner-recognition
+         rationale for immutability.
+      3. Confirm name — forward-references the username step
+         to defuse commit hesitation.
+      4. Username — parallel structure to screen 2, frames
+         username as the mutable handle.
+      5. Pick your starting avatar — curated launch subset,
+         live preview, Continue fires theme assembly theatre.
+      5b. Themed companion pool (popup over themed calendar) —
+         introduces the per-day random celebration sticker
+         mechanic + 7-day visualisation.
+      6. Message of the day — 4-spinner mechanic shown live
+         + tutorial coins for free rerolls (capped 750, tops
+         up below 70-110 threshold via "More coins" arming
+         button). Save typewriters MOTD onto header.
+      7. Partner's calendar — swipe-right prompt introduces
+         the partner-panel concept. Persistent "Add my
+         partner" button (the recruitment surface) lives on
+         this screen. Subscription value-prop planted softly:
+         "Subscribing later lets you share your sticker
+         libraries."
+      8. Coins and the picker, closing — coin blitz animation
+         sized for 2-3 stickers, "have a play with the
+         sticker picker before you head into your first day."
+         [Start the day]
+
+    KNOWN GAP — Four-tasks entry screen placement.
+    The "your four tasks" screen surfaced as a real gap during
+    roleplay (the session 6 doc had no dedicated screen for
+    it). Working copy is preserved in the rewritten onboarding
+    doc's Note section:
+      Header: "Your four tasks"
+      Body: "Four small things you'd like to do each day. Keep
+        them small enough that you'll actually do them. You can
+        change them later."
+    Placement TBD — either between MOTD (screen 6) and partner
+    calendar (screen 7), or between partner calendar and
+    coins/close (screen 8). PENDING decision.
+
+    Other open question captured: "Start the day" button at
+    screen 8 — does it fire the day-1 morning sequence
+    immediately or defer? Pending decision.
+
+  STAGGERED DISCLOSURE REWRITE
+  (four_tasks_staggered_disclosure_design_notes.md, rewrite):
+
+    Three substantive changes:
+
+      1. Day-2 long-press philosophy reveal added. Locked
+         copy: "Most apps are over-responsive. They reward
+         accidental taps and treat your attention as something
+         to capture, by any means. We don't work like that.
+         Long-press is our gesture for any decision that
+         matters — it keeps things calm in here and honours
+         your attention. Try it now: long-press a day of the
+         week on your calendar."
+
+         NEW GESTURE-DISMISSAL PATTERN introduced for this
+         reveal: no "Got it" button. The popup clears when the
+         user performs the long-press gesture itself.
+         Cascades directly into the week mode tutorial (since
+         long-pressing a day-of-week heading is the week mode
+         toggle gesture — week mode's v1.0 promotion makes
+         this cascade clean).
+
+         The pattern is reusable for any future reveal where
+         the right way to dismiss is to perform the action
+         being taught. Captured as a general technique in the
+         doc.
+
+      2. Day-7 picker context menu hint moved from scheduled
+         to trigger-gated. The reveal fires on the user's
+         first picker open (whenever that is) rather than on
+         a fixed day-7 schedule. More natural pedagogy —
+         teach the gesture at the moment of relevance, not on
+         a calendar tick.
+
+      3. Day-2 coins tutorial removed entirely. Covered by
+         onboarding (screen 6 introduces coins + rerolls
+         live). No separate scheduled disclosure needed.
+
+      4. Calendar tour overlay removed. Per-screen-context
+         introductions across screens 5b, 6, 7, 8 cover the
+         same surface area more naturally.
+
+    Solo-user partner-reactions framing was also cleaned up
+    in this pass — the reveal copy now handles the "no
+    partner yet" case gracefully without forcing a pair
+    assumption.
+
+  PAIR-KEY DOC REWRITE
+  (four_tasks_pair_key_design_notes.md, full second-pass
+   rewrite):
+
+    Closed all seven gaps surfaced above. Section 4 left
+    open pending Morgan's Option A vs Option B decision —
+    everything else locked.
+
+    Threat model section rewritten honestly: shoulder-surfing
+    + ambiguous-match-attack + accidental-wrong-attach are
+    the three scenarios. Each addressed explicitly. Privacy
+    policy's pair-key section will need an alignment pass
+    when next touched (flagged for Phase 5 prep work).
+
+    Canonical string assembly given an explicit BNF-style
+    spec. Validation rules enumerated. Migration semantics
+    given a step-by-step transaction walkthrough.
+    Post-pair username revert flow documented as a
+    first-class case, not an edge case.
+
+  KEY ARCHITECTURAL CALLS THIS SESSION:
+
+    1. Solo mode is the default outcome of onboarding. No
+       fork. Pairing is post-onboarding.
+
+    2. Pairing by typed three values. No opaque codes, no
+       hash blobs. Ambiguous-match resolution handled
+       server-side via 409 + temporary username variation.
+
+    3. Theme + MOTD live in onboarding. Both are permanent
+       always-visible calendar UI; staggered disclosure
+       reserves itself for occasional features.
+
+    4. Week mode promoted to v1.0 scope. Schema/UI/rule
+       footprint too large to retrofit cleanly as v1.x
+       patch against frozen v1.0 code.
+
+    5. Pair-key doc unlocked for second pass. Section 4
+       data-model decision (Option A vs B) is the
+       implementation BLOCKER for tile 1.3.
+
+    6. Gesture-dismissal pattern for reveals — popup clears
+       when the user performs the action being taught. New
+       reusable technique.
+
+    7. Trigger-gated > scheduled reveal where the feature is
+       discoverable through normal use. Day-7 picker hint
+       moved.
+
+  DOC CONSEQUENCES:
+    - REWRITTEN: four_tasks_onboarding_design_notes.md.
+      Solo-as-default architecture, 8-screen flow with full
+      copy locked, ambiguous-match resolution UX, library
+      sharing soft-plant on screen 7, theme assembly
+      theatre spec, single /join_by_values endpoint
+      (collapses old join_by_link + join_by_values).
+      Four-tasks entry screen placement captured as PENDING
+      in Note section.
+    - REWRITTEN: four_tasks_staggered_disclosure_design_notes.md.
+      Day-2 long-press philosophy reveal added, gesture-
+      dismissal pattern documented, trigger-gated picker
+      hint, week mode cascade from day-2 long-press tutorial,
+      day-2 coins + calendar tour removed.
+    - REWRITTEN: four_tasks_pair_key_design_notes.md.
+      Seven gaps closed; Section 4 left UNLOCKED pending
+      Option A vs B decision. Threat model honest pass.
+      Canonical string spec + validation + migration
+      walkthrough + post-pair revert explicit.
+    - STATUS UPDATE NEEDED: four_tasks_week_mode_design_notes.md.
+      v1.x → v1.0 status line update. Otherwise valid;
+      session 8's design content stands.
+    - PENDING SYNC: morning_sequence doc (MOTD framing now
+      wrong — MOTD is in onboarding); theme doc (picker hint
+      trigger-gated, not day-7); repo index (pair_key
+      filename, week mode scope line); project system prompt
+      (pair_key_v2 filename → pair_key); privacy policy
+      (align with honest threat model from pair-key Section 8).
+    - PENDING SYNC: stamp tier doc (still references
+      obsolete "nightly cron, tile 1.4"), leaderboard doc
+      (still names migration_004 for lifetime_coins when 004
+      is timezone). Both flagged in session 8, still
+      unfixed.
+    - PENDING SYNC: theme doc's "file existence is
+      declaration" paragraph needs the `<id>_<role>.png`
+      naming convention update — session 8 flagged this,
+      still unlanded.
+
+  GIT COMMITS THIS SESSION (Morgan to land at next sync):
+    pickle-moon-design-notes repo:
+      (pending) Session 9: onboarding doc rewrite (solo-as-
+                default, 8-screen flow), staggered disclosure
+                rewrite (day-2 philosophy + gesture-dismissal),
+                pair-key doc rewrite (seven gaps closed,
+                Section 4 open), week mode status promoted,
+                devlog/todo sync.
+
+  CONTEXT-INTEGRITY POSTSCRIPT — AI READING GUIDE ADDITION
+  PROPOSED:
+    Suggest adding to the AI Reading Guide:
+      "If devlog content in your context appears to end
+      mid-session or doesn't match user-reported running
+      hours, treat as truncation, not end-of-file. Re-fetch
+      with explicit higher token limit (the default fetch
+      limit caps around 2825 lines on this file). The user's
+      memory of project state is the more reliable signal
+      when files in context look stale."
+
+    This session's first three hours operated against a stale
+    base before the truncation was caught. The append above
+    explicitly notes the gap. Future-Claude can avoid the
+    same trap with the reading-guide note.
+
+  NOTES FOR NEXT SESSION:
+    - PAIR-KEY SECTION 4 IS THE NEXT DECISION. Option A vs
+      Option B. Blocks tile 1.3 implementation. Recommend
+      Option B per doc. Resolve at next home-office session
+      before any code lands.
+    - Four-tasks entry screen placement in 8-screen flow.
+      Working copy preserved in onboarding doc Note section.
+      Pick a slot (between MOTD and partner cal, or between
+      partner cal and coins/close) and place it.
+    - "Start the day" button behaviour at screen 8 — fire
+      morning sequence immediately or defer? Decide at next
+      onboarding implementation pass.
+    - Doc sync pass needed: morning_sequence (MOTD framing),
+      theme (picker hint trigger-gated + `<id>_<role>.png`
+      naming convention), week_mode (status line), repo
+      index (pair_key filename + week mode scope), project
+      system prompt (pair_key_v2 → pair_key), privacy policy
+      (honest threat model alignment).
+    - Two pre-existing inconsistencies from session 8 still
+      unfixed: stamp tier doc obsolete cron reference,
+      leaderboard doc migration_004 naming collision.
+    - Tile 1.3 implementation STILL the next code thing at
+      home office. Schema bundle now includes migrations 003
+      (morning payout), 004 (timezone), 005 (day_theme_state
+      JSON), and potentially 007 (pair_id) pending Option B
+      decision.
+    - Todo Completed ledger backfill for sessions 6 + 7 was
+      flagged earlier but not fixed in this session. Devlog
+      remains canonical for hours; todo drift is admin work
+      that can be batched.
+
+  SESSION 9 CLOSED. Three locked-doc rewrites (onboarding,
+  staggered disclosure, pair-key) + one v1.x → v1.0 scope
+  promotion (week mode) + 8-screen onboarding copy locked
+  screen-by-screen. Pair-key Section 4 (data model
+  Option A vs B) is the implementation-blocking decision
+  for next session. The context-integrity issue with stale
+  devlog content in mid-session is captured for future-
+  Claude with a proposed AI Reading Guide note.
+
+  Session 9 time: ~4h.
+  Running project total: ~54.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

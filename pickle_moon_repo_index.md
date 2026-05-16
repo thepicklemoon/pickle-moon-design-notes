@@ -1,10 +1,10 @@
 # PICKLE MOON Repo Index
 
-Last edit: 2026-05-15 21:50 AWST
+Last edit: 2026-05-16 22:36 AWST
 
 Purpose: canonical list of files across THE PICKLE MOON's repos, with one-line descriptions. Reference doc for Claude sessions — "fetch the X doc" resolves to a specific raw URL from this list.
 
-Last updated: 2026-05-15
+Last updated: 2026-05-16
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REPO: pickle-moon-design-notes (PUBLIC)
@@ -24,13 +24,14 @@ Raw URL prefix for this subfolder:
 https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/main/four-tasks/
 
 Working documents (high churn):
-- `four_tasks_godot_devlog.txt` — session-by-session devlog. Primary context doc. AI reading guide at top.
+- `four_tasks_godot_devlog.txt` — active devlog (v2, opened session 9 close). Summary block of sessions 1-9 at top, then sessions 10+. Primary context doc. AI reading guide at top.
+- `four_tasks_godot_devlog_v1_sessions_1-9.txt` — archived v1 devlog (sessions 1-9 in full prose). Reference only — for historical reconstruction of how a decision was reached, not for the decision itself. Authority for any locked decision lives in the relevant design doc + v2 summary block.
 - `four_tasks_godot_todo.txt` — active tile list, phases, parked items.
 
 Locked design docs (architecture / meta-rules):
 - `four_tasks_architectural_preference.md` — meta-rule: clarity over cleverness for low-throughput load profile. Examples + when the clever option is permitted.
 - `four_tasks_staggered_disclosure_design_notes.md` — meta-principle: features reveal over days/weeks, not at onboarding. Coordinator + reveal content lands Phase 4.
-- `four_tasks_pair_key_v2_design_notes.md` — v2 identity model. Six-value pair-key (name+username+icon × 2), partner-app-mediated recovery, re-entrant transactional migrations.
+- `four_tasks_pair_key_design_notes.md` — identity model. Six-value pair-key (name+username+icon × 2), partner-app-mediated recovery, re-entrant transactional migrations. UNLOCKED at session 9 pending Section 4 decision (Option A pair-key as partition key vs Option B stable pair_id + lookup pair_key). BLOCKS tile 1.3 implementation.
 
 Locked design docs (server / backend):
 - `four_tasks_write_rules_design_notes.md` — write rules for tile 1.3. Field-level permissions, validation, state preconditions, rejection codes for POST bug_report / PUT day / PUT user.
@@ -41,10 +42,8 @@ Locked design docs (gameplay / UX):
 - `four_tasks_morning_sequence_design_notes.md` — 12-beat morning ritual. Rest-day variant, partner panel visibility, crash-resistance, claim endpoint architecture, MOTD reroll flat-cost (90-110, supersedes doubling).
 - `four_tasks_onboarding_design_notes.md` — onboarding flow. Solo mode as first-class state, invite link primary pairing path with manual join fallback, solo data migrates into pair on join.
 - `four_tasks_partner_reactions_design_notes.md` — sealed-day immutable partner reactions on MOTD + tray. First feature with field-level write rules (partner writes other user's row). Schema reserved v1.0, feature ships v1.x.
-- `four_tasks_coin_name_design_notes.md` — server-side affix rule system, transforms username into flavoured coin economy display name. Schema reserved v1.0, feature ships v1.x.
 - `four_tasks_stamp_tier_design_notes.md` — stamp tier mapping (red/orange/yellow/green/purple), server-side message pools, tone targets per tier. Random pick, no anti-repeat for v1.0.
-- `four_tasks_week_mode_design_notes.md` — per-weekday opt-in task templating. Long-press day-name to toggle. Divergence on first edit. Cal-icon stays universal standard-four editor. Today-only edit rule. Personal not shared. Lands v1.x post-launch.
-- `four_tasks_leaderboard_design_notes.md` — single global leaderboard ranked by lifetime_coins, streak as secondary. DEFERRED (session 8) — possibly not shipping at launch. Re-evaluate after v1.0 with real usage data. Full design + rejected alternatives preserved for if/when revisited.
+- `four_tasks_week_mode_design_notes.md` — per-weekday opt-in task templating. Long-press day-name to toggle. Divergence on first edit. Cal-icon stays universal standard-four editor. Today-only edit rule. Personal not shared. Promoted to v1.0 scope at session 9.
 - `four_tasks_theme_design_notes.md` — theme + sticker system. Feature-catalogue model. Pixel-frequency palette derivation from sticker.png (session 8 — supersedes palette.tres). Asset naming `<id>_<role>.png`. Per-slot variant rotation by stable date-hash. MOTD + UI fonts locked global. 32×32 sticker canvas.
 
 Locked design docs (commercial):
@@ -59,10 +58,19 @@ Discussion / reference (captured thinking, not committed):
 - `four_tasks_tracking_design_notes.md` — per-user stat tracking discussion. DEFERRED to non-implementation. Two trackers with committed UX (lifetime_coins, longest_streak via leaderboard) are the entire scope. Goodhart audit framework + event-logging alternative path captured for future revisit.
 
 Background / superseded:
-- `four_tasks_pair_key_design_notes.md` — v1 identity sketch from prototype era. Superseded by v2 on recovery story. Reference only.
+- (None on disk. Earlier index entries referenced a v1 pair-key sketch but the only pair-key file in the repo is the active design doc above.)
 
 Subfolders:
 - `privacy/` — drafts and reference docs related to the privacy policy. Published version lives in pickle-moon-public.
+- `deferred/` — design docs for features explicitly off the v1.0 roadmap. Captured fully so future-Morgan can revisit without re-deriving; not active development.
+
+## four-tasks/deferred/ — features deferred from v1.0
+
+Raw URL prefix for this subfolder:
+https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/main/four-tasks/deferred/
+
+- `four_tasks_leaderboard_design_notes.md` — single global leaderboard ranked by lifetime_coins, streak as secondary. DEFERRED (session 8) — possibly not shipping at launch. Re-evaluate after v1.0 with real usage data. Full design + rejected alternatives preserved for if/when revisited.
+- `four_tasks_coin_name_design_notes.md` — server-side affix rule system, transforms username into flavoured coin economy display name. Schema reserved v1.0, feature ships v1.x or later. Moved to deferred at session 9 housekeeping.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REPO: four-tasks (PRIVATE)
