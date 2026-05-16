@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-05-16 22:36 AWST
-Last updated: May 2026 (session 9 close — surgical pass)
+Last edit: 2026-05-17 02:00 AWST
+Last updated: May 2026 (session 10 — pair-key unblocked, user_id locked)
 
 Forward-looking tile list organised by phase. At any moment, the next
 thing to work on is the topmost incomplete tile in the current phase.
@@ -96,17 +96,24 @@ PHASE 1 — Backend + foundations
       - Auth: caller named in URL. Self-writes = path segment. Cross-user writes = `?caller=name` query param.
     Session 3 close: ~3h logged.
 
-[~] 1.3 [CODE] Worker defensive write rules. DESIGN CLOSED (session 4); IMPLEMENTATION PENDING.
-    Reference: `four_tasks_write_rules_design_notes.md` — three endpoints fully specced (POST bug_report, PUT day, PUT user), rejection codes, migration semantics, hash-collision handling, client-side defensive write requirements.
-    BLOCKER: pair-key Section 4 decision (Option A: pair-key as partition key, O(n_days) migrations vs Option B: stable pair_id + lookup pair_key, O(1) migrations). Recommended Option B in `four_tasks_pair_key_design_notes.md`. Must resolve before code lands.
-    SCHEMA BUNDLE applied alongside this tile:
-      - migration_003 (users.morning_payout_due_for TEXT, nullable).
-      - migration_004 (users.timezone TEXT NOT NULL DEFAULT 'UTC').
-      - migration_005 (users.active_leader + users.active_theme + users.active_stickers + days.day_theme_state, all TEXT JSON).
-      - migration_007 (pair_id) IF Option B chosen; otherwise no migration_007.
-    AUTH PATTERN: caller in URL, `?caller=name` for cross-user writes. See design doc for per-endpoint rule tables and full transaction shape.
-    Implementation scope: write three endpoints, apply migrations to local + remote D1, curl-verify every rejection path, write `/server/README.md` curl-test documentation.
-    Design closed session 4. ~3h logged.
+[~] 1.3 [CODE] Worker defensive write rules. DESIGN CLOSED (session 4); IMPLEMENTATION PENDING. UNBLOCKED at session 10 (pair-key design third-pass closed).
+    Reference: `four_tasks_write_rules_design_notes.md` — three endpoints fully specced (POST bug_report, PUT day, PUT user), rejection codes, rotation semantics, hash-collision handling, client-side defensive write requirements.
+    NOTE: write_rules doc still uses pre-session-10 vocabulary (pair-key as partition key, "migration" for the rotation event). The pair-key design doc Sections 5, 6, 7 are the current authority on the data model. write_rules doc sync to three-identifier model is housekeeping pending.
+    SCHEMA BUNDLE applied alongside this tile (all absorbed into migration_005):
+      - users.morning_payout_due_for TEXT (per migration_003 sketch — fold in).
+      - users.timezone TEXT NOT NULL DEFAULT 'UTC' (per migration_004 sketch — fold in).
+      - pairs.pair_id TEXT PRIMARY KEY (session 10 Option B).
+      - pairs.pair_key TEXT UNIQUE NOT NULL (session 10 Option B).
+      - users.user_id TEXT PRIMARY KEY (session 10 third pass).
+      - users.pair_id TEXT NULL FK to pairs (session 10 — nullable for solo state).
+      - users.active_leader + active_theme + active_stickers (per original migration_005).
+      - days.user_id TEXT NOT NULL FK to users (session 10 — day rows attach to user, not pair).
+      - days.day_theme_state TEXT JSON (per original migration_005).
+      - bug_reports.user_id TEXT NOT NULL FK to users + pair_id_snapshot TEXT (session 10).
+    No separate migration_007 — session 10 changes all absorbed into migration_005.
+    AUTH PATTERN: caller in URL, `?caller=:user_id` for cross-user writes. Self-writes have caller as path segment (URL is `/users/:user_id/...` and the user_id IS the caller). See design doc for per-endpoint rule tables.
+    Implementation scope: write three endpoints, apply migration_005 to local + remote D1 (verification between), curl-verify every rejection path, write `/server/README.md` curl-test documentation.
+    Design closed session 4. Unblocked session 10. ~3h design logged.
 
 [ ] 1.4 [CODE] Lazy seal-on-open (reframed from nightly cron, session 6).
     Sealing logic lives inside tile 1.3's claim endpoint transaction. When a user opens the app and the claim endpoint fires, any unsealed days <= local_date - 1 get sealed in the same transaction. User offline for N days = N row updates in the gap-walk loop, bounded.
@@ -397,16 +404,20 @@ PHASE 5b GATE: APPtrioc live, video dropped, Reddit post up. Four Tasks already 
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] PAIR-KEY SECTION 4 DECISION (Option A vs Option B). BLOCKS tile 1.3 implementation. Recommended Option B in `four_tasks_pair_key_design_notes.md`. Resolve at next home-office session before any tile 1.3 code lands.
+[ ] Pair lifecycle design conversation. Architecture (user_id stable per-user identifier) is in place at session 10. Open questions need focused design: what does partner see when other user leaves, is leaving reversible, the "death" case, post-pair-dissolution data semantics, monetisation hook for third-calendar expansion. NOT v1.0-blocking (solo mode + reboot-as-leave handles v1.0); needed before any leaving / re-pairing / group features ship. See `four_tasks_pair_key_design_notes.md` Section 17.
 
-[ ] Doc sync pass — flagged at session 9 close:
-    - `four_tasks_morning_sequence_design_notes.md`: MOTD framing wrong (MOTD now in onboarding per session 9; doc still says first MOTD is in first morning sequence).
+[ ] Doc sync pass — flagged at session 9 close, partially resolved session 10:
+    - `four_tasks_morning_sequence_design_notes.md`: MOTD framing wrong (MOTD now in onboarding per session 9; doc still says first MOTD is in first morning sequence). Also: "migration window property" terminology needs rename to "rotation window property" per session 10.
     - `four_tasks_theme_design_notes.md`: "file existence is declaration" paragraph needs `<id>_<role>.png` naming convention update (session 8 flag, still unlanded); trigger-gated picker hint replacing day-7 scheduled.
     - `four_tasks_week_mode_design_notes.md`: status line v1.x → v1.0.
     - `four_tasks_stamp_tier_design_notes.md`: obsolete "nightly cron, tile 1.4" reference (session 8 flag, still unfixed).
     - `four_tasks_leaderboard_design_notes.md`: migration_004 naming collision — references migration_004 for lifetime_coins when 004 is timezone (session 8 flag, still unfixed). Doc now lives in `deferred/` subfolder.
+    - `four_tasks_write_rules_design_notes.md`: still uses pre-session-10 vocabulary (pair-key as partition key, "migration" for the rotation event). Sync to three-identifier model + rotation terminology.
     - Project system prompt: `four_tasks_pair_key_v2_design_notes.md` → `four_tasks_pair_key_design_notes.md` (no `_v2_` suffix on disk).
-    - Privacy policy: align with honest threat model from pair-key Section 8 (3 attack scenarios).
+    - Privacy policy: align with honest threat model from pair-key Section 9 (shoulder-surf acknowledgement, physical-access-to-screen = access to credential).
+    - `four_tasks_onboarding_design_notes.md`: name confirmation modal should display typed value EXACTLY as typed (no all-caps treatment; names are case-sensitive in hash per session 10).
+
+[ ] identity.cfg backup hook — now feasible with stable user_id (session 10). iOS Keychain / Android Keystore / iCloud Keychain / Google Drive backup could transparently restore user_id on device replacement, dramatically improving the recovery story for the common case (lost device, restored from backup). NOT v1.0-blocking because partner-mediated recovery still works without it. Worth a focused conversation in Phase 4/5.
 
 [ ] Update devlog AI Reading Guide for repo-fetching workflow. Current instruction "ask Morgan to upload any changed files" is stale — design notes repo is public, Claude fetches via raw GitHub URLs, `pickle_moon_repo_index.md` is the canonical file map. Rewrite step 1: "Ask Morgan which docs have changed since last session and fetch fresh via raw URL." Small laptop edit.
 
@@ -455,12 +466,23 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] Rate limiting design — Cloudflare layer, generous limits. Right tool is Cloudflare's rate limiting (Workers Rate Limiting API or per-IP at platform edge), NOT per-endpoint existence checks. Generous limits — real users hitting catastrophic bugs may legitimately file three reports in five minutes. Applies to all write endpoints once they exist. Own short design conversation after tile 1.3 lands and a few more endpoints exist. NOT blocking 1.3. Applies to APPtrioc Worker too (separate config, same principles).
 
-[ ] Schema migrations 003 + 004 + 005 application alongside tile 1.3.
-    All commutative; apply in any order.
-      - 003: `ALTER TABLE users ADD COLUMN morning_payout_due_for TEXT;`
-      - 004: `ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';`
-      - 005: per-user theme state + per-day theme snapshot — `ALTER TABLE users ADD COLUMN active_leader TEXT;` + `ADD COLUMN active_theme TEXT;` (JSON) + `ADD COLUMN active_stickers TEXT;` (JSON) + `ALTER TABLE days ADD COLUMN day_theme_state TEXT;` (JSON).
-      - 007: pair_id IF Option B chosen at pair-key Section 4. Otherwise no migration_007.
+[ ] Schema migration application alongside tile 1.3.
+    All session-10 structural changes absorbed into a single migration_005.
+    Folds in what were previously sketched as separate 003, 004, plus the original 005 theme columns, plus the session-10 user_id + pair_id additions:
+      - `ALTER TABLE users ADD COLUMN morning_payout_due_for TEXT;`
+      - `ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';`
+      - `ALTER TABLE pairs ADD COLUMN pair_id TEXT PRIMARY KEY;` (session 10 Option B)
+      - `ALTER TABLE pairs ADD COLUMN pair_key TEXT UNIQUE NOT NULL;` (session 10 — reshape — pair_key becomes lookup column, not primary key)
+      - `ALTER TABLE users ADD COLUMN user_id TEXT PRIMARY KEY;` (session 10 third pass)
+      - `ALTER TABLE users ADD COLUMN pair_id TEXT NULL REFERENCES pairs(pair_id);` (session 10 — nullable for solo state)
+      - `ALTER TABLE users ADD COLUMN active_leader TEXT;`
+      - `ALTER TABLE users ADD COLUMN active_theme TEXT;` (JSON)
+      - `ALTER TABLE users ADD COLUMN active_stickers TEXT;` (JSON)
+      - `ALTER TABLE days ADD COLUMN user_id TEXT NOT NULL REFERENCES users(user_id);` (session 10 — day rows attach to user, not pair)
+      - `ALTER TABLE days ADD COLUMN day_theme_state TEXT;` (JSON)
+      - `ALTER TABLE bug_reports ADD COLUMN user_id TEXT NOT NULL REFERENCES users(user_id);` (session 10)
+      - `ALTER TABLE bug_reports ADD COLUMN pair_id_snapshot TEXT;` (session 10 — snapshot field, NOT a FK)
+    Realistically these are not all `ALTER TABLE` adds — restructuring existing FKs (days.pair_key → days.user_id) means dropping and recreating columns. The actual migration_005.sql will be a sequence of CREATE-temp / INSERT-from-old / DROP-old / RENAME steps for tables that need foreign-key shifts.
     Apply local AND remote D1, in that order, with verification between.
 
 [ ] Migration UX popup — nice-to-have for tile 4.15. Small dismissible popup on username/icon change: "changes may take a minute to take effect" / [ok] / "don't show again". UX layer over client-side defensive writes, not correctness. Mirrors partner-reaction confirmation popup pattern.

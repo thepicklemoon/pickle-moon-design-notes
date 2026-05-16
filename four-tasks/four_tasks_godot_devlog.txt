@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
-Last edit: 2026-05-16 22:36 AWST
-Last updated: May 2026 (devlog v2 opened — sessions 10+ land here)
+Last edit: 2026-05-17 02:00 AWST
+Last updated: May 2026 (session 10 — pair-key user_id integration)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -24,10 +24,15 @@ is the entry point; sessions 10+ are appended chronologically.
 
 Design docs (authority for locked decisions; live in `four-tasks/`
 under `pickle-moon-design-notes`):
-  - `four_tasks_pair_key_design_notes.md`           — Identity model.
-    UNLOCKED at session 9 pending Section 4 (data model: Option A
-    pair-key as partition key vs Option B stable pair_id + lookup
-    pair_key). BLOCKS tile 1.3 implementation.
+  - `four_tasks_pair_key_design_notes.md`           — LOCKED
+    (session 10 third-pass close). Three-identifier model:
+    user_id (person, forever), pair_id (current relationship),
+    pair_key (recovery hash). Option B (stable pair_id +
+    lookup pair_key) locked. user_id added as stable per-user
+    identifier; day rows attach to user_id, not pair_id.
+    Casefold removed from name normalisation. Pair lifecycle
+    (leaving / re-pairing / group expansion) flagged as needing
+    own design doc. Tile 1.3 unblocked.
   - `four_tasks_partner_reactions_design_notes.md`  — LOCKED.
     Field-level write rules, two-phase day model.
   - `four_tasks_coin_name_design_notes.md`          — LOCKED.
@@ -202,10 +207,12 @@ Schema migrations applied to remote D1:
 Schema migrations specified, pending application alongside tile 1.3:
   - 003 morning_payout_due_for (users +1)
   - 004 timezone (users +1)
-  - 005 day_theme_state JSON (days +1) — supersedes earlier
-    day_leader + day_palette two-column sketch
-  - 007 pair_id IF Option B chosen at pair-key Section 4
-    (otherwise no migration 007)
+  - 005 absorbs the session-10 structural changes:
+    pair_id (pairs PK) + pair_key (pairs UNIQUE lookup),
+    user_id (users PK), pair_id nullable on users (FK),
+    day rows reference user_id (not pair_id),
+    bug_reports reference user_id (with pair_id_snapshot field),
+    plus day_theme_state JSON (days +1) for theme history.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SUMMARY OF SESSIONS 1-9 (archived devlog v1)
@@ -307,11 +314,18 @@ LOCKED DECISIONS, ALPHABETICAL (with session of lock):
     when user performs the action being taught. No "Got it"
     button. New reusable technique.
 
-  Identity = pair-key v2 (S2; reopened S9): six-value tuple
-    (name + username + icon × 2 users), hashed. Name immutable;
-    username + icon mutable, trigger pair-key migration.
-    Migrations re-entrant + transaction-wrapped. Section 4
-    OPEN (Option A vs B data model).
+  Identity = three-identifier model (S2 v2 lock; S10 third-pass
+    close): user_id (stable per-user UUID, forever), pair_id
+    (stable per-pair UUID, current relationship), pair_key
+    (hash of six values, recovery credential only). Personal
+    data attaches to user_id; relationship attaches to pair_id;
+    pair_key is lookup-only for recovery. Option B (stable
+    pair_id + mutable pair_key) absorbed into migration_005.
+    Casefold removed from name normalisation (case-sensitive
+    matches user expectation). Name immutable; username +
+    active_leader mutable, trigger pair-key rotation.
+    "Migration" terminology now reserved for schema migrations;
+    pair-key change event renamed "rotation."
 
   Library sharing as subscription mechanic (S6.2): subscription
     unlocks bilateral access to partner's purchased library.
@@ -429,36 +443,73 @@ GOTCHAS (DEV ENVIRONMENT):
     explicit higher token limit for files larger than that.
     (Devlog v1 hit this at session 9.)
 
-PENDING HOUSEKEEPING (carried from session 9 close):
-  - pair-key Section 4 decision (Option A vs B). BLOCKS
-    tile 1.3 implementation.
+PENDING HOUSEKEEPING (carried from session 9 close, partially
+resolved at session 10):
   - Four-tasks entry screen placement in 8-screen onboarding
     flow. Copy locked, slot TBD.
   - "Start the day" button behaviour at screen 8 — fire
     day-1 morning sequence immediately or defer?
   - morning_sequence doc: MOTD framing now wrong (MOTD is in
-    onboarding per S9).
+    onboarding per S9). "Migration window property" needs
+    rename to "rotation window property" per S10 terminology.
   - theme doc: trigger-gated picker hint (not day-7 scheduled);
     `<id>_<role>.png` naming convention in "file existence
     is declaration" paragraph.
   - week_mode doc: status line v1.x → v1.0.
-  - repo index: pair_key filename (drop _v2_ suffix);
-    week mode scope line.
   - Project system prompt: pair_key_v2 → pair_key filename.
   - Privacy policy: align with honest threat model from
-    pair-key Section 8.
+    pair-key Section 9 (shoulder-surf acknowledgement,
+    physical-access-to-screen = access to credential).
   - Stamp tier doc: obsolete "nightly cron, tile 1.4"
     reference (S8 flagged, still unfixed).
   - Leaderboard doc: migration_004 naming collision (S8
-    flagged, still unfixed).
-  - Todo Completed ledger backfill for sessions 6 + 7.
+    flagged, still unfixed). Doc now lives in deferred/
+    subfolder (S9 move).
+  - Onboarding doc: name confirmation modal should display
+    typed value EXACTLY as typed (no all-caps treatment;
+    names are case-sensitive in hash per S10).
+  - Todo Completed ledger backfill for sessions 6 + 7
+    (now replaced by one-line pointer to devlog summary
+    block per S10 surgical pass).
+  - Pair lifecycle (leaving / dissolving / re-pairing /
+    group expansion) — design doc needed before any
+    pair-lifecycle features ship beyond solo state +
+    reboot-as-leave. Architectural enablement is in place
+    (user_id); UX and semantics need focused design.
+    See pair_key_design_notes.md Section 17.
+  - identity.cfg backup hook — now feasible with stable
+    user_id. Could improve recovery for common case (lost
+    device, restored from backup). Worth a focused
+    conversation in Phase 4/5.
+
+RESOLVED AT SESSION 10:
+  - Pair-key Section 4 (Option A vs B) → Option B locked.
+  - Pair-key UNLOCKED status → re-LOCKED with three-
+    identifier model.
+  - Repo index pair_key filename — verified file on disk
+    has no _v2_ suffix; index entry corrected.
+  - Repo index week mode scope line — bumped to v1.0.
+  - Repo index deferred/ subfolder added with leaderboard
+    + coin_name docs.
+  - Devlog v1 archive entry added to repo index.
+  - Todo surgical pass completed (~1100 → 549 lines,
+    Phase 0/1 completed tiles compressed to one-liners,
+    Phase 3 restructured to session-9 onboarding 8-screen
+    flow, ACTIVE block pruned, COMPLETED ledger replaced
+    with pointer to devlog).
 
 NOTES FOR NEXT SESSION:
-  - Tile 1.3 implementation STILL the obvious next code thing
-    at home office. PRE-BLOCKED on pair-key Section 4 decision.
+  - Tile 1.3 implementation UNBLOCKED (pair-key Section 4
+    resolved at S10). Next code work at home office.
+    Schema bundle now includes user_id additions absorbed
+    into migration_005 — apply local + remote with
+    verification between.
   - Painting can continue at FIFO/laptop time without code
     blockers — feature-catalogue model means each sticker
     ships what it ships.
+  - Pair lifecycle design doc is the next architecture
+    conversation worth having — not tile-1.3-blocking, but
+    needed before any leaving/re-pairing features ship.
   - When devlog v2 hits ~2500 lines, archive as
     `four_tasks_godot_devlog_v2_sessions_10-N.txt` and start
     v3 with a fresh summary block.
@@ -471,3 +522,154 @@ SESSIONS
 in which docs/files/schema, what blockers landed for next
 session, time spent. Decisions with architectural shadow go to
 a focused design doc, not buried in devlog prose.)
+
+━━━ SESSION 10 — housekeeping cascade + pair-key third pass ━━━
+Time: ~5h across one long session (mobile + laptop).
+Running project total: ~59.25h.
+
+WHAT CHANGED:
+
+  Repo index updated:
+    - deferred/ subfolder section added (leaderboard +
+      coin_name docs moved there per S9 decision).
+    - Devlog v1 archive entry added.
+    - Pair-key filename corrected (no _v2_ suffix on disk —
+      phantom v1 entry removed).
+    - Week mode entry promoted v1.x → v1.0.
+    - Timestamps bumped.
+
+  Todo surgical pass:
+    - ~1100 → 549 lines (~50% cut without losing forward
+      signal).
+    - Phase 0 + 1.0/1.1 completed tiles compressed to
+      one-liners (was full backstory per tile, now "Tile
+      X.Y — what landed. Session N. Time.").
+    - Phase 3 restructured to match S9 onboarding 8-screen
+      flow (tiles 3.1-3.10).
+    - Tile 4.20 added (palette derivation devtool).
+    - Tile 4.D2 added (week mode v1.0).
+    - ACTIVE block pruned of completed items.
+    - COMPLETED ledger replaced with one-paragraph pointer
+      to devlog v2 summary block + v1 archive.
+    - Coin name + leaderboard tiles annotated as DEFERRED
+      with subfolder paths.
+
+  Pair-key design doc THIRD-PASS close
+  (`four_tasks_pair_key_design_notes.md`):
+    - Option B locked (stable pair_id + lookup pair_key).
+      Eliminates O(n) row-rewriting on identity changes.
+      Schema delta absorbed into migration_005.
+    - user_id added as stable per-user identifier. Day
+      rows now attach to user_id, not pair_id. Coin
+      balance, theme state, tutorial progress, identity
+      values, bug reports — all user_id-owned.
+    - Three-identifier model explicit (Section 6):
+      user_id (person, forever), pair_id (relationship,
+      stable), pair_key (recovery hash, mutable).
+    - Casefold removed from name normalisation. Names +
+      usernames case-sensitive in canonical string. NFC
+      Unicode normalisation + whitespace trim/collapse
+      retained.
+    - Convergence proof rewritten under D1 serialization
+      semantics. Most "race condition" concerns evaporate
+      because day-tick writes (user_id) and rotation
+      writes (pair_id + user_id) don't share rows.
+    - Threat model honest rewrite: shoulder-surf
+      acknowledged with no mitigation, brute-force
+      enumeration defeated by rate limiting, accidental
+      wrong-attach addressed via post-attach UX + caveat
+      that second factor is post-launch contingency.
+    - Canonical string spec explicit (Section 12):
+      BNF-style assembly, normalisation rules, tiebreaker
+      for identical names, validation rules with error
+      codes, length caps.
+    - Hash collision and wrong-attach properly separated
+      (Section 13). Different failure modes, different
+      responses. The original "ambiguous match" framing
+      conflated them.
+    - Post-pair username revert documented (Section 14)
+      so the disambiguation flow doesn't trap users in
+      temporary names.
+    - Pair lifecycle flagged as needing dedicated design
+      conversation (Section 17). Leaving, re-pairing,
+      group/triple expansion — all enabled architecturally
+      by user_id but UX semantics need real thought.
+    - Terminology cleanup: "migration" reserved for
+      schema migrations. Pair-key change event is
+      "rotation."
+
+  Devlog v2 second-pass cleanup:
+    - This entry.
+    - PENDING HOUSEKEEPING reorganised — items resolved
+      tonight moved to a "RESOLVED AT SESSION 10" block;
+      newly-surfaced housekeeping items added (pair
+      lifecycle design doc, name confirmation modal case
+      display, identity.cfg backup hook).
+
+DESIGN DECISIONS WORTH NAMING:
+
+  - Pair-key Section 4 (Option A vs B): Option B locked.
+    The cost of Option A grows with day-history length;
+    Option B is O(1) and structurally cleaner. The
+    original v2 implicit-Option-A was a v1-mental-model
+    holdover.
+
+  - user_id (the big one): personal data attaches to the
+    person, not the relationship. Caught by Morgan asking
+    "can we just give users a number when they first get
+    in?" — which was exactly the right framing. The
+    enabling change is small (one column, one foreign
+    key shift); the conceptual unlock is large (leaving
+    and re-pairing become trivial; future group expansion
+    is structurally feasible).
+
+  - Casefold removed: Morgan caught that "JAMIE" in
+    onboarding copy mockups was implying normalisation
+    that doesn't belong. Recovery is partner-app-mediated,
+    so the partner reads current spelling off their own
+    screen — user memory of exact case isn't load-bearing.
+    Case-sensitive is simpler and matches user
+    expectation.
+
+  - Pair lifecycle deferred to its own design pass:
+    architecture supports it now, but the UX (what does
+    partner see when other user leaves, is leaving
+    reversible, the "death" case, monetisation hooks for
+    third-calendar expansion) needs the same level of
+    care as morning sequence or onboarding got. NOT
+    v1.0-blocking — solo mode + reboot-as-leave is the
+    v1.0 answer.
+
+BLOCKERS RESOLVED:
+  - Tile 1.3 implementation: previously BLOCKED on
+    pair-key Section 4 decision. Now UNBLOCKED.
+
+BLOCKERS LANDING FOR NEXT SESSION:
+  None new. The pair lifecycle design doc is the next
+  architecture conversation, but it doesn't block tile
+  1.3 implementation.
+
+FILES TOUCHED THIS SESSION:
+  - `pickle_moon_repo_index.md` (housekeeping)
+  - `four_tasks_godot_todo.txt` (surgical pass)
+  - `four_tasks_pair_key_design_notes.md` (third-pass
+    full rewrite — three-identifier model)
+  - `four_tasks_godot_devlog.txt` (this entry +
+    housekeeping section updates)
+
+LESSON CAPTURED:
+  First attempt at the pair-key second-pass rewrite was
+  bad — invented a `/resolve_via_partner_mirror` endpoint
+  to handle a stale-key race that, on closer analysis,
+  doesn't exist under Option B. The invented endpoint was
+  an enumeration oracle that violated the threat model.
+  Caught in self-review. Second attempt (under D1's
+  actual serialization semantics) was cleaner. Third
+  attempt (with user_id added) was cleaner still.
+
+  Takeaway for future architecture sessions: when a
+  "convergence problem" looks hard, check whether it's
+  caused by a structural confusion (e.g. mutable identifier
+  as partition key) before designing recovery
+  machinery for it. Often the recovery machinery is
+  evidence the structure is wrong.
