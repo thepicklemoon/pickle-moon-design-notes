@@ -1,0 +1,387 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 11 (17 May 2026, mobile — slow FIFO shift) — Un-pair UX detail pass + cross-doc consistency sweep. Time: ~3h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Session opened with the primer from session 10's close. Architecture
+  for un-pairing was locked at the session 10 fourth pass (symmetric
+  break, user_id-owned data, dissolved pairs row DELETEd, tile 4.21
+  sketched). What remained was the UX detail pass — entry point,
+  confirmation copy, partner-side notification, empty-panel behaviour,
+  cooldown question, friction budget, re-pair flow. Eight open
+  questions enumerated in the primer.
+
+  Worked through them sequentially, one decision per round.
+
+UN-PAIR UX DETAIL PASS — LOCKED DECISIONS:
+
+  ENTRY POINT (Q1):
+    Long-press on the partner panel header → contextual menu →
+    `Un-pair`. Same gesture grammar as the picker context menu
+    (tile 4.14b). Not surfaced in settings, not surfaced in main
+    UI. Discoverability via in-app help menu only. Rationale:
+    the week-1 typo'd-onboarding case is better served by
+    delete-and-reinstall; long-press is intentional friction
+    against accidental taps. Morgan's call. Cleaner than the
+    initial "buried in settings" sketch.
+
+  CONFIRMATION POPUP COPY (Q2):
+    Title: `Un-pair?` — no body copy. Buttons: `Cancel` / `Un-pair`
+    (confirm has mild red tint).
+    Iterated through three drafts including a Section-17-sketch
+    candidate with consequence text and a partner-explicit
+    "Leave [partner]?" variant. Morgan pushed back on both as too
+    dramatic; "un-pair" is the right register because it matches
+    the action label. The minimal popup is the lock — title is
+    the question, buttons are the answer, no editorial.
+    KEY CORRECTION mid-discussion: Claude initially framed the
+    action as irreversible ("this can't be undone"). Morgan
+    pointed out it IS reversible at the user-experience level —
+    both users go solo, either can immediately tap `Add my
+    partner` and re-pair. Only the backend pair_id is fresh on
+    re-pair; the user-visible state reconnects in seconds. Body
+    copy dropped entirely as a consequence.
+
+  PARTNER-SIDE NOTIFICATION (Q3):
+    Inline dismissable banner in partner panel whitespace. Text:
+    `[username] un-paired.` with `×` to clear. Position within
+    panel (top/bottom/floating) deferred to implementation —
+    visual call, not design call.
+    Initially sketched as a popup notification at next-open;
+    Morgan reframed as a non-interruptive banner so users who
+    just want to keep using the app aren't forced to handle the
+    moment. Banner is one-shot, server-tracked. Schema cost:
+    one nullable column on users — `pending_unpair_notice TEXT
+    NULL` — populated by the un-pair transaction on both rows
+    (each carrying the OTHER user's last-known username),
+    cleared by a dismiss endpoint.
+    Empty state behind the banner is identical to a fresh-solo
+    user's. Banner is the only delta on the recipient side, and
+    only until dismissed. No "you've recently un-paired"
+    reorientation.
+
+  EMPTY PARTNER PANEL POST-LEAVE (Q4):
+    Identical to fresh-solo empty state. Banner is the only
+    differentiator. "That's the point of the banner" was
+    Morgan's framing — locked.
+
+  COOLDOWN (Q5):
+    None. Either side can re-pair immediately. Adding a 24h
+    timeout would contradict the reversibility framing locked
+    in Q2 and introduce paternalism the app hasn't earned.
+    Locked clean.
+
+  FRICTION BUDGET (Q6):
+    Long-press → menu item → popup confirm. No typed-confirmation
+    gates, no second screen, no escalating friction. The
+    discoverability cost of long-press IS the gate.
+
+  NOTIFICATION TIMING (Q7):
+    Resolved by Q3 — banner appears on next sync, no special
+    timing logic.
+
+  RE-PAIR UX (Q8):
+    Standard `Add my partner` join-by-values flow. No
+    reorientation. A re-paired user looks identical to a
+    never-paired user.
+
+  CHANGE-USERNAME FOLLOW-UP (added by Morgan mid-pass):
+    Real edit. After the un-pair commits, A's app shows a
+    follow-up popup: `Change your username?` with text input
+    pre-filled with current username, `Skip` / `Save` buttons.
+    No body copy.
+    The framing is implicit and speaks for itself — a user who
+    needs to make themselves harder for their ex-partner to
+    re-find via memorised values has the lever right at the
+    moment it matters. A user who doesn't need it taps Skip.
+    The protection is real: B's `Add my partner` join searches
+    for solo users matching (name, username, active_leader)
+    exactly. If A changes username, B's memorised values fail
+    to match. Determined adversary can try variants, but the
+    attack cost is raised from "type three values you know" to
+    "guess what they changed it to." Name is immutable (no
+    lever); active_leader lives in the picker (not bundled
+    into this flow because username is the value most likely
+    to be remembered verbatim).
+
+  POST-UN-PAIR STATE PROPERTY:
+    Added as an explicit property in Section 17: a user who has
+    just un-paired looks identical to a user who just finished
+    onboarding solo. Same user_id, pair_id NULL, no pairs row,
+    full personal data intact. The only structural difference
+    is pending_unpair_notice being populated until dismissed.
+    The "solo is solo, regardless of history" invariant.
+    Morgan's intent ("end state matches post-onboardorial") was
+    the right framing — captured in the doc explicitly so future
+    implementation doesn't drift.
+
+CROSS-DOC CONSISTENCY SWEEP:
+
+  Pair-key doc Section 6 read-paths were using the old
+  `PUT /pair/:pair_id/users/:user_id` URL scheme. Self-writes
+  under the locked convention only need user_id in the path —
+  no redundant pair_id, no ?caller= on self-writes. Rewrote
+  Section 6 example to `PUT /users/:user_id` and added a
+  precision note: server reads the user's pair_id from the row,
+  rather than the client supplying it.
+
+  Section 7 rotation flow rewritten with the same correction.
+  Added a substantive precision: solo username changes skip
+  rotation entirely (no pair_key to recompute, just a plain
+  UPDATE on users). The doc never said this explicitly before;
+  it does now.
+
+  Section 17 un-pair endpoint moved from
+  `POST /pair/:pair_id/leave?caller=:user_id` to
+  `POST /users/:user_id/unpair`. Transaction step rewritten
+  to be precise about reading pair_id first, capturing each
+  user's username for the notice flag, and doing two separate
+  UPDATEs (one per user, each carrying the other's username).
+  The original single-UPDATE phrasing was misleading — a single
+  SQL UPDATE can't set per-row values that way.
+
+  Section 9 (threat model) got a "stakes" framing paragraph
+  added at the top. The original treatment read heavier than
+  the actual stakes warrant. The app is a habit tracker with
+  a ~$1/week subscription, no PII beyond display name, no
+  external integrations. The highest realistic external-actor
+  outcome is vandalism. Doc keeps the analysis below for
+  completeness but the framing paragraph rights the tone.
+
+  Section 15 users-table delta updated to include
+  `pending_unpair_notice TEXT NULL`. Migration_005 locked as
+  the home for it (was hedged as "005 or 006 at implementation
+  time"). No reason to split.
+
+  Threat model corollary baked in: shoulder-surf remains the
+  load-bearing concern (covered by Section 9.1), and the new
+  change-username follow-up popup is now the user-facing lever
+  for it. Cross-referenced in both directions.
+
+ONBOARDING DOC SOLO-MODEL SYNC:
+
+  Audit caught that the onboarding doc's "Server — solo identity
+  model" section was pre-session-10. It described solo users as
+  having a `pairs` row keyed by `solo:<uuid>` (a "pair of one"),
+  with the prefix check for branching on solo-vs-real. That
+  convention was superseded by the user_id model: solo is
+  `users.pair_id IS NULL`, no solo pairs row exists, days attach
+  to user_id directly.
+
+  Rewrote two sections to match pair-key Section 5:
+
+  - "Server — solo identity model": no solo pairs row, pair_id
+    NULL is the solo indicator. Days keyed by user_id.
+  - "Server — pair join flow": solo-match case is now UPDATE on
+    the existing solo user's pair_id (was DELETE solo pairs row
+    + UPDATE days from old key to new). Days don't move because
+    they're keyed by user_id, which doesn't change.
+
+  Added a deferred decision to Open Work: the "zero-match"
+  branch of /join_by_values. Under the user_id model, the
+  session-8 sketch's phantom-pair creation produces an orphaned
+  users row for a partner who never installs. Leaning toward
+  rejecting with a friendly "couldn't find your partner"
+  message instead — cleaner, no DB write, better UX. Decide
+  at tile 3.x implementation.
+
+  Recovery section also updated. Solo users have no
+  partner-mediated recovery (no partner to read values off);
+  OS-level identity.cfg backup is the path. Cross-referenced
+  pair-key Section 17 "Solo recovery implications."
+
+  Cross-reference paragraph added distinguishing the three
+  failure modes that share surface but have separate response
+  paths:
+    - Ambiguous-match: multiple solo users matching one set
+      of partner values. Server-detectable, 409, prevents bad
+      join.
+    - Wrong-attach: joiner's six values hash to a real pair
+      that wasn't intended. Not server-detectable, caught by
+      post-recovery human verification.
+    - Hash collision: two distinct intended pairs hash to the
+      same pair_key. UNIQUE constraint catches at write.
+
+  Eight-screen flow, copy, and screen ordering untouched. They
+  remain at session-8 lock.
+
+WRITE_RULES DOC AUDIT + RETIREMENT:
+
+  Fetched the live four_tasks_write_rules_design_notes.md
+  mid-session to assess the rewrite scope it would need to be
+  current. The audit was worse than expected:
+
+  - Every URL in the doc uses /pair/:key/... scheme — Option A
+    pair-key-as-partition-key.
+  - Migration transaction is the 8-step copy-then-delete model.
+  - No user_id, no pair_id-nullable, no solo-state branch.
+  - "emoji" not "active_leader" throughout.
+  - "migration" used for both schema migrations AND the pair-key
+    rotation event (the session-10 terminology lock).
+  - Bug reports auth-by-pair-key (now attached to user_id with
+    pair_id_snapshot per session-10 schema delta).
+  - Client-side defensive write requirements built around
+    stale-pair-key 404 recovery — gone under user_id model.
+
+  This was not a sync pass. It was a substantive rewrite of a
+  doc whose content is otherwise derivative of architecture
+  decisions already captured authoritatively elsewhere.
+
+  Morgan's question, asked at the right moment: "do we even
+  need a write rules doc?" Audited what's actually unique to
+  write_rules vs derived from other docs:
+
+  - Response envelope, status codes, 404-vs-409 split, caller
+    convention → already in project conventions.
+  - Validation rules (|, __, length caps) → already in pair-key
+    Section 12.
+  - Rotation transaction shape → already in pair-key Section 7.
+  - Hash collision → already in pair-key Section 13.
+  - Client-side defensive writes → already in pair-key Section 11.
+  - Column rules (owner vs partner) → spread across feature docs
+    (partner_reactions, morning sequence, stamp tier).
+  - tutorial_progress merge semantics → genuinely unique to
+    write_rules. Single paragraph. Belongs in staggered
+    disclosure doc.
+
+  Decision: kill write_rules. Status changed to SUPERSEDED.
+  File stays in git history (context is git history), but is
+  marked as not-authoritative in the repo index. The
+  working reference artifact will be `/server/README.md` with
+  curl-test examples, written alongside tile 1.3 implementation.
+
+  The tutorial_progress merge paragraph is parked for a
+  future paste-in pass on the staggered disclosure doc (couldn't
+  fetch it this session — permission quirk).
+
+  Tile 1.3 unblocked as a result. The BLOCKER-before-coding
+  that had appeared in the todo is gone. Implementation against
+  the architecture docs directly is now the path.
+
+KEY ARCHITECTURAL CALLS THIS SESSION:
+
+  1. Minimal-popup pattern for un-pair. Title-as-question with
+     no body copy is the right register for actions where the
+     consequences are immediately visible. Editorial body copy
+     adds nothing for users who already know what they're doing
+     and patronises users who are being cautious.
+
+  2. Inline dismissable banner over popup notification for
+     receiving-side. Non-interruptive surfacing is the right
+     model when the recipient didn't initiate the event.
+     One-shot, server-tracked, single nullable column. Same
+     "ambient indicator over interrupt" instinct that drove
+     Q7 of session 5's partner reactions surfacing decision.
+
+  3. Change-username follow-up popup as social-safety lever.
+     The "make yourself harder to find" capability is real but
+     it doesn't need copy to explain itself. The presence of
+     the prompt at the moment of un-pair is the entire message.
+     Implicit framing.
+
+  4. Reversibility is a UX property, not a backend property.
+     The user-visible state (re-pair, panels reconnect, data
+     intact) reconnects in seconds if both parties cooperate.
+     The backend pair_id is fresh on re-pair — invisible to
+     the user. This is the right abstraction layer to honour;
+     "this can't be undone" copy would be technically true and
+     experientially false.
+
+  5. URL convention as defence-in-depth on architectural
+     clarity. Self-writes use /users/:user_id/... with no
+     ?caller=. Cross-writes use ?caller=:user_id. Redundant
+     identifiers (pair_id in path when user_id is sufficient)
+     are dropped. The convention enforces "the URL tells you
+     what's being addressed and who's addressing it" without
+     redundancy.
+
+  6. The "stakes framing" at the top of Section 9 is a tone
+     correction more than a content change. The doc shouldn't
+     read as if defending a bank vault. The defensive budget
+     should match the value at stake.
+
+  7. Kill the write_rules doc. Derivative docs that summarise
+     decisions made authoritatively elsewhere are a drift risk,
+     not a navigation aid. The doc was useful in session 4 when
+     the design was being worked out; that was the value. Now
+     the design lives in the architecture docs and the doc is
+     pure overhead. Slimmer doc folder = clearer communication.
+
+DOC CONSEQUENCES (this session):
+
+  - four_tasks_pair_key_design_notes.md: Section 9 stakes
+    framing added; Section 6 read-paths URL convention fixed;
+    Section 7 rotation flow URL fixed + solo branch added;
+    Section 15 users-table delta now includes
+    pending_unpair_notice; Section 17 fully rewritten with the
+    un-pair UX detail pass (entry, popup, banner, change-username
+    follow-up, post-un-pair-state-equals-post-onboarding property,
+    URL convention, transaction precision); migration_006 hedge
+    removed; Section 19 cross-references updated to mark
+    write_rules as SUPERSEDED; header changelog gets a session-11
+    block at the top.
+
+  - four_tasks_onboarding_design_notes.md: server-side identity
+    model sections re-synced (solo identity model + pair join
+    flow + recovery path). Cross-reference paragraph added.
+    Phantom-pair-vs-reject decision added to Open Work.
+    Session 11 sync changelog appended.
+
+  - four_tasks_godot_todo.txt: tile 4.21 fully specced (un-pair
+    endpoint, change-username follow-up, banner mechanism,
+    dismiss endpoint, schema delta — time ~3-4h); tile 1.3
+    unblocked, BLOCKER removed, scope rewritten to reference
+    the authoritative architecture docs directly; SCHEMA BUNDLE
+    block extended with pending_unpair_notice; standalone
+    /server/README.md housekeeping entry folded into tile 1.3;
+    doc-sync housekeeping line for write_rules replaced with a
+    kill-record line; cross-references throughout updated from
+    "session 10 fourth pass" to "session 11 close."
+
+  - pickle_moon_repo_index.md: pair-key doc entry updated to
+    LOCKED at session 11 close; write_rules doc moved from
+    "Locked design docs (server / backend)" to "Background /
+    superseded"; timestamps refreshed.
+
+  - four_tasks_write_rules_design_notes.md: SUPERSEDED. No
+    content edits — file remains as session-4 artifact for
+    historical reference only. Status communicated via the
+    repo index entry.
+
+PARKED (couldn't ship this session):
+
+  - Staggered disclosure doc: add one paragraph on
+    tutorial_progress merge semantics. Permission quirk blocked
+    the fetch. Small edit; lands in a future paste-in pass.
+
+GIT COMMITS THIS SESSION (planned at next laptop access):
+  pickle-moon-design-notes repo:
+    (pending) Session 11 — un-pair UX detail pass + cross-doc
+              consistency sweep + write_rules doc retired.
+              pair-key + onboarding + todo + repo index all
+              updated. write_rules superseded.
+
+NOTES FOR NEXT SESSION:
+  - Tile 1.3 implementation is unblocked. The architecture docs
+    are the authority — no separate write-rules sync session
+    needed.
+  - When at the home office: redress 1.0-1.2 work first for
+    concurrency awareness (real codebase state matches docs?),
+    then write the `/server/README.md` skeleton alongside
+    starting tile 1.3.
+  - When mobile: marketing notes journal entries; staggered
+    disclosure paste-in pass for the tutorial_progress merge
+    paragraph (one paragraph, low cost).
+  - Partner reactions doc was flagged at session-11 close for
+    a probable URL-convention sync pass but Morgan deferred the
+    feature to v1.x — moved into the deferred/ subfolder
+    instead. No URL sync needed for v1.0 scope.
+
+SESSION 11 CLOSED. Three architecture docs synced, one doc
+retired, tile 1.3 unblocked. Mobile-only session — all edits
+landed via mobile workflow established at the session 5/6
+inter-session admin.
+
+Session 11 time: ~3h.
+Running project total: ~62.25h (carry the value forward from
+session 10 close + 3h — bump on paste-in if the live devlog
+value differs).

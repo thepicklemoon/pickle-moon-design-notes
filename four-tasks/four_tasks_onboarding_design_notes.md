@@ -1,6 +1,6 @@
 # Four Tasks — Onboarding Design Notes
 
-**Status:** LOCKED (session 8 rewrite). Supersedes the session 6 version entirely. Architecture and screen flow changed substantially; clean rewrite rather than patch.
+**Status:** LOCKED (session 8 rewrite). Server-side identity model sections (solo identity, pair join flow) re-synced at session 11 close to match pair-key Section 5's `pair_id NULL` solo model — the original session-8 `solo:<uuid>` pair-row convention is superseded. Remaining sections (eight-screen flow, copy, screen ordering) untouched.
 
 **Implementation tiles:** 3.1 through 3.x (Phase 3). Required reading before any Phase 3 tile lands.
 
@@ -338,20 +338,16 @@ Tapping Add my partner opens the join-by-values flow (see Server section below).
 ## Server — solo identity model
 
 A solo user has:
-- A `solo_uuid` (server-generated, UUIDv4, unguessable by construction).
-- A `pairs` row keyed by `solo:<uuid>` (not by the six-value hash — no six values yet).
-- A single `users` row attached to that pair-key. Partner half is absent.
-- A `days` row each day they use the app, attached to the solo pair-key.
+- A `user_id` (server-generated UUID v4, assigned at the end of onboarding).
+- A `users` row keyed by `user_id`, holding their identity values (name, username, active_leader), personal state (coin balance, theme, etc.), and `pair_id = NULL`.
+- A `days` row each day they use the app, attached to their `user_id` (not to a pair).
+- **No `pairs` row.** Solo is `users.pair_id IS NULL`; there is nothing in the `pairs` table to point at yet.
 
-The solo pair-key has a distinguishable prefix (`solo:`) so server logic can branch on solo-vs-real cheaply without an extra column:
+This is the same model used post-un-pair (see pair-key Section 17): solo is solo, whether the user just finished onboarding or just un-paired from someone. The structural state is identical.
 
-```
-pairs.key = "solo:" + uuid_v4_hex
-```
+The previous session-8 sketch proposed a `solo:<uuid>` prefix in the `pairs.key` column to model solo users as a "pair of one." That convention is **superseded by the session-10 user_id model** — there is no solo `pairs` row, and the `pair_id NULL` predicate replaces the prefix check for "is this user solo."
 
-Real pair-keys remain the SHA-256-truncated-16-hex format from pair-key v2. The two formats are non-overlapping by prefix.
-
-Schema: no new columns required. Existing pair-key column handles solo via prefix convention. The `users` table may have one or two rows per pair-key.
+Schema: see `four_tasks_pair_key_design_notes.md` Section 5 (`users.pair_id TEXT NULL REFERENCES pairs(pair_id)`) and Section 15 (full migration_005 delta).
 
 ---
 
@@ -370,21 +366,30 @@ Body: {
 
 **Logic:**
 
-1. Search solo pairs (pair-key starts with `solo:`) whose attached user matches `partner_values` exactly (case-sensitive, whitespace-normalised — exact normalisation rules TBD as part of pair-key doc's outstanding work).
+1. Search for solo users (`users.pair_id IS NULL`) whose `(name, username, active_leader)` matches `partner_values` exactly (case-sensitive, NFC-normalised + whitespace-trimmed per pair-key Section 12).
 
 2. **If exactly one solo match:**
    - Compute new real pair-key from all six values.
    - Open D1 transaction.
-   - INSERT new `pairs` row with real pair-key.
-   - UPDATE existing `users` row to point to new pair-key.
-   - INSERT new `users` row for joiner, pointing to new pair-key.
-   - UPDATE all `days` rows from solo pair-key to new pair-key.
-   - DELETE old solo pairs row.
-   - Commit. Return new pair-key + full pair state to joiner.
+   - Generate fresh `pair_id` (UUID v4).
+   - INSERT new `pairs` row with `pair_id` + computed `pair_key`.
+   - UPDATE the existing solo `users` row: set `pair_id` to the new pair_id.
+   - Generate fresh `user_id` for the joiner. INSERT new `users` row for the joiner with that `user_id` and the new `pair_id`.
+   - **Days are not moved.** Day rows are keyed by `user_id`, which doesn't change. The existing solo user's days remain attached to their existing user_id, now part of a pair. The joiner has no prior days (they were never solo at this user_id).
+   - Commit. Return `pair_id`, `pair_key`, both users' `user_id`s, and full pair state to the joiner.
 
-3. **If zero solo matches:** search real pairs whose A or B user matches `partner_values` AND whose other user matches `joiner_values` exactly. This handles the recovery case (existing real pair, joiner is reinstalling). If found, return pair state to joiner without creating anything new. If not found, create a new real pair with both users (the no-such-partner case — partner is a phantom until they install).
+3. **If zero solo matches:** search real pairs (`users.pair_id IS NOT NULL`) where one user matches `partner_values` AND the partner user matches `joiner_values` exactly. This handles the recovery case (existing real pair, joiner is reinstalling).
+   - If found: this is recovery, not a fresh join. Return the joiner's `user_id`, the `pair_id`, the current `pair_key`, the partner's `user_id`, and full pair state. Joiner writes everything to identity.cfg and resumes normal operation.
+   - If not found: this is a "no such partner" join — partner hasn't installed yet or typed values don't match anyone. **Decision deferred:** does the endpoint create a phantom pair, or reject with a "partner not found" message? The session-8 sketch had phantom-pair creation; under the user_id model that has more downsides (an orphaned `users` row representing the phantom partner) and the user-facing UX is probably cleaner if it just says "couldn't find your partner — make sure they've installed and their three values are correct." Decide at tile 3.x implementation time. This is captured in Open Work below.
 
 4. **If more than one solo match:** return 409 `ambiguous_match`. Client surfaces the collision-resolution UX (see below).
+
+**Cross-reference:** the distinction between this section's ambiguous-match (multiple solo users matching one set of partner values) and pair-key Section 9.3's wrong-attach (joiner's six values happen to hash to a real pair that isn't the intended one) is important. They are mechanically different problems:
+- **Ambiguous-match (this section):** detected by counting solo matches before any hash is computed. Server-detectable, returns 409, prevents the bad join.
+- **Wrong-attach (pair-key Section 9.3):** detected only post-hash — server returns 200 with the matched pair's state, and human verification at the joiner's UI is what catches it.
+- **Hash collision (pair-key Section 13):** two distinct intended pairs hashing to the same `pair_key`. UNIQUE constraint catches it at write time.
+
+These three failure modes share surface ("the system did something wrong") but have separate response paths.
 
 ---
 
@@ -430,11 +435,9 @@ Owned by tile 3.4 design. Recovery flow:
 - User enters all six values (their own three + partner's three, from memory or from the partner's visible app state).
 - Server resolves to existing pair-key.
 - If match: data loads, user lands in main app, skips onboarding.
-- If no match: collision popup with masked-hint mechanism (see pair-key v2 doc's "Masked-hint recovery aid" section — exact rate limiting and which fields are hint-eligible are pair-key doc's outstanding work).
+- If no match: collision popup with masked-hint mechanism (see pair-key doc's "Masked-hint recovery aid" section — exact rate limiting and which fields are hint-eligible are pair-key doc's outstanding work).
 
-Recovery does NOT touch solo pairs — only real pairs. A user who was previously solo and lost their data has the same recovery options as any other user, but their solo pair-key (`solo:<uuid>`) was server-generated and not memorable. They can't recover a solo state. They can re-install fresh as solo and re-invite their (future or never-existent) partner.
-
-This is a deliberate accept. Solo users have less to lose than paired users — no streak with another person, no shared history. Recovery prioritises paired data.
+Recovery only resolves real pairs (six-value pair-keys). Solo users have no pair_key and no partner-mediated recovery layer — they fall back to OS-level identity.cfg backup (iCloud Keychain / Google Drive) per pair-key Section 17 "Solo recovery implications." A solo user with no OS backup who loses their device can re-install fresh as solo (a new `user_id`); their previous solo data is unrecoverable. This is a deliberate accept — solo users have less to lose than paired users, and the partner-mediated mechanism specifically requires a partner.
 
 ---
 
@@ -490,6 +493,7 @@ Future v1.x consideration: a pair-merge flow that asks "which user's history sho
 
 Defer to implementation or future design passes:
 
+- **`POST /join_by_values` zero-match behaviour.** Under the user_id model, the session-8 sketch's phantom-pair creation produces an orphaned `users` row representing a partner who never installs. Decide at tile 3.x implementation: (a) reject with friendly "couldn't find your partner" message and no DB write, or (b) keep phantom-pair creation but add cleanup logic for stale phantoms. Leaning toward (a) for simplicity. Captured at session 11 sync.
 - **Placeholder task pool** — ~50 examples for the four-tasks input on screen 7 (which the design doc doesn't currently include — see Note below). Curated copy authoring tile.
 - **Curated launch starter subset definition** — concrete list of leader stickers and companion bundles. Art + content authoring tile.
 - **MOTD word pools** — adverb, verb, noun lists. Server-side content authoring. Tonally consistent, never bleak, slightly off-kilter.
@@ -547,3 +551,17 @@ do them. You can change them later.
 - Ambiguous-match resolution UX added (ask partner to vary username temporarily).
 - Calendar tour overlay removed (old screen 12). Replaced by per-screen-context introductions across screens 5b, 6, 7, 8.
 - "Add my partner" button now lives on the partner calendar UI as a persistent action, not in the partner-entry onboarding screens (which no longer exist).
+
+---
+
+## Session 11 sync (partial)
+
+Server-side identity model sections re-synced to match pair-key Section 5's `pair_id NULL` solo model. Specifically:
+
+- "Server — solo identity model" rewritten: no `solo:<uuid>` pair row; solo is `users.pair_id IS NULL`. Days attach to `user_id`, not to a solo pair-key.
+- "Server — pair join flow" rewritten: the solo-match transaction is now an UPDATE on the existing solo user's `pair_id` (not a DELETE of a solo pairs row + UPDATE of days). Days don't move on join because they're already keyed by `user_id`.
+- "If zero solo matches, no recovery match" sub-case: flagged as a v1.0 decision pending tile 3.x implementation (phantom-pair creation vs friendly-rejection). Added to Open Work.
+- "Recovery path" updated: solo users have no partner-mediated recovery; OS-level identity.cfg backup is their path.
+- Cross-reference paragraph added distinguishing ambiguous-match (this doc), wrong-attach (pair-key Section 9.3), and hash collision (pair-key Section 13).
+
+The eight-screen flow, copy, and screen ordering were not touched. They remain at session-8 lock.

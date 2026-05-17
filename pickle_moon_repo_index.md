@@ -1,10 +1,10 @@
 # PICKLE MOON Repo Index
 
-Last edit: 2026-05-16 22:36 AWST
+Last edit: 2026-05-17 (session 11 close — write_rules retired, pair-key locked, partner_reactions moved to deferred/)
 
 Purpose: canonical list of files across THE PICKLE MOON's repos, with one-line descriptions. Reference doc for Claude sessions — "fetch the X doc" resolves to a specific raw URL from this list.
 
-Last updated: 2026-05-16
+Last updated: 2026-05-17
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REPO: pickle-moon-design-notes (PUBLIC)
@@ -31,17 +31,15 @@ Working documents (high churn):
 Locked design docs (architecture / meta-rules):
 - `four_tasks_architectural_preference.md` — meta-rule: clarity over cleverness for low-throughput load profile. Examples + when the clever option is permitted.
 - `four_tasks_staggered_disclosure_design_notes.md` — meta-principle: features reveal over days/weeks, not at onboarding. Coordinator + reveal content lands Phase 4.
-- `four_tasks_pair_key_design_notes.md` — identity model. Six-value pair-key (name+username+icon × 2), partner-app-mediated recovery, re-entrant transactional migrations. UNLOCKED at session 9 pending Section 4 decision (Option A pair-key as partition key vs Option B stable pair_id + lookup pair_key). BLOCKS tile 1.3 implementation.
+- `four_tasks_pair_key_design_notes.md` — identity model. Three-identifier architecture (user_id stable per-person, pair_id stable per-relationship, pair_key recovery-only hash). Six-value pair-key (name+username+active_leader × 2), partner-app-mediated recovery, Option B + user_id locked. Symmetric un-pair model with dismissable banner + change-username follow-up. LOCKED at session 11 close.
 
 Locked design docs (server / backend):
-- `four_tasks_write_rules_design_notes.md` — write rules for tile 1.3. Field-level permissions, validation, state preconditions, rejection codes for POST bug_report / PUT day / PUT user.
 - `four_tasks_rate_limiting_design_notes.md` — Cloudflare edge rate limits. Two-tier (pair-keyed + IP-keyed). 429 status code exception to the otherwise-locked set. Config lands next home-office session.
 - `four_tasks_timezone_and_sealing_design_notes.md` — IANA timezone per user, lazy seal-on-open inside claim endpoint transaction. Replaces tile 1.4's earlier "nightly cron" framing.
 
 Locked design docs (gameplay / UX):
 - `four_tasks_morning_sequence_design_notes.md` — 12-beat morning ritual. Rest-day variant, partner panel visibility, crash-resistance, claim endpoint architecture, MOTD reroll flat-cost (90-110, supersedes doubling).
 - `four_tasks_onboarding_design_notes.md` — onboarding flow. Solo mode as first-class state, invite link primary pairing path with manual join fallback, solo data migrates into pair on join.
-- `four_tasks_partner_reactions_design_notes.md` — sealed-day immutable partner reactions on MOTD + tray. First feature with field-level write rules (partner writes other user's row). Schema reserved v1.0, feature ships v1.x.
 - `four_tasks_stamp_tier_design_notes.md` — stamp tier mapping (red/orange/yellow/green/purple), server-side message pools, tone targets per tier. Random pick, no anti-repeat for v1.0.
 - `four_tasks_week_mode_design_notes.md` — per-weekday opt-in task templating. Long-press day-name to toggle. Divergence on first edit. Cal-icon stays universal standard-four editor. Today-only edit rule. Personal not shared. Promoted to v1.0 scope at session 9.
 - `four_tasks_theme_design_notes.md` — theme + sticker system. Feature-catalogue model. Pixel-frequency palette derivation from sticker.png (session 8 — supersedes palette.tres). Asset naming `<id>_<role>.png`. Per-slot variant rotation by stable date-hash. MOTD + UI fonts locked global. 32×32 sticker canvas.
@@ -58,7 +56,7 @@ Discussion / reference (captured thinking, not committed):
 - `four_tasks_tracking_design_notes.md` — per-user stat tracking discussion. DEFERRED to non-implementation. Two trackers with committed UX (lifetime_coins, longest_streak via leaderboard) are the entire scope. Goodhart audit framework + event-logging alternative path captured for future revisit.
 
 Background / superseded:
-- (None on disk. Earlier index entries referenced a v1 pair-key sketch but the only pair-key file in the repo is the active design doc above.)
+- `four_tasks_write_rules_design_notes.md` — **SUPERSEDED at session 11 close.** Session-4 doc that captured the original write-rules design for tile 1.3 (POST bug_report / PUT day / PUT user). Its content is structurally pre-session-10: pair-key as partition key, copy-then-delete rotations, no user_id, "emoji" not "active_leader." The rules now live authoritatively across `four_tasks_pair_key_design_notes.md` (rotation transaction, validation, defensive writes), the feature docs (column-level rules per endpoint), and the project conventions (response envelope, status codes, caller pattern). The eventual `/server/README.md` will be the working reference artifact for endpoint shapes. Kept in git history for context; do not update content.
 
 Subfolders:
 - `privacy/` — drafts and reference docs related to the privacy policy. Published version lives in pickle-moon-public.
@@ -71,6 +69,7 @@ https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/main/fo
 
 - `four_tasks_leaderboard_design_notes.md` — single global leaderboard ranked by lifetime_coins, streak as secondary. DEFERRED (session 8) — possibly not shipping at launch. Re-evaluate after v1.0 with real usage data. Full design + rejected alternatives preserved for if/when revisited.
 - `four_tasks_coin_name_design_notes.md` — server-side affix rule system, transforms username into flavoured coin economy display name. Schema reserved v1.0, feature ships v1.x or later. Moved to deferred at session 9 housekeeping.
+- `four_tasks_partner_reactions_design_notes.md` — sealed-day immutable partner reactions on MOTD + tray. First feature with field-level write rules (partner writes other user's row). Schema reserved v1.0 (motd_reaction + tray_reaction columns on days, reaction_confirm_dismissed on users). Moved to deferred at session 11 close — feature ships v1.x. URL convention sync pass required before implementation (doc still uses pre-session-10 `/pair/:key/users/:target/days/:date` scheme).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REPO: four-tasks (PRIVATE)

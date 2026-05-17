@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-05-17 02:00 AWST
-Last updated: May 2026 (session 10 — pair-key unblocked, user_id locked)
+Last edit: 2026-05-17 02:30 AWST
+Last updated: May 2026 (session 10 fourth pass — pair break locked)
 
 Forward-looking tile list organised by phase. At any moment, the next
 thing to work on is the topmost incomplete tile in the current phase.
@@ -96,9 +96,23 @@ PHASE 1 — Backend + foundations
       - Auth: caller named in URL. Self-writes = path segment. Cross-user writes = `?caller=name` query param.
     Session 3 close: ~3h logged.
 
-[~] 1.3 [CODE] Worker defensive write rules. DESIGN CLOSED (session 4); IMPLEMENTATION PENDING. UNBLOCKED at session 10 (pair-key design third-pass closed).
-    Reference: `four_tasks_write_rules_design_notes.md` — three endpoints fully specced (POST bug_report, PUT day, PUT user), rejection codes, rotation semantics, hash-collision handling, client-side defensive write requirements.
-    NOTE: write_rules doc still uses pre-session-10 vocabulary (pair-key as partition key, "migration" for the rotation event). The pair-key design doc Sections 5, 6, 7 are the current authority on the data model. write_rules doc sync to three-identifier model is housekeeping pending.
+[~] 1.3 [CODE] Worker defensive write rules. DESIGN CLOSED across the architecture docs (no separate write-rules doc — see note below). IMPLEMENTATION PENDING. UNBLOCKED.
+    The session-4 `four_tasks_write_rules_design_notes.md` is SUPERSEDED — its content is either pre-session-10 stale or duplicates rules that authoritatively live in other docs. Killed at session 11 close in favour of implementing directly against:
+      - `four_tasks_pair_key_design_notes.md` — three-identifier model, rotation transaction, validation rules, hash collision, client-side defensive write requirements, un-pair flow.
+      - `four_tasks_partner_reactions_design_notes.md` — partner-writable columns (motd_reaction, tray_reaction), post-seal-only rules.
+      - `four_tasks_morning_sequence_design_notes.md` — server-only columns (stamp, sealed_at), claim endpoint shape.
+      - `four_tasks_stamp_tier_design_notes.md` — stamp tier rules.
+      - `four_tasks_onboarding_design_notes.md` — join_by_values endpoint.
+      - `four_tasks_staggered_disclosure_design_notes.md` — tutorial_progress merge semantics.
+      - Project conventions: response envelope `{ok, data}` / `{ok, error, message}`. Status codes 200/400/404/409/500 only. Caller in URL: self-writes use `/users/:user_id/...`, cross-user writes use `?caller=:user_id`. Permission denied folds into 404, state-denied is 409.
+    Endpoints to implement:
+      - `POST /users/:user_id/bug_report` — body `{message, app_version?}`. Bug reports attach to user_id, pair_id_snapshot captures pair state at moment of report.
+      - `PUT /users/:user_id/days/:date` (self-write) — owner writes tasks_done/diary/rest_day on unsealed days only.
+      - `PUT /users/:target_user_id/days/:date?caller=:caller_user_id` (cross-write) — partner writes motd_reaction/tray_reaction on sealed days only, one-time only per column.
+      - `PUT /users/:user_id` — self username/leader/task_labels/reaction_confirm_dismissed/tutorial_progress. Solo branch: plain UPDATE, no rotation. Paired branch: rotation transaction (single UPDATE on pairs.pair_key + single UPDATE on user row).
+      - `POST /users/:user_id/unpair` — session 11 un-pair endpoint.
+      - `POST /users/:user_id/dismiss_unpair_notice` — session 11 banner dismiss.
+    Implementation scope: write the endpoints, apply migration_005 to local + remote D1 (verification between), curl-verify every rejection path, write `/server/README.md` with curl-test examples. The README is the working reference artifact — better than a parallel design doc because it's runnable and stays in sync with the actual server source.
     SCHEMA BUNDLE applied alongside this tile (all absorbed into migration_005):
       - users.morning_payout_due_for TEXT (per migration_003 sketch — fold in).
       - users.timezone TEXT NOT NULL DEFAULT 'UTC' (per migration_004 sketch — fold in).
@@ -110,10 +124,9 @@ PHASE 1 — Backend + foundations
       - days.user_id TEXT NOT NULL FK to users (session 10 — day rows attach to user, not pair).
       - days.day_theme_state TEXT JSON (per original migration_005).
       - bug_reports.user_id TEXT NOT NULL FK to users + pair_id_snapshot TEXT (session 10).
-    No separate migration_007 — session 10 changes all absorbed into migration_005.
-    AUTH PATTERN: caller in URL, `?caller=:user_id` for cross-user writes. Self-writes have caller as path segment (URL is `/users/:user_id/...` and the user_id IS the caller). See design doc for per-endpoint rule tables.
-    Implementation scope: write three endpoints, apply migration_005 to local + remote D1 (verification between), curl-verify every rejection path, write `/server/README.md` curl-test documentation.
-    Design closed session 4. Unblocked session 10. ~3h design logged.
+      - users.pending_unpair_notice TEXT NULL (session 11 — dismissable banner flag for the un-pair flow, populated by the un-pair transaction, cleared by the dismiss endpoint).
+    No separate migration_007 — session 10 + 11 changes all absorbed into migration_005.
+    Design closed across architecture docs. Unblocked session 10 (architecture) + session 11 (write_rules doc retired). ~3h design logged at session 4.
 
 [ ] 1.4 [CODE] Lazy seal-on-open (reframed from nightly cron, session 6).
     Sealing logic lives inside tile 1.3's claim endpoint transaction. When a user opens the app and the claim endpoint fires, any unsealed days <= local_date - 1 get sealed in the same transaction. User offline for N days = N row updates in the gap-walk loop, bounded.
@@ -332,6 +345,17 @@ development resumes with post-fork tiles after APPtrioc is live.
     IMPLEMENTATION NOTE: grey-exclusion rule MUST match the rule used at runtime in the renderer. Shared derivation function — write the function, use here, validate by eye, then wire into runtime.
     Reference: `four_tasks_theme_design_notes.md` PALETTE DERIVATION DEVTOOL section.
 
+[ ] 4.21 [CODE] Un-pair flow — symmetric break + change-username follow-up + dismissable banner. Time: ~3-4h.
+    Server: endpoint `POST /users/:user_id/unpair`. Transaction: read caller's row to get pair_id (404 if NULL); read both users to capture each user's current username for the notice flags; UPDATE users SET pair_id = NULL, pending_unpair_notice = :partner_username WHERE user_id = :caller_user_id; UPDATE users SET pair_id = NULL, pending_unpair_notice = :caller_username WHERE user_id = :partner_user_id; DELETE FROM pairs WHERE pair_id = :pair_id; commit. Returns 200, idempotent. Schema: add `pending_unpair_notice TEXT NULL` column to users table in migration_005 (locked at session 11 close — bundle with the rest of the session-10 changes). Also implement dismiss endpoint `POST /users/:user_id/dismiss_unpair_notice` — sets pending_unpair_notice = NULL, returns 200.
+    Client A (initiator): entry via long-press on partner panel header → contextual menu → `Un-pair`. Confirmation popup: title `Un-pair?`, no body copy, buttons `Cancel` / `Un-pair` (confirm has mild red tint). On confirm, fires endpoint. On 200, immediately shows change-username follow-up popup: title `Change your username?`, pre-filled text input with current username, buttons `Skip` / `Save`. Save fires standard username-update flow with onboarding validation rules. Either path lands A on solo calendar with full solo UI.
+    Client B (recipient): next sync hits any pair_id endpoint, gets 404, client checks /users/:user_id, sees pair_id is NULL and pending_unpair_notice is populated. Reverts to fresh-solo empty state. Renders dismissable banner in partner panel whitespace: text `[username] un-paired.` with `×` dismiss control. Position within panel TBD at implementation (top, bottom, or floating — visual call, not design call). Banner `×` calls dismiss endpoint; on 200, banner removed permanently (one-shot, server-tracked, does not return on app restart).
+    Post-un-pair empty state on both sides is identical to fresh-solo empty state (per pair-key Section 17 Properties — same `user_id`, `pair_id` NULL, no `pairs` row, full personal data intact). Banner is the only delta on B's side until dismissed. No `you've recently un-paired` reorientation.
+    Re-pair: standard `Add my partner` join-by-values flow. No cooldown — either side can re-pair immediately. If A changed username via follow-up popup, B's memorised join values fail to match — this is intended (the protection is real but unannounced in copy).
+    Symmetric outcome locked: either user initiating produces same end state, both solo, both data preserved. No mutual-consent flow. No undo button — re-pair via standard flow is the undo.
+    Terminology: UI always says "un-pair" (never "leave" or "break"). Backend / code naming can use "leave" — same operation, internal name only.
+    Unblocked once tile 1.3 + Phase 3 pair-creation flow are in.
+    Reference: `four_tasks_pair_key_design_notes.md` Section 17 (LOCKED session 11 close).
+
 PHASE 4 GATE: App looks like Four Tasks. Polished, considered. Every animation hits. Theming changes when swapping calendar leader and palette source independently via the picker context menu. Onboarding feels right. Bug button works. The fork point (after tile 4.14a) has been passed — APPtrioc is shipped (Phase 5b), Four Tasks has continued through post-fork depth features.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -404,7 +428,7 @@ PHASE 5b GATE: APPtrioc live, video dropped, Reddit post up. Four Tasks already 
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Pair lifecycle design conversation. Architecture (user_id stable per-user identifier) is in place at session 10. Open questions need focused design: what does partner see when other user leaves, is leaving reversible, the "death" case, post-pair-dissolution data semantics, monetisation hook for third-calendar expansion. NOT v1.0-blocking (solo mode + reboot-as-leave handles v1.0); needed before any leaving / re-pairing / group features ship. See `four_tasks_pair_key_design_notes.md` Section 17.
+[ ] Group / triple expansion design conversation (NOT v1.0). Pair-breaking is LOCKED at session 11 close (symmetric un-pair + UX detail pass, tile 4.21). What remains undesigned: third-calendar slot / group expansion / "swipe past partner panel for paid third calendar." Open questions: star graph vs full mesh, pair_key extension for groups (bilateral hash doesn't scale), UX (swipe model breaks at three calendars), monetisation hook, social texture. NOT v1.0 scope. NOT v1.x scope. Possibly never ships. See `four_tasks_pair_key_design_notes.md` Section 17.
 
 [ ] Doc sync pass — flagged at session 9 close, partially resolved session 10:
     - `four_tasks_morning_sequence_design_notes.md`: MOTD framing wrong (MOTD now in onboarding per session 9; doc still says first MOTD is in first morning sequence). Also: "migration window property" terminology needs rename to "rotation window property" per session 10.
@@ -412,7 +436,8 @@ ACTIVE — ad-hoc items found during the port
     - `four_tasks_week_mode_design_notes.md`: status line v1.x → v1.0.
     - `four_tasks_stamp_tier_design_notes.md`: obsolete "nightly cron, tile 1.4" reference (session 8 flag, still unfixed).
     - `four_tasks_leaderboard_design_notes.md`: migration_004 naming collision — references migration_004 for lifetime_coins when 004 is timezone (session 8 flag, still unfixed). Doc now lives in `deferred/` subfolder.
-    - `four_tasks_write_rules_design_notes.md`: still uses pre-session-10 vocabulary (pair-key as partition key, "migration" for the rotation event). Sync to three-identifier model + rotation terminology.
+    - `four_tasks_write_rules_design_notes.md`: SUPERSEDED at session 11 close (see tile 1.3). Mark as superseded in `pickle_moon_repo_index.md`; keep file in git history but don't update content. The session-4 design served its purpose; the rules now live authoritatively in the architecture docs and the eventual `/server/README.md`.
+    - `four_tasks_onboarding_design_notes.md` Sessions 8 server-model sections: re-synced at session 11 close to match pair-key Section 5 (no `solo:<uuid>` pair row, `pair_id NULL` solo model). Already landed.
     - Project system prompt: `four_tasks_pair_key_v2_design_notes.md` → `four_tasks_pair_key_design_notes.md` (no `_v2_` suffix on disk).
     - Privacy policy: align with honest threat model from pair-key Section 9 (shoulder-surf acknowledgement, physical-access-to-screen = access to credential).
     - `four_tasks_onboarding_design_notes.md`: name confirmation modal should display typed value EXACTLY as typed (no all-caps treatment; names are case-sensitive in hash per session 10).
@@ -422,8 +447,6 @@ ACTIVE — ad-hoc items found during the port
 [ ] Update devlog AI Reading Guide for repo-fetching workflow. Current instruction "ask Morgan to upload any changed files" is stale — design notes repo is public, Claude fetches via raw GitHub URLs, `pickle_moon_repo_index.md` is the canonical file map. Rewrite step 1: "Ask Morgan which docs have changed since last session and fetch fresh via raw URL." Small laptop edit.
 
 [ ] Log Cloudflare domain receipt in ledger. `thepicklemoon.com` registration paid 11 May 2026, invoice IN-64839053, USD $10.46. Actual AUD needs to come from card statement (~A$16-17). Files saved to `pickle-moon-ledger/receipts/` as `2026-05-11_cloudflare_domain-registration_invoice.pdf` + `_paid-status.png`. Category: software_subscription. Renewal 10 May 2027 — calendar reminder when gmail calendar in regular use.
-
-[ ] /server/README.md — curl-test documentation. Slated for tile 1.3 — stub could land alongside tile 1.2 if endpoint signatures stabilise. Captures request/response shapes runnable from PowerShell. Conventions: `curl.exe` explicit, `--data-binary @file.json` for bodies, `wrangler dev --local` for local mode.
 
 [~] Marketing notes — running document. Ongoing journal entries land as marketing thoughts arrive. Will never be "done"; just kept current.
 

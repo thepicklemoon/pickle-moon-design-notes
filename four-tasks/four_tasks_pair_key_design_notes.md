@@ -1,13 +1,35 @@
 # Pair-Key Identity — Design Notes
 
-**Status:** LOCKED (session 10 third-pass close — user_id integration).
-Canonical identity model for Four Tasks v1.0+. Implementation lands
-in tile 1.3 (server-side defensive write rules) and tile 4.14b
-(theme manager / picker UX).
+**Status:** LOCKED (session 11 close — un-pair UX detail pass
+complete). Canonical identity model for Four Tasks v1.0+.
+Implementation lands in tile 1.3 (server-side defensive write
+rules), tile 4.14b (theme manager / picker UX), and tile 4.21
+(un-pair flow — full UX spec).
 
 This doc supersedes the v1 two-name model. The v1 doc
 (`four_tasks_pair_key_identity_design_notes.md`) is referenced for
 historical context only and is no longer authoritative.
+
+**Session 11 changes (what's new vs session 10 fourth-pass close):**
+
+- **Un-pair UX detail pass complete.** Architecture from session 10
+  retained unchanged; the UX detail was filled in. Section 17
+  rewritten to capture: long-press-on-partner-header entry point,
+  minimal `Un-pair?` confirmation popup (no body copy), inline
+  dismissable banner on partner side replacing the popup
+  notification, change-username follow-up popup on initiator side,
+  no cooldown, identical-to-fresh-solo post-un-pair empty state.
+- **`pending_unpair_notice TEXT NULL` column on users.** New schema
+  delta in migration_005 (alongside session-10 changes). Stores
+  the ex-partner's last-known username; populated by the un-pair
+  transaction on both rows; cleared by a dismiss endpoint when
+  the banner is tapped.
+- **Terminology in UI: "un-pair".** Backend / internal naming
+  remains "leave pair" / "pair break" — same operation. User-facing
+  copy never says "leave" or "break."
+- **Tile 4.21 scope expanded.** Estimate raised from 2-3h to 3-4h
+  to absorb the change-username follow-up popup, the banner
+  mechanism, and the dismiss endpoint.
 
 **Session 10 changes (what's new vs the prior LOCKED state):**
 
@@ -44,11 +66,15 @@ historical context only and is no longer authoritative.
   local state can recover via the six-value partner-mediated flow.
   Once recovery completes, the client gets back user_id and pair_id
   and uses those for everything else.
-- **Pair lifecycle flagged as needing its own design conversation.**
-  Leaving a pair, dissolving a pair, future group/triple expansion —
-  all are made architecturally possible by user_id but the UX,
-  emotional handling, and edge cases need real thought. Not v1.0
-  blocker; deferred to focused design pass. See Section 17.
+- **Pair lifecycle: symmetric-break model locked (fourth pass).**
+  Either user initiating "leave pair" puts BOTH users into solo
+  state. No asymmetric leaving. Personal data preserved on both
+  sides (it's user_id-owned). New tile 4.21 sketched for the
+  leave-pair flow. Solo recovery handled via OS-level
+  identity.cfg backup, NOT pair_key — pair_key is now framed as
+  a bonus recovery layer specific to paired users. Group / triple
+  expansion remains NOT designed and explicitly not in v1.0
+  scope. See Section 17.
 - **Terminology cleanup retained.** "Migration" reserved for schema
   migrations only. The pair-key change event is **pair-key rotation**.
 - **Concurrency analysis updated.** Day-tick writes go straight to
@@ -86,7 +112,7 @@ language. The semantics are identical.
 14. Post-pair username revert
 15. What this changes about the schema
 16. Outstanding questions (not blocking)
-17. **Pair lifecycle — design conversation needed**
+17. **Pair lifecycle (symmetric break locked; groups deferred)**
 18. Bug reports — out-of-band lifecycle
 19. Cross-references
 
@@ -460,10 +486,11 @@ A few example reads to make the model concrete:
 4. Server returns days for the target user_id.
 
 **"Update my username":**
-1. Read `user_id` and `pair_id` from identity.cfg.
-2. `PUT /pair/:pair_id/users/:user_id` with new username in body.
-3. Server validates, runs rotation (Section 7), updates pair_key
-   and the user's row in one transaction.
+1. Read `user_id` from identity.cfg.
+2. `PUT /users/:user_id` with new username in body.
+3. Server reads the user's pair_id from the row, validates, runs
+   rotation (Section 7), updates pair_key and the user's row in
+   one transaction.
 4. Returns new pair_key for the client to cache.
 
 **"Recover from total data loss":**
@@ -489,12 +516,16 @@ hash changes. This is a **pair-key rotation**.
 Under the three-identifier model, rotation is a small, well-scoped
 operation that touches only two database rows:
 
-1. Client sends `PUT /pair/:pair_id/users/:user_id` with new values
-   in the body.
+1. Client sends `PUT /users/:user_id` with new values in the body.
 2. Server opens D1 transaction.
-3. Server reads the `pairs` row by `pair_id` (must exist, else 404).
-4. Server reads both `users` rows for that `pair_id` (must exist,
-   else 500 — broken invariant).
+3. Server reads the user's `users` row by `user_id` to get the
+   current `pair_id` (must exist, else 404; if `pair_id` is NULL
+   the user is solo, so rotation skips the pair_key update entirely
+   and just runs step 9 — a solo user's username change is a
+   plain UPDATE, no rotation).
+4. Server reads the `pairs` row by `pair_id` (must exist, else
+   500 — broken invariant) and both `users` rows for that
+   `pair_id` (the rotating user plus the partner).
 5. Server applies the requested change to the target user's row in
    memory.
 6. Server computes the new canonical six-tuple from the resulting
@@ -710,10 +741,27 @@ The original problem mostly evaporates.
 
 ## 9. Threat model
 
-The previous version of this doc dismissed the threat model in one
-paragraph ("out of threat model — the data being protected is a habit
-tracker"). That's roughly true but unhelpfully terse. Three scenarios
-deserve explicit treatment.
+### Stakes framing
+
+Before the scenarios: the data being protected is a two-person
+habit tracker with no external integrations, no financial data,
+no PII beyond a display name and username, and a subscription
+worth roughly $1/week (refundable via store policy). The highest
+realistic external-actor outcome is vandalism of someone's
+calendar, not exfiltration of anything valuable. The doc takes
+the analysis seriously below for completeness, but the appropriate
+defence budget is small — none of the scenarios below justify
+adding friction to legitimate user flows.
+
+The genuinely interesting threat surface is social: a former
+partner with shoulder-surf-level knowledge, a roommate who has
+casually seen the other user's screen. Section 9.1 covers this,
+and Section 17's change-username follow-up is the user-facing
+lever for it.
+
+External-actor scenarios (9.2 brute-force enumeration) are
+covered by edge rate limiting and a search space large enough
+to defeat random attack. We don't build defences beyond that.
 
 ### 9.1 Shoulder-surfing
 
@@ -984,8 +1032,8 @@ original doc doesn't appear because under the three-identifier
 model there is no stale-key write problem in ongoing operation
 (Section 8).
 
-See `four_tasks_write_rules_design_notes.md` "Client-side defensive
-write requirements" for the implementation-level spec.
+The four requirements above ARE the implementation-level spec —
+no separate write-rules doc.
 
 ---
 
@@ -1062,7 +1110,7 @@ These rules apply at every endpoint that accepts identity values:
 Client-side onboarding enforces the same rules with friendly error
 messaging. Server-side validation is defence-in-depth.
 
-### Length caps (mirrored from write_rules doc)
+### Length caps
 
 - `name`: max 49 characters after normalisation.
 - `username`: max 40 characters (UX likely tighter, ~20).
@@ -1230,6 +1278,10 @@ migration_005 in tile 1.3's schema delta):
 - `active_leader TEXT` — sticker ID, identity-hashed.
 - `active_theme TEXT` (JSON) — all non-identity theme slots.
 - `active_stickers TEXT` (JSON) — sticker pool.
+- `pending_unpair_notice TEXT NULL` — partner's last-known
+  username at the moment of un-pair, for the dismissable banner
+  on B's partner panel. NULL when no banner to show. (Session 11
+  addition.)
 - Plus the various per-user state columns: coin balance, lifetime
   stats, theme state, tutorial progress, subscription state,
   morning_payout_due_for, timezone (per migrations 003 + 004).
@@ -1255,9 +1307,10 @@ migration_005 in tile 1.3's schema delta):
 - Picker UX pattern: commit-on-close for leader/username, INSTANT
   for all other theme slots.
 
-See `four_tasks_write_rules_design_notes.md` for the full schema
-deltas and migration bundling. All session-10 changes are absorbed
-into migration_005 — no new migration file required.
+Full schema deltas and migration_005 bundling captured in tile 1.3's
+SCHEMA BUNDLE block in `four_tasks_godot_todo.txt`. All session-10
+and session-11 changes are absorbed into migration_005 — no new
+migration file required.
 
 ---
 
@@ -1311,129 +1364,325 @@ into migration_005 — no new migration file required.
 
 ---
 
-## 17. Pair lifecycle — design conversation needed
+## 17. Pair lifecycle
 
-**Status:** flagged as needing dedicated design, NOT designed in
-this doc. The architecture (user_id as stable per-user identifier)
-makes the following operations *possible*. The UX, semantics, and
-edge cases need real thought before any of them ship.
+**Status (session 11 close):**
+- **Un-pairing: LOCKED** as symmetric-break model with full UX
+  detail pass complete. Architecture from session 10 fourth-pass
+  retained; UX detail filled in below. Implementation in tile 4.21.
+- **Group / triple expansion: NOT designed.** Architecturally
+  feasible under user_id but the UX, social texture, and
+  monetisation hook need a dedicated design conversation. NOT
+  v1.0 scope.
 
-Captured here so the architectural enablement is clear and the
-design surface is named for future work.
+**Terminology note:** the action is called **un-pair** throughout
+the UI. Internally and in backend code it remains "leave pair" /
+"pair break" — same operation, more procedural name. User-facing
+copy never says "leave" or "break."
 
-### What user_id makes possible
+### Symmetric-break model (LOCKED)
 
-1. **Leaving a pair.** A user sets `users.pair_id = NULL`. Their
-   own day rows, coin balance, theme state, identity values all
-   remain (they're user_id-attached, not pair_id-attached).
+When either user initiates an un-pair, **both users go solo
+together**. There's no asymmetric "I un-paired, you're stuck."
 
-2. **Re-pairing.** A user with `pair_id = NULL` can go through the
-   "Add my partner" flow to join a new pair. Server creates a new
-   `pairs` row with a new `pair_id`, sets the user's `pair_id` to
-   it, and the prospective partner can attach.
+#### Entry point
 
-3. **Future group / triple expansion.** A user could in principle
-   be linked to multiple pairs. The data model doesn't enforce
-   "one pair per user" — that's a UX-layer constraint. Adding a
-   "third calendar" slot at some future point is structurally
-   feasible without further schema changes.
+The un-pair action lives in the **contextual long-press menu on
+the partner panel header**. Same gesture grammar as the picker
+context menu (tile 4.14b). No settings-screen entry, no surfaced
+button in main UI.
 
-### What needs design before implementation
+Discoverability is via the in-app help menu only. The week-1
+user who needs to un-pair due to a typo'd onboarding is better
+served by deleting and reinstalling; the discoverability cost
+of long-press is intentional friction against accidental taps.
 
-#### Leaving — the design surface
+#### Flow
 
-- **What does the partner see?** When user A leaves, B's view of A
-  needs to handle this gracefully. Options:
-  - Partner panel freezes at A's last state, with some indicator
-    "your partner has left this pair."
-  - Partner panel goes blank, replaced with "your partner has left."
-  - Pair is automatically dissolved (B also has pair_id NULL'd) —
-    but this forces B's hand, which feels wrong.
-- **Is leaving reversible?** If A leaves and then changes their
-  mind a day later, can they re-attach to the same pair_id (if
-  the row still exists) or must they create a new pair?
-- **Does the old pair persist as a museum?** If both users leave,
-  the pair_id row could either be deleted or marked dissolved.
-  Affects whether users can later view their old pair's history
-  as a keepsake.
-- **Does leaving cost coins?** Reasonable to want some friction —
-  shouldn't be a one-tap whim. But making it expensive in coins
-  creates the perverse incentive of "stuck in a pair you don't
-  want because you can't afford to leave."
-- **What about the "death" case?** Surviving partner is in a pair
-  where the other half will never return. They need to be able to
-  move on. Current model has no clean answer.
+1. User A long-presses the partner panel header → contextual
+   menu opens → taps `Un-pair`.
+2. Confirmation popup:
+   ```
+   Un-pair?
 
-#### Re-pairing — the design surface
+   [ Cancel ]  [ Un-pair ]
+   ```
+   No body copy. Title is the question, buttons are the answer.
+   Confirm button has mild red tint. Cancel is the default/safe
+   action.
+3. On confirm: client calls `POST /users/:user_id/unpair`.
+4. Server opens transaction:
+   - Read the caller's row by `user_id` to get `pair_id` (must
+     not be NULL, else 404 — caller isn't paired).
+   - Read both users' rows for that `pair_id` (caller plus
+     partner). Capture each user's current username for the
+     notice flag.
+   - `UPDATE users SET pair_id = NULL, pending_unpair_notice =
+     :partner_username WHERE user_id = :caller_user_id` (sets
+     caller's banner flag to *partner's* username).
+   - `UPDATE users SET pair_id = NULL, pending_unpair_notice =
+     :caller_username WHERE user_id = :partner_user_id` (sets
+     partner's banner flag to *caller's* username).
+   - `DELETE FROM pairs WHERE pair_id = :pair_id`.
+   - Commit.
+5. Server returns 200.
+6. A's app reverts to solo UI. A then sees the **change-username
+   follow-up popup** (see below).
+7. B's next sync (foreground open or background poll) hits any
+   endpoint that references `pair_id`, gets 404, client checks
+   `/users/:user_id`, sees `pair_id` is NULL and
+   `pending_unpair_notice` is populated, reconciles local state.
+   Partner panel reverts to the standard fresh-solo empty state
+   with the **dismissable banner** rendered in the panel
+   whitespace (see below).
 
-- **How does the joiner experience differ when you have existing
-  history?** Onboarding for a fresh user vs onboarding for a user
-  with months of solo data is a different flow. The latter probably
-  skips name selection (already locked), keeps existing day rows,
-  just adds the partner.
-- **What does the new partner see?** Do they see your historical
-  data from your previous relationship? That feels too intimate.
-  Probably partner panel only shows days since the new pair_id
-  was created.
-- **Are day rows pair-scoped or user-scoped for visibility?** Right
-  now we said user-scoped (day rows hang off user_id). But maybe
-  the partner panel should only show days where `day.created_at >=
-  pair.created_at`. This is a small but real design decision.
+#### Change-username follow-up popup (A's side)
 
-#### Group expansion — the design surface
+Immediately after the un-pair transaction commits, A sees:
 
-This is much further off than leaving/re-pairing and may never
-ship. Captured here because the architectural enablement is shared.
+```
+Change your username?
 
-- **What's a "group"?** Is it three peers, or is it one "primary"
-  user with two parallel pair relationships?
-- **Star graph vs full mesh:** if user A has pairs with B and C,
-  do B and C see each other? Star graph is simpler (A is the hub).
-  Full mesh implies group dynamics.
-- **Pair-key for groups:** the six-value hash is bilateral. A
-  nine-value hash for a triple is structurally fine but
-  pragmatically awkward (more values to remember during recovery,
-  more screen real estate to display).
-- **UX:** the swipe model breaks at three calendars. Replaced by
-  what? A switcher? A scrollable strip?
-- **Monetisation hook:** Morgan's instinct was that group
-  expansion is a paid feature ("third calendar slot — coins to
-  unlock"). This fits the buddyware ethos (paid = more
-  accountability surface) without breaking the "subscription
-  unlocks library access + coin bonus" core. Worth being explicit
-  about: groups are NOT v1.0 scope; if they happen, they're a
-  monetisation-driven future feature.
+[ text input, pre-filled with current username ]
 
-### Why all this is deferred, not solved here
+[ Skip ]  [ Save ]
+```
 
-The user_id addition is mechanically straightforward — one column
-on users, one foreign key shift on days, child rows hang off user
-not pair. Net architectural complexity is small.
+No body copy. The prompt's presence at this moment is the entire
+message. A user who needs to make themselves harder for their
+ex-partner to re-find via the standard `Add my partner` join
+flow has the lever right here; a user who doesn't taps Skip.
 
-The lifecycle questions above are NOT mechanically straightforward
-— they're product design decisions about what relationships mean
-in the app, what users see when relationships change, how the
-emotional handling of "my partner left" works. These deserve a
-dedicated design conversation with the same care as the morning
-sequence or onboarding flow got, not a tacked-on subsection in
-the identity doc.
+Validation matches onboarding username rules (non-empty, no `|`
+or `__`). Save commits via the standard username-update flow.
+Either path lands A on their solo calendar with full solo UI.
 
-For v1.0 ship: support solo state (pair_id NULL), support pairing
-(pair_id set during onboarding or recovery). Leaving is technically
-"hit reboot" (the existing tile 2.9 mechanism) — losing your own
-history is a cost but it works. Pair dissolution as a first-class
-operation is v1.x.
+This is not framed in copy as a "blocking" or "protection"
+feature. The framing is implicit and speaks for itself.
 
-For v1.x: focused design pass on the leaving question.
+The protection is real: B's join-by-values flow searches for
+solo users matching `(name, username, active_leader)` exactly.
+If A changes username, B's memorised values fail to match. A is
+un-findable via memory. A determined adversary can still try
+common variants, but the cost is raised from "type three values
+you know" to "guess what they changed it to."
 
-For v2 or later: focused design conversation on group expansion if
-the product reaches a point where it makes sense.
+Name is not offered as changeable (immutable per Section 3).
+Active_leader is not offered as changeable here — it lives in
+the picker and can be changed any time. The username prompt is
+the load-bearing one because username is the value most likely
+to be remembered verbatim by the partner.
 
-### What we don't do tonight
+#### Partner-side dismissable banner (B's side)
 
-This section is intentionally not locking decisions on any of the
-above. It's naming the design space so future-Morgan and future-
-Claude know what's been considered and what hasn't.
+When B next syncs, an inline dismissable banner appears in the
+partner panel whitespace:
+
+```
+[username] un-paired.                            [×]
+```
+
+Where `[username]` is A's last-known username from B's
+perspective (stored in `pending_unpair_notice` on B's user row
+at the moment of un-pair). Position within the partner panel is
+TBD at implementation — top, bottom, or floating treatment is a
+build-time decision, not a design-time one.
+
+Dismissal behaviour:
+- One-shot. Dismissed banner does not return on app restart.
+- Server-tracked, not client-tracked. Tapping `×` calls a dismiss
+  endpoint (e.g. `POST /users/:user_id/dismiss_unpair_notice`)
+  which sets `pending_unpair_notice = NULL`.
+- The empty state (calendar styling + `Your partner's space is
+  waiting` + `Add my partner` button) is identical to a
+  fresh-solo user's. The banner is the *only* delta, and only
+  until dismissed.
+
+No popup. No modal. No interrupt. B can ignore the banner
+indefinitely, dismiss it and re-pair, or dismiss it and continue
+solo.
+
+#### Re-pair after un-pairing
+
+Standard `Add my partner` join-by-values flow. No reorientation
+screen, no "you've recently un-paired" hint, no soft preference
+for the ex-partner's values. A user who has un-paired looks
+identical to a never-paired user except for the banner (if not
+yet dismissed).
+
+No cooldown. Either side can re-pair immediately after un-pairing
+— either with each other (if neither changed username) or with
+someone new.
+
+The reversibility framing: un-pair *is* reversible at the
+user-experience level. The backend `pair_id` is fresh on re-pair,
+but the user-visible state (both back on each other's panels,
+data intact, history visible per current rendering rules)
+reconnects in seconds if both parties cooperate. The backend
+discontinuity is invisible to the user.
+
+#### Properties
+
+- **Post-un-pair state equals post-onboarding solo state.** A
+  user who has un-paired looks identical to a user who just
+  finished onboarding solo: same `user_id`, `pair_id` NULL, no
+  `pairs` row, full personal data scaffolding intact (calendar,
+  MOTD, theme, coin balance). The only structural difference is
+  `pending_unpair_notice` being populated until dismissed. This
+  equivalence is the design target: solo is solo, regardless of
+  history.
+- **Symmetric outcome.** Either side initiating produces the
+  same end state: both solo, both with their own data intact,
+  both free to re-pair.
+- **No mutual consent required.** This is intentional and
+  matches how real relationships actually end — one person
+  decides.
+- **Personal data preserved on both sides.** Day rows, coins,
+  theme state, history all hang off `user_id`, not `pair_id`.
+  Pair dissolution doesn't touch any of it.
+- **No data carried into a future pair.** The user keeps their
+  own data. The next partner doesn't see anything from the
+  previous pair. The pair-scoped `pairs` row is gone; nothing
+  about the prior relationship persists in a queryable way.
+- **The pair_key for the dissolved pair is gone.** Recovery via
+  the old six-value hash returns 404 — the pair doesn't exist.
+- **Idempotent.** If both users tap un-pair simultaneously, D1
+  serializes the transactions; the second one finds the pair
+  already gone, returns 200 because the desired state (solo) is
+  achieved.
+- **No app-level paternalism.** No cooldown, no typed-confirmation
+  gate, no escalating friction. Long-press + popup is the
+  entire friction budget.
+
+#### Schema delta
+
+One new nullable column on `users`:
+
+```sql
+pending_unpair_notice TEXT NULL
+```
+
+Stores the ex-partner's last-known username at the moment of
+un-pair. Populated by the un-pair transaction on both users.
+Cleared by the dismiss endpoint. NULL means no banner to show.
+
+Lands in migration_005 alongside the other session-10 structural
+changes (see Section 15). Locked as part of the session-11 close
+— no architectural reason to split this column into a separate
+migration.
+
+#### Edge cases (all handled by the same flow)
+
+- **The "death" case.** Surviving partner taps `Un-pair`
+  themselves when ready. Same flow. They keep their history,
+  go solo, can re-pair. The deceased partner doesn't get a
+  notification because their app isn't being used. The
+  `pending_unpair_notice` flag will be set on the deceased's
+  row in the database; it has no effect because nothing reads it.
+- **Offline partner.** B is offline when A un-pairs. B's local
+  state is stale, but the next time B's app talks to the server
+  it reconciles via the 404-then-resync path. Banner appears on
+  next sync.
+- **Simultaneous un-pairs.** D1 serializes. Idempotent outcome.
+  Both users get the change-username popup; both see a banner
+  on next sync (each carrying the other's last-known username).
+- **A un-pairs, immediately regrets.** A and B both tap
+  `Add my partner` and re-pair via standard join-by-values.
+  No undo button needed — the standard flow *is* the undo.
+  Whether the partner panel shows pre-break days vs only
+  post-pair days is a separate UX decision (currently shows
+  everything via `user_id`; deferred for v1.x).
+- **Adversarial re-pair attempt.** A un-pairs and changes
+  username via the follow-up popup. B types A's old values
+  into `Add my partner` and fails to match. B has no in-app
+  recourse; the protection works as intended.
+- **B dismisses banner then later wants to remember A's
+  username.** Information is gone from B's app. They'd have
+  to ask A directly. This is correct behaviour — the banner is
+  for confusion-resolution, not record-keeping.
+
+#### Solo recovery implications
+
+A solo user (post-un-pair or never-paired) has no pair_key. The
+six-value partner-mediated recovery doesn't apply to them.
+
+Solo recovery options:
+- **Primary recovery for solo:** identity.cfg backup via
+  iOS Keychain / Android Keystore / iCloud Keychain / Google
+  Drive backup. The user_id rides along in the OS-level backup,
+  device-restore brings it back, app picks up where it left
+  off. This is how most apps handle device replacement.
+- **No partner-mediated recovery for solo.** The pair_key
+  mechanism is specifically a property of being paired. Solo
+  users use the standard device-backup mechanism every other
+  app on the phone uses.
+
+This sharpens what pair_key actually IS in the system: a bonus
+recovery layer that exists *because* you're paired, leveraging
+your partner's screen as a second human verification vector.
+When you're not paired, the bonus layer doesn't apply; you fall
+back to standard device backup.
+
+Implementation note for Phase 4/5: ensure identity.cfg is in
+the OS backup scope on both iOS and Android. This may need
+explicit configuration in the export settings. Treat as a tile
+under Phase 5.
+
+### Group / triple expansion (NOT designed)
+
+Architecturally feasible under user_id because the data model
+doesn't enforce "one pair per user" — that's a UX-layer
+constraint. Could in principle support a user being linked to
+multiple pairs simultaneously.
+
+NOT v1.0 scope. NOT v1.x scope. If it happens, it's a v2
+deliberate product expansion driven by monetisation (Morgan's
+sketch: "third calendar slot, paid in coins, swipe past
+partner panel to access").
+
+Open questions if it ever ships:
+- **What's a "group"?** Star graph (one user has multiple pair
+  relationships, others don't see each other) or full mesh
+  (group members all see each other)? Different products.
+- **Pair-key extension.** The six-value hash is bilateral.
+  Group recovery would need a different mechanism — possibly
+  each pair in the group has its own pair_key independently.
+- **UX.** The two-panel swipe breaks at three. Replaced with
+  what? A switcher? A scrollable strip? Different shape.
+- **Monetisation.** Coins to unlock the third slot, then the
+  fourth, etc. Naturally pushes for subscription (subs earn
+  coins faster). Fits the buddyware ethos (paid = more
+  accountability surface) without breaking the v1.0 promise.
+- **Social texture.** Two-person calendars have a specific
+  intimacy. Multi-person calendars feel more like a project
+  tracker or group chat. Might be a different product
+  entirely, not just a Four Tasks feature.
+
+These are real product questions, not engineering questions.
+Defer to a dedicated design conversation if/when group
+expansion is on the roadmap.
+
+### What lands in implementation
+
+For v1.0:
+- Symmetric un-pair flow (tile 4.21).
+- Change-username follow-up popup (part of tile 4.21).
+- Dismissable banner mechanism (part of tile 4.21).
+- `pending_unpair_notice` column in migration_005.
+- Dismiss endpoint (part of tile 4.21).
+- Solo state as a first-class state (pair_id NULL is fine).
+- Solo recovery via OS-level identity.cfg backup (Phase 5).
+
+For v1.x (post-launch):
+- Re-pairing UX refinements (does the partner panel show all
+  user_id history or only post-pair-creation? Deferred to
+  actual usage data).
+- Optional pair keepsake feature (export a record of a
+  dissolved pair's shared days as an image). Low priority,
+  high goodwill.
+
+For v2 (if ever):
+- Group / triple expansion.
 
 ---
 
@@ -1462,10 +1711,15 @@ report's lifecycle to the pair's lifecycle.
 
 ## 19. Cross-references
 
-- `four_tasks_write_rules_design_notes.md` — server-side defensive
-  writes, where rotation transactions live. Schema deltas for
-  migrations 003 + 004 + 005 bundled here. Migration 005 absorbs
-  the Option B + user_id structural changes.
+- `four_tasks_write_rules_design_notes.md` — **SUPERSEDED** at
+  session 11 close. The session-4 doc described the pre-session-10
+  data model (pair-key as partition key, copy-then-delete
+  rotations, no user_id). Its rules now live authoritatively
+  across the architecture docs (this doc for rotation + validation
+  + defensive writes, the feature docs for column rules, the
+  project conventions for response envelope + status codes +
+  caller). The eventual `/server/README.md` will be the working
+  reference artifact. Kept in git history for context only.
 - `four_tasks_theme_design_notes.md` — full theme slot catalogue.
   `active_leader` is one slot in the catalogue (the identity-hashed
   one); the rest live in the `active_theme` JSON.
