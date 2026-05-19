@@ -1,6 +1,6 @@
 # Staggered Feature Disclosure — Design Principle
 
-**Status:** LOCKED as a design principle (session 2, refined session 5, substantial revisions session 8 to reflect onboarding scope expansion and week mode v1.0 inclusion).
+**Status:** LOCKED as a design principle (session 2, refined session 5, substantial revisions session 8 to reflect onboarding scope expansion and week mode v1.0 inclusion, tutorial_progress merge semantics added session 12).
 
 **Scope:** this is a *meta-principle* about how features are introduced to the user over time. It doesn't dictate which features exist; it governs *when* the user discovers them.
 
@@ -160,6 +160,8 @@ Single column holding a JSON object of feature-name → timestamp (or null for n
 
 Forward-compatible with future feature additions without schema migrations. Schema reservation lands alongside the coin names schema (per the coin name design notes' reservation pattern).
 
+**Merge semantics:** trivial by design. Once a reveal has fired for a user, the server sets `tutorial_progress[reveal_id]` to the timestamp and it is immutable for the life of that user record. Reveals never re-fire — not on reinstall, not on a new device, not on any subsequent session. The server is the source of truth; the client treats any non-null entry as "already shown, skip." The client never writes a null back over a non-null entry. Timestamps are informational only, not load-bearing for any logic. Users who want to revisit a reveal's content go to the help menu, which surfaces all reveal content as plain reference docs.
+
 ### 2. TutorialCoordinator autoload
 
 Godot-side autoload checks on app boot and at key state transitions:
@@ -199,7 +201,7 @@ The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup
 - **Morning sequence (tile 4.6)** — natural surfacing window for scheduled reveals on subsequent days. Day-2 long-press philosophy fires here. Day-3 rest day intro fires here. Day-4 partner reactions fires here.
 - **Week mode tutorial** — chained off the day-2 long-press philosophy reveal. Implementation lands alongside week mode feature in v1.0.
 - **MOTD reroll** — fully introduced in onboarding screen 6. No separate reveal needed.
-- **Help menu (tile 4.11)** — always-available escape hatch from the staggered approach.
+- **Help menu (tile 4.11)** — always-available escape hatch from the staggered approach. Scope obligation: must include reference copy for every staggered reveal (day-2 philosophy, day-3 rest day, day-4 partner reactions, picker context menu, coin name personalisation, subscription disclosure, streak milestones). The "reveals never re-fire" rule depends on the help menu being a complete reference for users who dismissed too fast or want to revisit.
 - **Basic sticker picker (tile 4.14a, pre-fork)** — pool toggle is available immediately. No reveal needed. APPtrioc inherits this picker.
 - **Sticker picker context menu (tile 4.14b, post-fork)** — trigger-gated on first picker open, not day-7 scheduled. APPtrioc never gets this surface (it's the conversion mechanic).
 - **Partner reactions (tile 4.16)** — day-4 scheduled reveal + trigger-gated reaffirmation if reaction lands earlier.
@@ -223,7 +225,7 @@ The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup
 - `four_tasks_monetisation_position.md` — day-21 subscription disclosure builds on the day-0 library-sharing plant.
 - `four_tasks_week_mode_design_notes.md` — week mode is v1.0 scope (session 8 decision). Tutorial fires via the day-2 long-press philosophy cascade.
 - `four_tasks_achievements_brainstorm.md` — counter-example: hidden Easter-egg achievements explicitly DO NOT use staggered disclosure. Pure discovery, no scheduled reveal.
-- Tile 4.11 (help menu) — the "show me everything" escape valve.
+- Tile 4.11 (help menu) — the "show me everything" escape valve. Scope obligation noted in cross-cutting hooks above.
 - Future tile: TutorialCoordinator autoload + `tutorial_progress` schema reservation on `users`.
 
 ## Session 8 changes summary
@@ -236,3 +238,8 @@ The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup
 - Gesture-dismissal popup pattern introduced as new tutorial language primitive.
 - Week mode pulled into v1.0 scope, tutorial chained off day-2 long-press reveal.
 - Cross-reference to onboarding design notes updated to reflect expanded floor.
+
+## Session 12 changes summary
+
+- `tutorial_progress` merge semantics paragraph added to architectural implications section 1. Server-as-source-of-truth, reveals immutable once fired, never re-show across reinstalls or devices. Closes the parked item from session 11.
+- Help menu (tile 4.11) cross-cutting hook upgraded with scope obligation: must carry reference copy for every staggered reveal. The immutability of reveals depends on the help menu being a complete fallback.
