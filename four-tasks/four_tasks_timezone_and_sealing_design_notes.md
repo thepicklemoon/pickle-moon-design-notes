@@ -1,9 +1,11 @@
 # Four Tasks — Timezone & Sealing Design Notes
 
-Status: LOCKED (session 6, mobile drafting)
-Supersedes: tile 1.4 prior framing as "Worker scheduled cron — nightly sweep"
-Required reading before: tile 1.3 implementation, tile 1.4 (now reframed),
-                         tile 4.6 (morning sequence coordinator)
+Last edit: 2026-05-21 AWST
+
+Status: LOCKED (session 6, mobile drafting). Implementation landed
+at tile 1.3, session 12 — lazy seal absorbed into the claim endpoint
+transaction in `server/src/index.ts`. Tile 1.4 closed as absorbed.
+Required reading before: tile 4.6 (morning sequence coordinator).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PROBLEM
@@ -45,37 +47,39 @@ DECISION SUMMARY
 SCHEMA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-migration_004_user_timezone.sql:
+In the v1.0 schema (`server/schema.sql`, session 12 lock):
 
-  ALTER TABLE users ADD COLUMN timezone TEXT NOT NULL DEFAULT 'UTC';
+  users.timezone TEXT NOT NULL DEFAULT 'UTC'
 
 Notes:
 - IANA name only. "Australia/Perth", "Europe/London", "America/New_York".
-- DEFAULT 'UTC' is a safety net for pre-existing rows. Onboarding
-  always writes the real value, so new users never hit the default.
+- DEFAULT 'UTC' is a safety net; onboarding always writes the real
+  device timezone, so new users never hit the default.
 - Not part of the pair-key. Changing timezone (travel, move, DST shift
-  if name changes — e.g. "Europe/Kiev" → "Europe/Kyiv") MUST NOT
-  trigger a pair-key migration. This is a render-and-date-math field.
-- Mutable via PUT /pair/:key/users/:target (already a write rule
-  endpoint per tile 1.3 design).
-
-Apply alongside or after migration_003. Order doesn't matter — they
-touch different columns.
+  if name changes — e.g. "Europe/Kiev" → "Europe/Kyiv") does not
+  trigger a pair-key rotation. This is a render-and-date-math field.
+- Mutable via `PUT /users/:user_id` (session 12 endpoint).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CLIENT BEHAVIOUR
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+Boot-only sync. The client checks timezone exactly once per app boot,
+not on a polling loop. If the user changes timezone mid-session
+(stepped off a plane and opened the app, then crossed time zones
+without quitting), the change gets caught on next boot. The cost of
+missing a mid-session timezone change for a few hours is zero in
+this product; the cost of polling is real (battery, write churn).
+
 On every app boot:
   1. Read the device's current IANA timezone.
   2. Compute local_date as the user's current calendar date in that tz.
   3. If the device timezone differs from the stored server-side
-     timezone, fire PUT /pair/:key/users/:self with the new timezone
-     before any other work. This is the "I just landed in Sydney"
-     case. Single write, fire-and-forget; failure means we'll catch
-     it next boot.
-  4. Proceed to load pair state, run morning sequence if
-     morning_payout_due_for indicates a payout is owed, etc.
+     timezone, fire `PUT /users/:user_id` with the new timezone
+     before any other work. Single write, fire-and-forget; failure
+     means we'll catch it next boot.
+  4. Proceed to load user state, run morning sequence if the claim
+     endpoint indicates a payout is owed, etc.
 
 On every write that depends on "what day is it":
   Client sends local_date in the payload. Server validates the date
@@ -107,71 +111,69 @@ IANA names natively and Cloudflare Workers run modern V8). Do not
 roll your own DST math. Do not store offsets like "+08:00" — they
 break across DST transitions. IANA names only.
 
-The claim endpoint (see morning sequence doc) uses the stored
-timezone and the client-reported local_date together:
-  - Server reads users.morning_payout_due_for.
-  - If morning_payout_due_for is non-null AND <= the reported
-    local_date, fire the payout, null the field, and seal any
-    intervening days.
-  - If morning_payout_due_for is null or > the reported local_date,
-    no payout owed, return 200 with empty payload.
+The claim endpoint (`POST /users/:user_id/claim`, session 12) uses
+the stored timezone and the client-reported local_date together:
 
-Sealing intervening days: if the user was offline for three days,
-their morning_payout_due_for might be 2026-05-11 and they're opening
-on 2026-05-14. Days 11, 12, 13 all need to be sealed (locked,
-multiplier resolved against partner's state, written immutable).
-Server walks the gap inside the claim transaction. This is bounded
-work — even a year offline is 365 row updates, tiny.
+  - Server walks back from local_date - 1 looking for the most
+    recent unsealed past day belonging to this user that has data.
+    By app-open semantics there is AT MOST ONE such row.
+  - If found, the seal-and-payout transaction runs against that
+    row: stamp tier resolved, coins computed, streak updated,
+    theme snapshot written, `sealed_at` set. Atomic.
+  - If not found (user has already claimed everything, or has no
+    past days with data), claim returns 200 with empty payout.
+
+Note on the "intervening days" framing in earlier drafts: the
+session 12 implementation does NOT walk a multi-day gap and seal
+each one. The user has at most one unsealed day at any time
+because every app open triggers the same walkback. If the user
+opens the app three days late, day-1's seal happened at day-2's
+open, day-2's at day-3's, day-3's seals today. The single-row
+walkback is correct by the same reasoning the
+`morning_payout_due_for` column was redundant (session 12).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TILE 1.4 REFRAMED
+TILE 1.4 — ABSORBED INTO TILE 1.3 (session 12)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-OLD: "Worker scheduled cron — nightly sweep. Walks all pairs at
-      midnight (UTC or per-pair timezone, decision pending), seals
-      yesterday's diary entries."
-
-NEW: "Lazy seal-on-open. Sealing logic lives in the claim endpoint
-      (tile 1.3 write rules). When a user opens the app and the
-      claim endpoint fires, any unsealed days <= the user's
-      current local_date - 1 get sealed in the same transaction."
+Tile 1.4 was originally framed as "Worker scheduled cron — nightly
+sweep." That framing was superseded at session 6 to "lazy seal-on-
+open inside the claim endpoint transaction" (this doc). The
+implementation then landed inside tile 1.3 at session 12, since the
+seal logic is the claim endpoint's core responsibility — splitting
+it across two tiles would have been ceremonial.
 
 There is no cron job. There is no Worker scheduled trigger. The
-Worker only runs on incoming HTTP requests. This is simpler, removes
-a moving part, and removes the "user offline at midnight" edge case
-entirely — sealing happens when the user shows up, and only for
-that user's row.
+Worker only runs on incoming HTTP requests. Sealing happens when
+the user shows up, only for that user's row.
 
-Tile 1.4 now becomes part of tile 1.3 implementation in practice
-(the seal logic lives inside the claim endpoint transaction). The
-tile is kept on the list as a separate line item only because the
-seal logic is conceptually distinct from the payout logic and is
-worth its own commit + curl-verification pass.
+Tile 1.4 is closed in the todo as "absorbed into tile 1.3."
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CROSS-USER INTERACTION (revisited)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Confirmed minimal:
+For v1.0 the cross-user surface is read-only:
 
-  1. Partner reactions: writes to partner's row, sealed days only.
-     Already locked in partner reactions design doc. Sealed-ness is
-     per-user; partner reacting to your sealed day-N is fine even
-     if their day-N is still open on their side.
-
-  2. 1.5x multiplier check: when computing your payout, server
-     reads your partner's most recent day completion. No write to
-     their row, no dependency on their seal state — past days are
-     immutable by write rules regardless of explicit seal flag.
-
-  3. Partner panel rendering: read-only. Client uses the partner's
+  1. Partner panel rendering: read-only. Client uses the partner's
      stored timezone to compute "are they in a new local day" purely
      for display (e.g. "their today is empty because their day just
      rolled" vs "their today is empty because they haven't done
      anything yet"). No DB writes triggered.
 
-That's the entire cross-user surface. No bridging code needed beyond
-what these three already imply.
+  2. (Coin multiplier check, if/when added: server reads partner's
+     most recent day completion. No write to their row, no
+     dependency on their seal state. Not in session 12 claim
+     implementation; placeholder coin formula is per-task random
+     900-1400, no partner-dependent multiplier yet.)
+
+Partner reactions (deferred at session 12, originally the third
+cross-user case) would have introduced a partner-writes-to-other-
+user's-row endpoint. Eliminated from v1.0; schema columns retained
+for v1.x.
+
+That's the entire cross-user surface for v1.0. No bridging code
+needed beyond reads.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NON-GOAL: ANTI-DATE-SCRUBBING
@@ -181,17 +183,19 @@ We are not defending against users changing their device clock to
 farm coins. The existing protections already handle the realistic
 abuse surface:
 
-  - morning_payout_due_for is a single-use voucher. Server issues
-    one per user-day; once claimed, nulled. Rolling the clock
-    forward skips days, doesn't farm them.
+  - The claim endpoint walkback finds at most one unsealed past day
+    per call. Rolling the clock forward skips days, doesn't farm
+    them — the skipped days remain unsealed and can be claimed if
+    the clock goes back to where it should be, but each day still
+    yields one payout.
 
   - Rolling the clock backward is rejected by the local_date
     plausibility check (server compares against stored timezone +
     a generous window).
 
-  - No leaderboard is planned, removing the primary motivation for
-    coin farming. (If a leaderboard ever ships, this section gets
-    revisited.)
+  - No leaderboard is planned for v1.0 (deferred), removing the
+    primary motivation for coin farming. (If a leaderboard ever
+    ships, this section gets revisited.)
 
   - The theoretical "scrub-to-unlock-everything-then-sell-account"
     attack is real but vanishingly rare and already economically
@@ -246,18 +250,17 @@ transition boundary.
 RELATED TILES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-- Tile 1.3 (defensive write rules): the local_date plausibility
-  check and seal-on-claim logic land here. Update tile 1.3 scope
-  to reference this doc.
-- Tile 1.4 (cron sweep): reframed to seal-on-open. Tile description
-  updated to reflect new architecture. Implementation merges with
-  tile 1.3 transaction.
-- Tile 3.2 (Welcome step) or wherever onboarding captures device
-  timezone: add a line "silently read and store IANA timezone."
-- Tile 4.6 (morning sequence coordinator): the claim endpoint
-  contract documented in the morning sequence doc gains a
-  local_date parameter. Update the morning sequence doc's claim
-  endpoint section with a cross-reference here.
+- Tile 1.3 (defensive write endpoints): CLOSED session 12. The
+  local_date plausibility check and seal-on-claim logic landed
+  here.
+- Tile 1.4 (cron sweep): CLOSED as absorbed into tile 1.3 claim
+  endpoint transaction.
+- Tile 3.x (Welcome / onboarding screens): the onboarding flow
+  silently reads device timezone and stores it via the user
+  creation endpoint. No UI surface for timezone in onboarding.
+- Tile 4.6 (morning sequence coordinator): claim endpoint contract
+  documented in the morning sequence doc takes a local_date
+  parameter.
 - Future settings screen tile (no number yet): exposes timezone
   as read-only display with manual override.
 

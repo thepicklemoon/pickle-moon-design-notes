@@ -1,8 +1,10 @@
 # Four Tasks — Week Mode Design Notes
 
-Status: DESIGN LOCKED (session 8 mobile, session 12 cascade flow added)
-        Implementation deferred — not part of any current tile.
-        Lands as a v1.x feature, post-launch.
+Last edit: 2026-05-21 AWST
+
+Status: DESIGN LOCKED (session 8 mobile, session 12 cascade flow added).
+        v1.0 scope (promoted from v1.x at session 9).
+        Implementation tile not yet numbered; lands in Phase 4.
 
 Schema implications: one new optional table (user_weekday_overrides).
 Reveal: day-2 cascade from long-press philosophy reveal (per staggered
@@ -700,11 +702,6 @@ RELATED DOCS
     Weekday-of-today calculation uses the user's IANA timezone.
     Sealed past days are immutable, which constrains template
     propagation rules.
-
-  - four_tasks_write_rules_design_notes.md
-    week mode columns and user_weekday_overrides are self-write
-    only. Partner cannot read or write either. Write rules at
-    implementation time enforce this.
 
   - four_tasks_pair_key_design_notes.md (v2)
     Neither week mode columns nor user_weekday_overrides

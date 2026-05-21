@@ -1,10 +1,14 @@
 # Four Tasks — Morning Sequence Design Notes
 
-Status: LOCKED for v1.0 implementation (session 5, terminology refreshed session 7)
-Implementation tile: 4.6 (full coordinator)
+Last edit: 2026-05-21 AWST
+
+Status: LOCKED for v1.0 (session 5, terminology refreshed session 7).
+Claim endpoint landed session 12 as `POST /users/:user_id/claim` in
+`server/src/index.ts`. Coordinator (client-side) is tile 4.6, pending.
 Related tiles: 4.4 (slot machine), 4.5 (MOTD reroll cost),
-4.7 (stamp slap animation), 4.8 (rest day system), 4.16 (partner
-reactions surfacing), the claim_morning endpoint (lands with tile 1.3).
+4.7 (stamp slap animation), 4.8 (rest day system).
+Partner reaction surfacing (4.16) is DEFERRED v1.x — see deferred/
+folder. References to that tile in this doc remain for v1.x context.
 
 The morning sequence is the centrepiece of the daily experience.
 Four sessions of design conversation circled it without ever
@@ -53,9 +57,12 @@ The beats, in order:
   1. User opens app. Calendar visible. No trays open. (Q3 lock —
      calendar always opens flat, sequence is overlay-on-top.)
 
-  2. App checks `users.morning_payout_due_for`. If NULL, no
-     sequence — user retains control immediately. If set to a
-     date, sequence begins.
+  2. Client fires `POST /users/:user_id/claim` with today's
+     local_date. Server walks back for the most recent unsealed
+     past day with data. If none, response payload is empty and
+     no sequence plays — user retains control immediately. If
+     found, the response contains the sealed-state payload
+     (stamp, message, coins, streak) and the sequence begins.
 
   3. The specified yesterday's day cell is tapped automatically.
      Task tray slides out for that day, using the normal tray
@@ -151,31 +158,30 @@ not the payout itself.
 
 This makes the sequence robustly crash-resistant by design:
 
-  - If the app crashes BEFORE animation begins:
-    Next launch sees `morning_payout_due_for = <date>`, replays
-    the full sequence. No data loss.
+  - If the app crashes BEFORE the claim endpoint fires:
+    The relevant past day is still unsealed. Next launch hits
+    the walkback, finds the same unsealed day, plays the full
+    sequence. No data loss.
 
-  - If the app crashes DURING the animation:
-    Server has not yet been told the user "watched" the sequence
-    (the claim endpoint hasn't fired). Server flag is still set.
-    Next launch replays the full sequence from the start. User
-    sees their coins already accounted for in the counter (because
-    the server's coin balance was updated by the seal-on-open
-    transaction, not by the claim endpoint visually). MOTD will
-    be a new random one. Cosmetic-only loss is "I didn't see the
-    moment happen." Acceptable degradation.
+  - If the app crashes DURING the animation (claim has fired,
+    server already sealed the day and paid out):
+    Day is sealed; coins are credited. Next launch — walkback
+    finds no unsealed past day, no sequence plays. Calendar
+    just shows yesterday already stamped, today already has
+    its MOTD. User skips the ceremony. The cosmetic-only loss
+    is "I didn't see the moment happen." Acceptable
+    degradation.
 
-  - If the app crashes AFTER the claim endpoint fires but before
-    the sequence visually completes:
-    Server flag is cleared. Next launch — no sequence. Calendar
-    just shows yesterday already stamped, today already has its
-    MOTD. User skips the ceremony. This is the least-good case
-    but still data-correct.
+  - If the network fails on the claim call itself:
+    Day stays unsealed (transaction never committed). Client
+    retries on next launch. Robust.
 
 The "infinite coins" failure mode (user crashes at the right
 moment, gets paid multiple times) is structurally impossible
 because the claim endpoint is atomic and idempotent on the
-server side — see CLAIM ENDPOINT ARCHITECTURE below.
+server side — the sealing is part of the same transaction that
+pays out, so a "did pay, didn't seal" half-state can't exist.
+See CLAIM ENDPOINT ARCHITECTURE below.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE BASE STATE IS ALWAYS CALENDAR-FLAT (Q3)
@@ -235,14 +241,15 @@ claim, their partner panel updates live.
 
 THE LOAD-BEARING INSIGHT:
   The morning sequence's stamp/MOTD/payout is only visible to
-  the partner *after the user claims*. The server flag
-  `morning_payout_due_for` gates this. Until the claim endpoint
-  fires:
+  the partner *after the user claims*. The `days.sealed_at`
+  timestamp gates this. Until the claim endpoint fires:
     - days.stamp is NULL for that date (or unset to partner's view)
-    - days.diary still shows yesterday's MOTD (no change yet)
+    - days.motd still shows yesterday's MOTD (no change yet)
+    - days.sealed_at is NULL
   After the claim:
-    - days.stamp is populated with tier colour
-    - days.diary may have been updated with the new MOTD's text
+    - days.stamp is populated with tier message
+    - days.motd may have been updated with the new MOTD's text
+    - days.sealed_at is populated with the claim timestamp
     - partner's polling will pick this up
 
 CRITICAL BUG TO AVOID:
@@ -286,15 +293,17 @@ the most recent day they actually ticked anything on. Everything
 since then is empty and gets no ceremony, no stamp, no message.
 
 THE WALKBACK ALGORITHM:
-  On app open, the seal-on-open transaction walks back from
-  the user's current local date looking for the most recent
-  date where:
+  Inside the claim endpoint, the server walks back from the
+  user's current local_date - 1 looking for the most recent
+  past day where:
     - days.tasks_done > 0 (or days.rest_day = 1), AND
-    - days.stamp IS NULL (not yet ceremoniously sealed)
-  That's the date to set as morning_payout_due_for. The morning
-  sequence plays for that date.
+    - days.sealed_at IS NULL (not yet sealed)
+  That's the date the morning sequence plays for. The walkback
+  derives "is a payout owed?" from row state directly — there is
+  no separate `morning_payout_due_for` column (dropped session
+  12 as redundant under lazy-seal).
   If no such date exists (e.g. fresh install, or all prior days
-  fully processed), no sequence fires.
+  fully sealed), the claim returns empty and no sequence fires.
 
 STREAK CONSEQUENCES:
   Days between the last-ticked day and today are empty. Streak
@@ -549,59 +558,50 @@ TILE 4.5 DESCRIPTION CHANGE:
 CLAIM ENDPOINT ARCHITECTURE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Specced in four_tasks_write_rules_design_notes.md "Deferred /
-parked items" section. This doc consolidates the requirements.
+Landed at session 12 as `POST /users/:user_id/claim` in
+`server/src/index.ts`. This section now documents what shipped, not
+what's specced.
 
 ENDPOINT:
-  POST /pair/:key/users/:target/claim_morning
-  Empty request body. Server knows what's pending from the
-  morning_payout_due_for column.
+  POST /users/:user_id/claim
+  Body: { local_date: "YYYY-MM-DD" } (the user's current local date,
+  per the timezone doc envelope rule).
 
-INTEGRATED WITH SEAL-ON-OPEN:
-  Per the timezone doc, sealing of yesterday happens during the
-  claim endpoint transaction itself (NOT via a nightly cron).
-  The claim endpoint:
-    1. Reads user's local_date from the request envelope (sent
-       on every write per the timezone doc).
-    2. If local_date has advanced past the most recent sealed
-       day, performs seal-on-open: marks intervening days as
-       sealed, computes streak, sets morning_payout_due_for
-       for the latest ticked day if any.
-    3. Then proceeds with claim logic against the pending
-       payout.
-  Tile 1.4 (formerly "nightly cron") is REFRAMED as part of the
-  claim endpoint's transaction surface.
+WALKBACK + SEAL + PAYOUT (atomic):
+  Server runs a single D1 transaction:
 
-ATOMICITY:
-  Single D1 transaction. Server:
-    1. Seal-on-open prelude (per timezone doc).
-    2. Reads users.morning_payout_due_for for the target user.
-       If NULL, return 404 (nothing to claim — defensive against
-       double-claim races).
-    3. Reads days.tasks_done for (pair, target, that date).
-    4. Computes stamp tier from tasks_done count (or detects
-       rest day from days.rest_day field).
-    5. Picks random message from the appropriate tier pool
-       (server-held content; not on client).
-    6. Writes days.stamp = tier_colour.
-    7. Captures days.day_theme_state JSON snapshot from the
-       user's active_leader + active_theme + active_stickers
-       at this moment. Immutable past — this snapshot drives
-       the historical theme renderer per monetisation v2.0.
-    8. Writes days.diary if MOTD has been rerolled (the new
-       MOTD text from the spinner). Note: this may interact
-       with how diary writes are tracked — the MOTD that lands
-       at end of morning sequence becomes the *new* day's
-       MOTD, not yesterday's. May need a separate "today's
-       MOTD" field on users or on days for today's row. To be
-       designed during tile 4.6 implementation.
-    9. Pays out coins: tasks_done count × per-task coin amount,
-       multiplied by current streak multiplier if any. Updates
-       users.coins.
-   10. Updates users.streak (increment if four-of-four, hold if
-       rest day, reset if less than four).
-   11. Clears users.morning_payout_due_for (sets to NULL).
-   12. Commits transaction.
+    1. Walks back from local_date - 1 looking for the most recent
+       unsealed past day belonging to this user_id that has data
+       (any task ticked OR rest_day = 1). By app-open semantics
+       there is AT MOST ONE such row.
+    2. If none found: return 200 with empty payout. No state change.
+    3. If found:
+       a. Computes stamp tier from tasks-done count + rest_day flag.
+          Mapping per stamp tier doc: 1=red, 2=orange, 3=yellow,
+          4=green, rest=purple. 0-tasks non-rest excluded (no stamp).
+       b. Picks random message from the appropriate tier pool
+          (`server/src/stamp_messages.ts`, currently stubbed).
+       c. Computes coins: per-task random integer in [900, 1400]
+          summed across completed tasks. Rest day = 0 coins.
+          Intentionally obfuscated per session 12 lock — variance
+          prevents formula-gaming. Avg ~1150/task, ~4800 for 4-of-4.
+          (Placeholder pending balance pass — no streak multiplier
+          or subscription bonus yet.)
+       d. Computes streak update: green +1, rest unchanged, anything
+          else 0. Updates `users.longest_streak` via max.
+       e. Captures `days.day_theme_state` JSON snapshot from the
+          user's current theme state. Immutable past — drives the
+          historical theme renderer per monetisation v2.0.
+       f. Writes `days.stamp` = chosen message, `days.sealed_at` =
+          claim timestamp.
+       g. Updates `users.coins`, `users.streak`, `users.longest_streak`.
+       h. Commits.
+
+NO morning_payout_due_for COLUMN:
+  The session 12 implementation dropped this column as redundant.
+  The walkback derives "is a payout owed?" from row state directly
+  (most recent unsealed past day with data). Architectural
+  preference applied — fewer columns, single source of truth.
 
 RESPONSE BODY:
   Returns the full state the client needs to play the sequence
@@ -626,8 +626,9 @@ RESPONSE BODY:
   cosmetic — the data is the truth.
 
 IDEMPOTENCY:
-  Second call after first succeeds: 404 (morning_payout_due_for
-  is NULL). No double-payout. Safe.
+  Second call after first succeeds: returns 200 with empty payout
+  (the walkback finds no unsealed past day, because the previous
+  claim sealed it). No double-payout. Safe.
 
 CLIENT CALL TIMING:
   Open question — when in the sequence does the client fire the
@@ -635,7 +636,7 @@ CLIENT CALL TIMING:
     Option A: at sequence start (when user opens app, before
               animations begin). Server response drives the
               animation. Crash mid-animation means no replay
-              (server already cleared the flag).
+              (server already sealed the day).
     Option B: after stamp lands (mid-sequence). Animation up to
               that point runs against client-cached
               expectations; from stamp onward uses server data.
@@ -657,6 +658,14 @@ CLIENT CALL TIMING:
   automatically). Response data populates the rest of the
   sequence. Decide finally at tile 4.6 implementation.
 
+OPEN: "TODAY'S NEW MOTD" STORAGE:
+  The MOTD that lands at end of morning sequence becomes the
+  *new* day's MOTD, not yesterday's. The session 12 schema treats
+  `days.motd` as the day's persistent MOTD (one per date). The
+  client writes today's MOTD to `days/:date` after the sequence
+  ends. Earlier drafts speculated about a separate "today's MOTD"
+  field on users — not needed. Resolved at tile 4.6.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 INTERRUPTION MODEL
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -666,15 +675,15 @@ What happens if the user backgrounds the app mid-sequence?
 GIVEN the claim endpoint architecture above (Option A — claim
 at sequence start), the answer collapses cleanly:
 
-  - If claim has fired before backgrounding: server flag is
-    cleared. When user foregrounds, no sequence replays. They
-    see the calendar with yesterday already stamped and today's
-    MOTD already in place. They missed the moment but the data
-    is correct.
+  - If claim has fired before backgrounding: the day is sealed.
+    When user foregrounds, the walkback finds no unsealed past
+    day and no sequence replays. They see the calendar with
+    yesterday already stamped and today's MOTD already in place.
+    They missed the moment but the data is correct.
 
   - If claim has NOT yet fired before backgrounding (extreme
     edge case — they opened the app and immediately
-    backgrounded within ~200ms): server flag is still set.
+    backgrounded within ~200ms): the day is still unsealed.
     Foregrounding plays sequence from start.
 
 In practice, the claim fires very early in the sequence (~1
@@ -683,20 +692,24 @@ small. Most backgroundings happen mid-animation, after claim.
 
 DEGRADATION CASES:
   - Network failure on claim: client retries on next open.
-    Server flag still set. Sequence replays. Robust.
-  - Server 500 on claim: same — flag still set, replay on next
-    open.
+    Day still unsealed. Sequence replays. Robust.
+  - Server 500 on claim: same — day still unsealed, replay on
+    next open.
   - User backgrounds during the partial animation that runs
     before claim returns: animation queued, finishes on
     foreground OR cancels and replays from start. Implementation
     decision at tile 4.6.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MIGRATION WINDOW PROPERTY
+ROTATION WINDOW PROPERTY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+(Was "migration window" in earlier drafts. Session 10 reserved
+"migration" for schema migrations; the pair-key change event is
+now "rotation." See pair-key design notes.)
+
 The morning sequence's user-locked-out window has been called
-"the natural migration window" in earlier design docs (notably
+"the natural rotation window" in earlier design docs (notably
 four_tasks_pair_key_design_notes.md). This doc constrains
 that claim with real numbers.
 
@@ -706,11 +719,11 @@ time to perform writes.
 
 BUDGET: roughly 15-30 seconds of uninterruptible animation,
 during which any server-side work tied to the user's identity
-(pair-key migration in particular) can be performed safely.
+(pair-key rotation in particular) can be performed safely.
 
 WHAT FITS COMFORTABLY:
   - The claim endpoint's atomic transaction (likely <100ms).
-  - One pair-key migration completing on the server side
+  - One pair-key rotation completing on the server side
     (current estimate: a few D1 transactions, <1s total).
   - Polling cycle catch-up on the partner side.
 
@@ -718,16 +731,16 @@ WHAT DOESN'T FIT:
   - Bulk data operations (e.g. processing accumulated
     notifications across weeks of absence). Don't try to bundle
     these into the morning sequence window.
-  - User-facing migration UX moments. If migration needs to
+  - User-facing rotation UX moments. If rotation needs to
     explain itself to the user, that's outside the sequence.
 
 HARD UPPER BOUND:
-  If any migration or operation cannot complete in the morning
+  If any rotation or operation cannot complete in the morning
   sequence window, design needs to either (a) split it into
-  pre-claim and post-claim halves, or (b) accept the migration
+  pre-claim and post-claim halves, or (b) accept the rotation
   may need a follow-up sync after control returns.
 
-The point: don't treat "the morning sequence is the migration
+The point: don't treat "the morning sequence is the rotation
 window" as a magic bucket. It's a real time budget. Measure and
 respect it.
 
@@ -751,18 +764,16 @@ Implementation:
     itself; layered after.
 
 Data layer:
-  - 1.3 (Worker defensive write rules) — already-locked design
-    covers the claim endpoint's write rules.
-  - 1.4 (lazy seal-on-open, REFRAMED) — sealing happens during
-    the claim endpoint transaction, not via a nightly cron.
+  - 1.3 (Worker defensive write endpoints) — CLOSED session 12.
+    Claim endpoint shipped as `POST /users/:user_id/claim`.
+  - 1.4 (lazy seal-on-open) — CLOSED, absorbed into tile 1.3.
     See timezone doc for full architecture.
-  - Future: claim endpoint implementation tile (post-1.3).
 
 Partner-side:
   - 2.8 (partner panel polling) — picks up the day-cell state
     change after the user claims.
-  - 4.16 (partner reactions) — surfacing model from Q7 lives
-    in that tile's implementation.
+  - 4.16 (partner reactions) — DEFERRED v1.x. Surfacing model
+    from Q7 preserved for v1.x implementation.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WHAT THIS DOC LEAVES OPEN
@@ -788,10 +799,6 @@ Decisions deferred to tile 4.6 implementation:
     authoring.
   - Background-mid-sequence interruption animation handling
     (cancel + restart vs queue + finish).
-  - Final shape of how today's new MOTD is stored — diary
-    field on today's row, or a separate users-level "current
-    MOTD" field. Affects schema slightly. Resolve at tile 4.6
-    implementation.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RELATED DOCS
@@ -799,17 +806,13 @@ RELATED DOCS
 
   - four_tasks_pair_key_design_notes.md
     Identity model. The "morning sequence is the natural
-    migration window" property is constrained here.
-
-  - four_tasks_write_rules_design_notes.md
-    Claim endpoint defensive write rules. Schema deltas for
-    migrations 003 + 004 + 005 bundled here.
+    rotation window" property is constrained here.
 
   - four_tasks_timezone_and_sealing_design_notes.md
     Seal-on-open architecture. The claim endpoint and seal logic
     share the same transaction surface.
 
-  - four_tasks_partner_reactions_design_notes.md
+  - four_tasks_partner_reactions_design_notes.md (DEFERRED v1.x)
     Q7's surfacing model supersedes "Surfacing reactions to
     the receiver" section in that doc.
 

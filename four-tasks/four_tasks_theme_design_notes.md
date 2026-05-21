@@ -1,6 +1,6 @@
 # Four Tasks — Theme & Sticker System Design Notes
 
-Last edit: 2026-05-15 21:35 AWST
+Last edit: 2026-05-21 AWST
 
 Status: FOUNDATION LOCKED (session 5)
         STICKER CANVAS SIZE LOCKED (session 6 mobile)
@@ -516,10 +516,12 @@ THEMED-STICKER MARKING IN THE GRID:
 STAGGERED DISCLOSURE OF THE LONG-PRESS GESTURE:
   Long-press in the picker is a slow-reveal feature per the
   staggered disclosure doc. Day-1 onboarding teaches TAP only
-  (pool toggle). Long-press is revealed at day 7+, surfaced
-  explicitly: "you've collected a few stickers — did you know
-  you can long-press to combine their elements?" Until then,
-  long-press is functional but unsurfaced.
+  (pool toggle). Long-press is revealed by a TRIGGER condition,
+  not a scheduled day-N popup — when the user owns enough stickers
+  for the gesture to be meaningfully useful, the hint surfaces:
+  "you've collected a few stickers — did you know you can
+  long-press to combine their elements?" Trigger condition
+  defined in the staggered disclosure doc.
 
   Four Tasks only. APPtrioc never reveals long-press — for
   APPtrioc users, long-press is inert.
@@ -974,8 +976,8 @@ PAST DAYS PRESERVE FULL SLOT STATE:
   This is the second iteration on monetisation v2.0's schema
   recommendation. The previous two-column approach
   (day_leader + day_palette) is superseded by the single
-  json column to handle the full slot set. Update migration_005
-  accordingly when tile 1.3 lands.
+  json column to handle the full slot set. Landed in v1.0
+  schema at session 12 as `days.day_theme_state`.
 
 INSTANT FEEDBACK STILL APPLIES TO LOCKED STICKERS' PREVIEW:
   The preview button on a locked sticker temporarily applies all
@@ -1106,27 +1108,26 @@ Any key may be absent or null (slot is empty — default renders).
 PAIR-KEY PARTICIPATION:
   active_leader participates in the pair-key identity hash. All
   other slots are non-identity fields, freely changeable without
-  pair-key migration. This is the schema split the previous theme
-  doc deferred. LOCKED now: leader is identity, everything else
-  is theme state.
+  pair-key rotation. This is the schema split the previous theme
+  doc deferred. LOCKED: leader is identity, everything else is
+  theme state.
 
-MIGRATION_005 (UPDATED FROM MONETISATION V2.0):
-  Previously sketched as adding `days.day_leader + days.day_palette`
-  for the immutable-past mechanic. Updated to capture the FULL
-  slot map at day-seal time, not just leader+palette.
+V1.0 SCHEMA (session 12 wholesale rewrite):
+  The columns previously sketched as migration_005 landed in the
+  v1.0 schema directly. `schema.sql` is the single source of
+  truth — no migration files. The relevant columns:
 
-  Migration_005 final shape:
-    ALTER TABLE users ADD COLUMN active_leader TEXT;
-    ALTER TABLE users ADD COLUMN active_theme TEXT;       -- JSON map
-    ALTER TABLE users ADD COLUMN active_stickers TEXT;    -- JSON array
-    ALTER TABLE days ADD COLUMN day_theme_state TEXT;     -- JSON map
+    users.active_leader     TEXT      -- sticker ID, identity field
+    users.active_theme      TEXT      -- JSON map, theme slot state
+    users.active_stickers   TEXT      -- JSON array, sticker pool
+    days.day_theme_state    TEXT      -- JSON map, snapshot at seal
 
   active_leader is its own column because it participates in
   pair-key hashing. The rest are JSON for flexibility.
 
-  Existing `icon` column from prototype-era schema is repurposed —
-  if it still exists, drop it (its role is now split across
-  active_leader and the active_theme JSON's `palette` key).
+  The `icon` column from prototype-era schema is gone — its role
+  is split across active_leader (identity) and the active_theme
+  JSON's `palette` key (visual).
 
 THE PALETTE_TABLE.TRES TILE (4.G) — STILL SUPERSEDED.
   Both the original central palette table model AND the
@@ -1285,9 +1286,10 @@ RELATED DOCS
 
   - four_tasks_staggered_disclosure_design_notes.md
     Long-press gesture (per-element context menu) is a slow-
-    reveal at day 7+. Four Tasks only — APPtrioc never reveals
-    this. The post-fork picker depth is the conversion mechanic
-    from APPtrioc to Four Tasks.
+    reveal — trigger-gated by sticker ownership, not day-7
+    scheduled. Four Tasks only — APPtrioc never reveals this.
+    The post-fork picker depth is the conversion mechanic from
+    APPtrioc to Four Tasks.
 
   - four_tasks_architectural_preference.md
     Clarity over cleverness — informed the session 8 decision to
@@ -1296,9 +1298,9 @@ RELATED DOCS
     declaration under the painter's constraint; a sidecar would
     be a second source of truth with no real benefit.
 
-  - four_tasks_write_rules_design_notes.md
-    active_leader changes trigger pair-key migration. Other slot
-    changes are normal user-field writes, no migration.
+  - four_tasks_pair_key_design_notes.md
+    active_leader changes trigger pair-key rotation. Other slot
+    changes are normal user-field writes, no rotation.
 
   - four_tasks_morning_sequence_design_notes.md
     Q1 — MOTD's emoji slot reads from the active_stickers pool.
@@ -1307,9 +1309,8 @@ RELATED DOCS
   - four_tasks_monetisation_position.md
     Library access mechanic depends on subscription state.
     Catalogue purchase gate makes subscription the access path to
-    new monthly drops. Immutable past extends to full slot state,
-    not just leader/palette — migration_005 updated to a single
-    json column for full slot capture.
+    new monthly drops. Immutable past extends to full slot state
+    via `days.day_theme_state` (v1.0 schema, session 12).
 
   - four_tasks_sticker_pack_brainstorm.md
     Content-side brainstorm of which packs ship which elements.

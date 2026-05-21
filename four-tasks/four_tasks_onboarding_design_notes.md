@@ -1,6 +1,8 @@
 # Four Tasks — Onboarding Design Notes
 
-**Status:** LOCKED (session 8 rewrite). Server-side identity model sections (solo identity, pair join flow) re-synced at session 11 close to match pair-key Section 5's `pair_id NULL` solo model — the original session-8 `solo:<uuid>` pair-row convention is superseded. Remaining sections (eight-screen flow, copy, screen ordering) untouched.
+Last edit: 2026-05-21 AWST
+
+**Status:** LOCKED (session 8 rewrite). Server-side identity model sections (solo identity, pair join flow) re-synced at session 11 close to match pair-key Section 5's `pair_id NULL` solo model — the original session-8 `solo:<uuid>` pair-row convention is superseded. Endpoint shapes (`POST /users`, `POST /users/:user_id/join_by_values`) landed at session 12. Remaining sections (eight-screen flow, copy, screen ordering) untouched.
 
 **Implementation tiles:** 3.1 through 3.x (Phase 3). Required reading before any Phase 3 tile lands.
 
@@ -10,7 +12,6 @@
 - `four_tasks_staggered_disclosure_design_notes.md` — what onboarding teaches vs what waits.
 - `four_tasks_morning_sequence_design_notes.md` — day-1 ritual, first claim, MOTD context.
 - `four_tasks_timezone_and_sealing_design_notes.md` — silent timezone capture at install.
-- `four_tasks_write_rules_design_notes.md` — resolve + join endpoints.
 - `four_tasks_monetisation_position.md` — library sharing plant on screen 7.
 
 ---
@@ -116,6 +117,8 @@ this is how you spell your name?
 ```
 
 The forward-reference to username does psychological work: it tells the user "you'll get a flexible handle in a moment, this isn't your last chance to express yourself." Removes hesitation that would otherwise stall the name commit.
+
+The name is displayed EXACTLY as typed — preserving case, whitespace as the user entered it (server-side normalisation handles NFC + collapsed-whitespace internally, but the confirmation modal shows the user their literal input). Case-sensitivity matters for the join flow (pair-key Section 12, session 10) — "jamie" and "Jamie" are different identities. The confirmation is the moment the user sees their exact stored form.
 
 Back button is essential — the confirmation is the moment regret strikes. Without Back, a user staring at a typo is trapped.
 

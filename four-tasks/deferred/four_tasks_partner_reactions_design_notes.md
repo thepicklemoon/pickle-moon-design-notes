@@ -1,6 +1,20 @@
 # Partner Reactions — Design Notes
 
-**Status:** LOCKED for v1.x. Architecture baked into schema and tile 1.3
+Last edit: 2026-05-21 AWST (deferred header added)
+
+**Status:** DEFERRED v1.x at session 12. Eliminated cross-user write
+complexity from tile 1.3. Schema columns retained in v1.0 schema
+(four columns on `days` + one on `users`) so the feature can ship
+in a future point release without a migration. The picker UI,
+endpoint surface, and immutability gate are all designed but not
+implemented. Re-evaluate at the start of v1.1 planning.
+
+Original status line preserved below for reference; the rest of
+the document is the locked design as of session 7.
+
+---
+
+**Status (original):** LOCKED for v1.x. Architecture baked into schema and tile 1.3
 defensive write rules from session 2 so the feature can ship later
 without retrofitting. Surfacing model superseded session 5 (now time-
 agnostic visual indicators, not push). Cross-ref to renamed pair-key
