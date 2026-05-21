@@ -956,4 +956,77 @@ NEXT SESSION:
 Session 13 time: ~4h.
 Running total: ~71.25h.
 
+━━━ SESSION 14 (21 May 2026, home office) — Tile 2.3 build out + schema delta. Time: ~3h. ━━━
+
+Schema delta: users.created_at added (INTEGER unix epoch, server-set
+on POST /users). Discovered during 2.3 design pass — calendar floor
+needs install-day precision per user. D1 dropped + recreated from
+schema.sql. createUser handler patched.
+
+Tile 2.3 scaffolding (calendar grid + day cell):
+  scripts/calendar_math.gd — date helpers, hardcoded Perth offset.
+  scripts/day_cell.gd — 9-state cell (CellState enum to avoid
+    autoload-name collision), tap + long-press, prototype palette
+    baked in for v1.0 dev.
+  scripts/calendar_grid.gd — 7×6 grid, 42 cells. Each slot
+    classified by date vs install_iso/today_iso/displayed_month.
+    Prev/next month nav bounded by install_iso (left) and today (right).
+  scenes/day_cell.tscn, scenes/calendar_grid.tscn — built.
+  State.gd patched: install_iso() + today_iso() with cache
+    invalidation on clear() and user load.
+
+DECISIONS LOCKED:
+  - Container strategy: GridContainer over hand-positioned. Cell
+    richness is vertical (layers stacking in one rect); horizontal
+    freedom isn't needed yet.
+  - Month nav: prev/next buttons (prototype model). Bounded by
+    install month (left) and today's month (right). No future
+    navigation — "past months have enough friction already."
+  - Off-month cells: Option B (show real prev/next dates, dead-treated).
+    Unifies "off-month" and "before-install" under one dead-visual
+    treatment; the theme system's cell_overlay_dead slot was
+    designed for exactly this surface.
+  - Nine cell states: UNMARKED / RED / ORANGE / YELLOW / GREEN / REST
+    map 1:1 to stamp tiers; DEAD_HISTORICAL (tappable, read-only
+    tray) vs DEAD_PRE_INSTALL + DEAD_FUTURE (inert). Greyscale
+    desaturation on historical, no tint.
+  - Stamp vs sticker terminology clarified: STICKER on the cell
+    (completion mark), STAMP on the tray (sealed-day artefact with
+    tier message). Theme doc has stale "stamp art" reference in
+    z-order pipeline — flagged for doc sync.
+
+KNOWN GAPS:
+  - Timezone hardcoded +8h. Real IANA conversion needed before launch.
+    Acceptable for dev. Captured as follow-up.
+  - DEAD_HISTORICAL renders flat grey for 2.3; "ghost of completed
+    content showing through" lands when stamp/sticker layers populate
+    (4.7, 4.D).
+  - Theme overlay wiring deferred to 4.14b. DeadOverlay is a
+    placeholder Panel for now.
+
+DOC DRIFT FLAGGED:
+  - Theme doc z-order pipeline says "stamp art (when claimed)" at
+    layer 3 — actually means sticker. Sync pass.
+  - data/notes.md test user UUID stale after schema reset. Update
+    to 9faedc05-8e7e-4d1d-a571-b5e14999ade9 next session.
+
+GOTCHAS LEARNED:
+  - Wrangler logs you out after some operations. Re-OAuth resolves.
+  - PowerShell `Out-File -Encoding utf8` writes a BOM that JSON
+    parsers reject. Use [System.IO.File]::WriteAllText() or
+    Invoke-RestMethod instead of curl + file body.
+  - GDScript can't infer types of multi-line parenthesised boolean
+    expressions. Explicit `: bool =` instead of `:=` for those.
+  - Autoload name State collides with `enum State` in a script.
+    Renamed enum to CellState. Pattern to remember.
+
+NEXT SESSION:
+  - Wire CalendarGrid into PanelYou.
+  - Update data/notes.md with new test user UUID.
+  - Full integration: boot app, see calendar render with real data.
+  - Polish: weekday strip readability, header button sizing.
+
+Session 14 time: ~3h.
+Running total: ~74.25h.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

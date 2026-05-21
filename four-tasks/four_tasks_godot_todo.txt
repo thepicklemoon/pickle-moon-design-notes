@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-05-21 AWST
-Last updated: session 13 close — Phase 1 client-side complete, tiles 2.1 + 2.2 landed.
+Last updated: session 14 close — tile 2.3 scaffolding in, schema delta landed (users.created_at).
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -78,7 +78,7 @@ PHASE 2 — Visible app skeleton
 [x] 2.1 [CODE] Loader scene. Centred Pickle Moon splash + hidden ErrorLabel. Routes to App / Onboarding / retry-on-error via Identity.boot_resolved. Scene swaps via call_deferred. Throwaway app.tscn + onboarding.tscn stubs. Time: ~1h.
 
 [x] 2.2 [CODE] App scene with two-panel swipe. PanelYou + PanelPartner. 8px intent-lock, 1:1 drag with 50px edge give, always-snap at 12% threshold, 400ms TRANS_QUART EASE_OUT. Mouse + touch. Time: ~1h.
-[ ] 2.3 [CODE] Calendar grid (own). `CalendarGrid.tscn` + `DayCell.tscn`. Reads `State.tasks`. Cells show date + status colour. Scrolls/paginates by month.
+[~] 2.3 [CODE] Calendar grid. `calendar_grid.tscn` + `day_cell.tscn`. Reads `State.days`. 9-state cell model (UNMARKED/RED/ORANGE/YELLOW/GREEN/REST + DEAD_HISTORICAL/PRE_INSTALL/FUTURE). Prev/next month nav bounded by install_iso (left) and today (right). Off-month cells render real prev/next dates dead-treated. Session 14: scripts + scenes built, boots in isolation. PENDING: wire into PanelYou, integration test on real user data.
 [ ] 2.4 [CODE] Task list. `TaskList.tscn` + four `TaskRow.tscn`. Reads State. Tap toggles, fires `Backend.save_day()`. No coin anim yet.
 [ ] 2.5 [CODE] Tray. Slide-down on past day cell tap. Tasks only, no MOTD/stamp.
 [ ] 2.6 [CODE] Coin display + status subheader (static).
@@ -220,18 +220,19 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] Group / triple expansion design conversation. NOT v1.0, NOT v1.x, possibly never. Open: star vs full mesh, pair_key extension for groups, UX (swipe breaks at three calendars), monetisation hook. See pair-key Section 17.
 
-[ ] Doc sync pass (session 12 batch):
+[ ] Doc sync pass (session 12 + 14 batch):
     - Partner reactions design doc → MOVE to `four-tasks/deferred/`.
     - `pickle_moon_repo_index.md`: partner reactions out of Locked → into deferred; promo codes new entry pending design doc; schema.sql migration-files-deleted note; write_rules doc moved Locked → Background/Superseded.
     - Project system prompt: drop "first feature with field-level write rules" reference.
     - Terminology updates across design docs: `diary` → `motd`, `emoji` → `active_leader`.
     - `four_tasks_timezone_and_sealing_design_notes.md`: add boot-only sync model note.
     - `four_tasks_morning_sequence_design_notes.md`: MOTD framing (MOTD in onboarding per session 9). "Migration window" → "rotation window" terminology.
-    - `four_tasks_theme_design_notes.md`: `<id>_<role>.png` naming convention update; trigger-gated picker hint replacing day-7 scheduled.
+    - `four_tasks_theme_design_notes.md`: `<id>_<role>.png` naming convention update; trigger-gated picker hint replacing day-7 scheduled. Z-order pipeline layer 3 says "stamp art (when claimed)" — actually means STICKER, not stamp. Cell stack is: bg → date/pips → sticker → theme overlay → (no stamp layer). Stamp lives on the tray, not the cell.
     - `four_tasks_week_mode_design_notes.md`: status v1.x → v1.0.
     - `four_tasks_stamp_tier_design_notes.md`: obsolete "nightly cron, tile 1.4" reference.
     - `four_tasks_onboarding_design_notes.md`: name confirmation modal displays typed value EXACTLY as typed (case-sensitive per session 10).
     - Privacy policy: align with honest threat model from pair-key Section 9.
+    - `pickle_moon_repo_index.md` + privacy policy: schema gained `users.created_at` (session 14) — symmetric with `pairs.created_at`, drives calendar floor.
 
 [ ] Promo codes design doc. Schema landed in session 12 against ad-hoc decisions. Formalise as `four_tasks_promo_codes_design_notes.md` before subreddit outreach. Captures: single-code-per-user enforcement, code shape (FIFOFOUNDER20-style), founders_rate permanent once granted, redemption_attempts logs all attempts including failures.
 
@@ -252,6 +253,10 @@ ACTIVE — ad-hoc items found during the port
 [ ] Year-end keepsake export. Calendar-year cap means old days stop being returned client-side on Jan 1 but stay in DB. New endpoint `GET /pair/:key/year/:year`. Image composed client-side. First fires Jan 1 2027. Launch by July 2026 latest so users have months of data.
 
 [ ] Rate limiting — Cloudflare Workers Rate Limiting API, per-IP at platform edge. Generous limits (real users hitting bugs may legitimately file three reports in five minutes). Applies to all write endpoints + APPtrioc. Own design conversation after a few more endpoints exist. Not blocking 1.3.
+
+[ ] IANA timezone conversion (calendar floor + today). `State.install_iso()` and `State.today_iso()` currently apply a hardcoded +8h offset (Australia/Perth, no DST). Godot 4 has no built-in tz database — options: bundle a tz library, self-roll DST handling, or punt to a plugin. MUST resolve before launch (any non-UTC+8-no-DST user sees install-date drift at midnight boundary).
+
+[ ] Update `data/notes.md` with new test user UUID after session 14 schema reset: `9faedc05-8e7e-4d1d-a571-b5e14999ade9` (replaces `6709ef0a-dda5-4bbf-8e31-d0122d7f19ce`). Small laptop edit; one-line fix.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PARKED — known, not blocking
@@ -306,4 +311,4 @@ COMPLETED LEDGER
 
 See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with hours, commit hashes, and design rationale.
 
-Running project total at session 12 close: ~67.25h.
+Running project total at session 14 close: ~74.25h.
