@@ -673,3 +673,211 @@ LESSON CAPTURED:
   as partition key) before designing recovery
   machinery for it. Often the recovery machinery is
   evidence the structure is wrong.
+  
+  ━━━ SESSION 11 (17 May 2026, mobile) — Un-pair UX lock + doc consistency sweep. Time: ~3h. ━━━
+
+UN-PAIR UX (tile 4.21 fully specced):
+  - Entry: long-press partner panel header → menu → Un-pair.
+    Same gesture grammar as tile 4.14b. Not in settings.
+  - Confirm popup: `Un-pair?` title, no body, Cancel/Un-pair.
+    Mid-discussion correction: action is reversible at UX level
+    (re-pair flow is instant). "Cannot be undone" copy dropped.
+  - Partner-side: inline dismissable banner
+    `[username] un-paired.` on partner panel. One-shot,
+    server-tracked via `pending_unpair_notice TEXT NULL` column.
+    Non-interruptive — banner over popup.
+  - Change-username follow-up popup: prompts the un-pairer to
+    optionally change username. Implicit social-safety lever
+    (harder for ex-partner to re-find via memorised values).
+    No body copy needed.
+  - No cooldown. Re-pair via standard `Add my partner` flow.
+  - Post-un-pair state = post-onboarding-solo state. Same
+    user_id, pair_id NULL, no pairs row. Banner is the only
+    delta. "Solo is solo regardless of history" invariant.
+
+DOC CONSISTENCY SWEEP:
+  - pair-key doc Sections 6/7/9/15/17 rewritten for URL
+    convention (self-writes use /users/:user_id/..., no
+    redundant pair_id in path, no ?caller= on self-writes).
+    Section 7 added: solo username changes skip rotation.
+    Section 9 stakes-framing paragraph added (habit tracker,
+    not bank vault).
+  - onboarding doc solo-model sections re-synced to
+    user_id model (no solo pairs row, pair_id NULL is solo
+    indicator).
+  - write_rules doc RETIRED. Audited as derivative of other
+    docs — every section had a canonical home elsewhere
+    (project conventions, pair-key Sections 7/11/12/13,
+    feature docs). Status SUPERSEDED in repo index. File
+    stays in git history. Tile 1.3 unblocked as a result —
+    architecture docs are the authority going forward.
+  - Repo index updated.
+
+PARKED:
+  - Staggered disclosure doc paste-in for tutorial_progress
+    merge paragraph (couldn't fetch this session).
+
+NEXT SESSION:
+  - Tile 1.3 implementation unblocked. Home office work.
+  - Mobile: marketing journal entries, staggered disclosure
+    paste-in pass.
+
+Session 11 time: ~3h.
+Running total: ~62.25h.
+
+━━━ SESSION 12 (21 May 2026, home office) — Tile 1.3 fully landed. Time: ~5h. ━━━
+
+Tile 1.3 complete end-to-end. v1.0 schema locked, D1 wiped +
+reapplied, index.ts rewritten, ten write endpoints landed
+across three batches. Eleven endpoints live total. Server
+side is implementation-complete for v1.0.
+
+D1 RESET:
+  - Live remote was empty. Wipe-not-migrate was correct call.
+  - wrangler d1 delete + create --location=oc.
+  - New UUID d92e5792-61a1-42cf-969c-9b33b8cc1475.
+  - wrangler.toml updated, binding `DB` preserved.
+
+SCHEMA v1.0 (wholesale rewrite):
+  - 7 tables, 36 cols, 1 supplementary index.
+  - Old migration_001/002/003.sql DELETED. schema.sql is
+    single source of truth.
+  - Comment style: operational only, design rationale lives
+    in design docs (session 8 three-cron-references drift
+    was evidence).
+
+INDEX.TS REWRITE:
+  - Old GET /pair/:key removed. GET /users/:user_id is the
+    operational read.
+  - POST /resolve reshaped to return {user_id, pair_id}.
+  - icon → active_leader everywhere.
+  - NFC normalisation + whitespace trim/collapse added per
+    pair-key Section 12.
+  - tsconfig.json created, @cloudflare/workers-types installed.
+
+TEN WRITE ENDPOINTS:
+
+  Batch A (simple):
+    - POST /users — onboarding completion, returns {user_id}.
+    - POST /users/:user_id/bug_report — with pair_id_snapshot,
+      500-char cap.
+    - POST /users/:user_id/dismiss_unpair_notice — idempotent.
+    - PUT /users/:user_id/days/:date — upsert via INSERT ON
+      CONFLICT, partial updates supported, 409 day_sealed.
+
+  Batch B (transactional):
+    - PUT /users/:user_id — solo branch plain UPDATE; paired
+      branch with username or active_leader change runs
+      rotation transaction (recompute pair_key, UNIQUE collision
+      check, atomic UPDATE pairs + UPDATE users).
+    - POST /users/:user_id/unpair — three-statement batch
+      (two UPDATEs populating banner with other user's
+      username, DELETE pairs row). Idempotent on solo.
+    - POST /users/:user_id/join_by_values — solo-only filter
+      (info-leak defence), self-exclusion, 404/200/409 outcomes
+      including ambiguous_match.
+
+  Batch C (claim):
+    - POST /users/:user_id/claim — walkback finds most recent
+      unsealed past day with data. At most one row by
+      app-open semantics. Per-task random 900-1400 summed,
+      rest_day=0. Stamp tier: 1=red 2=orange 3=yellow 4=green
+      rest=purple, 0-tasks-non-rest excluded. Streak: green
+      +1, rest unchanged, anything else 0. longest_streak
+      max-updated. Theme snapshot. Atomic seal + payout.
+    - server/src/stamp_messages.ts created with stub pools
+      (1-2 placeholders per tier).
+
+DECISIONS LOCKED:
+  - Partner reactions KILLED for v1.0. Doc moves to deferred/.
+    Eliminated cross-user write complexity from tile 1.3.
+  - Promo codes scope ADDED: 2 tables (promo_codes,
+    redemption_attempts), 4 user cols (subscription_active,
+    founders_flag, founders_rate_eligible, trial_extension_days,
+    redeemed_code). Single-code-per-user, no stacking.
+  - founders_flag for lifetime-free (family/friends/testers),
+    distinct from founders_rate_eligible (launch cohort
+    discount). Both server-set only.
+  - Terminology: emoji → active_leader, diary → motd.
+  - Boot-only timezone sync (no polling).
+  - sealed_at stays nullable timestamp.
+  - 0 tasks + not rest = NO STAMP per stamp tier doc.
+  - morning_payout_due_for column DROPPED. Redundant under
+    lazy-seal. Architecture preference applied.
+
+COIN FORMULA LOCKED (placeholders pending balance pass):
+  - Per completed task: random integer [900, 1400].
+  - Total = sum.
+  - Rest day = 0 coins (paid at designation).
+  - INTENTIONAL OBFUSCATION — per-task variance prevents
+    user from gaming a predictable formula. Avg ~1150/task,
+    ~4800 for 4-of-4.
+  - No streak multiplier or subscription bonus yet.
+
+FILES TOUCHED:
+  - server/schema.sql (rewrite)
+  - server/src/index.ts (rewrite + 10 endpoints)
+  - server/src/stamp_messages.ts (new, stubs)
+  - server/wrangler.toml (new database_id)
+  - server/tsconfig.json (new)
+  - server/package.json + lock (added @cloudflare/workers-types)
+  - DELETED: migration_001/002/003.sql
+
+GIT COMMITS (four-tasks repo):
+  13714a8 — v1.0 schema lock + index.ts rewrite.
+  [intermediate] — Batches A + B complete.
+  b86dde7 — Batch C claim + stamp_messages stubs +
+            morning_payout_due_for drop.
+
+PARKED:
+  - Patch announcement system (needs design doc).
+  - Theme slot catalogue gaps (resolve before tile 4.14b).
+  - Streak semantics under week mode (resolve before 4.9).
+  - Same-person multi-device pairing (architecture allows
+    doppelgänger pair; design needed if multi-device becomes
+    v1.x).
+  - Promo codes design doc (schema landed against ad-hoc
+    decisions, formalise before subreddit outreach).
+
+DOC CONSEQUENCES (deferred to mobile batch):
+  - Move partner reactions doc to deferred/.
+  - Repo index: partner reactions out of locked, promo codes
+    entry pending, schema.sql migration-files-deleted note.
+  - Project system prompt: drop "first feature with
+    field-level write rules" reference.
+  - Terminology updates: diary → motd, emoji → active_leader
+    across design docs.
+  - timezone-and-sealing doc: boot-only sync model note.
+  - week_mode doc: status v1.x → v1.0.
+  - stamp tier doc: obsolete nightly cron reference.
+  - onboarding doc: case-sensitive name confirmation modal.
+
+BLOCKERS RESOLVED:
+  - Tile 1.3 (open since session 4) closed.
+  - Tile 1.4 (lazy seal) absorbed into claim transaction.
+
+LESSON: read design docs BEFORE writing tile work in their
+domain. I speculated on claim gameplay (multi-day gap-walk,
+phantom rows, coin formula) before fetching morning sequence
++ stamp tier + timezone docs. Morgan pushed back three times
+on speculation, each correctly:
+  - "you literally can't have days that need payout behind
+    the day last or most recently needing one" → corrected
+    walkback to single-row.
+  - "no placeholder, coins are 900-1400, don't make shit up"
+    → locked per-task obfuscated formula.
+  - "morning payout is due once the date changes, that's it"
+    → dropped redundant morning_payout_due_for column.
+
+NEXT SESSION:
+  - Phase 1 server-side COMPLETE. Tiles 1.5/1.6/1.7 are Godot
+    client autoloads — fresh kind of work (GDScript not TS).
+  - Doc consequences batch is mobile work.
+  - Promo codes design doc is next architecture conversation.
+
+Session 12 time: ~5h.
+Running total: ~67.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
