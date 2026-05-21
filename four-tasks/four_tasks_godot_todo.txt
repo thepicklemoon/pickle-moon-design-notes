@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-05-21 AWST
-Last updated: session 12 close — tile 1.3 fully landed, Phase 1 server-side complete.
+Last updated: session 13 close — Phase 1 client-side complete, tiles 2.1 + 2.2 landed.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -63,20 +63,21 @@ PHASE 1 — Backend + foundations
 
 [x] 1.4 [CODE] Lazy seal-on-open. ABSORBED into tile 1.3 claim endpoint transaction. Session 12.
 
-[ ] 1.5 [CODE] Godot Backend autoload. Talks to Worker. Signals fire on state changes.
+[x] 1.5 [CODE] Godot Backend autoload. Stateless HTTP layer, 22 signals (success+failure per endpoint). Spawn-per-call HTTPRequest. Time: ~30min.
 
-[ ] 1.6 [CODE] Godot State autoload. In-memory mirror. Loads on app boot via `Backend.load_pair()`.
+[x] 1.6 [CODE] Godot State autoload. In-memory mirror. Days re-indexed for O(1) lookup. Optimistic mutation + snapshot rollback. UI-lockout via _writes_in_flight. Time: ~30min.
 
-[ ] 1.7 [CODE] Godot identity layer. `user://identity.cfg` read/write. Boot routes: read identity → if exists, `Backend.load_pair()` → success: App, else: Onboarding. No UI yet, verified via prints.
+[x] 1.7 [CODE] Godot Identity autoload. user://identity.cfg via ConfigFile. Emits boot_resolved(has_identity, load_succeeded) for the boot router. Time: ~30min.
 
-GATE: Cold-boot Godot project, manually populate identity.cfg, app loads pair data from Worker. No UI yet. Data round-trip works.
+GATE: Closed. Cold-boot manually-populated identity.cfg loads pair data from Worker. Three boot paths verified.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE 2 — Visible app skeleton
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] 2.1 [CODE] Loader scene. Boots, checks identity, routes. Placeholder spinner.
-[ ] 2.2 [CODE] App scene with two-panel swipe. Empty PanelYou + PanelPartner, Tween-snap. UtilBar parented to PanelYou.
+[x] 2.1 [CODE] Loader scene. Centred Pickle Moon splash + hidden ErrorLabel. Routes to App / Onboarding / retry-on-error via Identity.boot_resolved. Scene swaps via call_deferred. Throwaway app.tscn + onboarding.tscn stubs. Time: ~1h.
+
+[x] 2.2 [CODE] App scene with two-panel swipe. PanelYou + PanelPartner. 8px intent-lock, 1:1 drag with 50px edge give, always-snap at 12% threshold, 400ms TRANS_QUART EASE_OUT. Mouse + touch. Time: ~1h.
 [ ] 2.3 [CODE] Calendar grid (own). `CalendarGrid.tscn` + `DayCell.tscn`. Reads `State.tasks`. Cells show date + status colour. Scrolls/paginates by month.
 [ ] 2.4 [CODE] Task list. `TaskList.tscn` + four `TaskRow.tscn`. Reads State. Tap toggles, fires `Backend.save_day()`. No coin anim yet.
 [ ] 2.5 [CODE] Tray. Slide-down on past day cell tap. Tasks only, no MOTD/stamp.

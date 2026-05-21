@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
-Last edit: 2026-05-17 02:00 AWST
-Last updated: May 2026 (session 10 — pair-key user_id integration)
+Last edit: 2026-05-21 AWST
+Last updated: May 2026 (session 13 — Phase 1 client-side + first scenes)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -878,6 +878,82 @@ NEXT SESSION:
 Session 12 time: ~5h.
 Running total: ~67.25h.
 
+━━━ SESSION 13 (21 May 2026, home office) — Phase 1 client + first scenes. Time: ~4h. ━━━
+
+Five tiles closed. Phase 1 done end-to-end, Phase 2 started.
+
+AUTOLOADS (scripts/):
+  Backend.gd — stateless HTTP layer. One method per endpoint, 22
+    signals (success+failure per endpoint). Spawn-per-call HTTPRequest.
+  State.gd — in-memory mirror. Days indexed as {user_id:{date:row}}.
+    Optimistic mutation, single-snapshot rollback, _writes_in_flight
+    set for UI-lockout. Granular change signals.
+  Identity.gd — owns user://identity.cfg via ConfigFile. Emits
+    boot_resolved(has_identity, load_succeeded). CONNECT_ONE_SHOT on
+    Backend signals so boot handlers don't leak across retries.
+  Autoload order: Backend → State → Identity.
+
+SCENES (scenes/):
+  loader.tscn — main scene at boot. Pickle Moon splash + hidden
+    ErrorLabel. Loader.gd routes via Identity.boot_resolved; scene
+    swaps via call_deferred to avoid mid-signal tree mutation. All
+    three boot paths verified.
+  app.tscn — PanelContainer with PanelYou + PanelPartner side-by-side.
+    App.gd swipe: 8px horizontal intent-lock, 1:1 drag with 50px edge
+    give, always-snap at 12% threshold, 400ms TRANS_QUART EASE_OUT.
+    Mouse + touch via _unhandled_input. Mouse Filter = Ignore on all
+    parent Controls so input falls through.
+  onboarding.tscn — stub. Replaced in Phase 3.
+
+ASSETS:
+  assets/ui/the_pickle_moon.png (128×128, hand-painted splash mark).
+    Texture Filter Nearest set per-node (project-wide filter setting
+    wasn't exposed in this Godot version).
+
+NEW: data/notes.md — scratchpad for dev-time UUIDs / test IDs.
+  Test user: 6709ef0a-dda5-4bbf-8e31-d0122d7f19ce (test_backend, solo).
+
+DECISIONS LOCKED:
+  - Backend stateless. Callers pass user_id every call. State holds
+    identity, Backend never knows who it's talking for.
+  - Optimistic-update logic lives in State, not Backend.
+  - Single-snapshot rollback. Concurrent writes to same row blocked
+    by is_write_in_flight() — UI-lockout, not concurrency handling.
+  - Debounced writes parked. Backward-compatible add later if
+    real-world tap-thrash warrants. Write-on-tap for v1.0.
+  - Swipe gesture hand-rolled (not ScrollContainer). Cross-platform
+    InputEvent path, full control over feel.
+  - Swipe tuning matches prototype: 12% commit threshold, distance-
+    only trigger (no velocity), TRANS_QUART/EASE_OUT 400ms.
+  - File naming: PascalCase for autoload .gd files, snake_case for
+    scenes and assets.
+
+DOC DRIFT FLAGGED:
+  - UtilBar in devlog architecture diagram is stale. Product has no
+    persistent bottom bar. Three small icons (reboot, bug, help)
+    appear only when no tray is open. Rebuild context for whichever
+    tile owns those.
+  - Tile 2.2 todo line still references UtilBar — corrected on close.
+
+GOTCHAS LEARNED:
+  - Godot autoload's _ready() yields control on await; other autoloads'
+    _ready() can interleave during the wait. No bug, just behavioural
+    surprise during smoke tests.
+  - change_scene_to_file() can't run synchronously inside a signal
+    handler — wrap in call_deferred.
+  - Mouse Filter = Ignore (not Pass) is what makes input fall through
+    to _unhandled_input on the root. Pass still consumes via gui_input.
+  - F5 with no main scene set persists the prompted scene as main.
+    Easy fix: Project Settings → Application → Run → Main Scene.
+
+NEXT SESSION:
+  - Tile 2.3 (calendar grid). Layout-heavy, decisions pending on
+    GridContainer vs hand-positioned, status colour mapping, month
+    nav model, off-month cell handling.
+  - Mobile-feel pass on the 2.2 swipe values (12% / 400ms) once
+    laptop+phone session is possible.
+
+Session 13 time: ~4h.
+Running total: ~71.25h.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-
