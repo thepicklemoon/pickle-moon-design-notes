@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-05-22 AWST
-Last updated: session 15 close — tiles 2.3, 2.4, 2.5 closed. Layout.gd + Palette.gd autoloads landed. State per-user install_iso fix.
+Last updated: session 16 close — tiles 2.6/2.7 merged + 2.8 closed. Bonus.gd + Poll.gd autoloads landed. Background polling verified end-to-end via curl.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -81,9 +81,9 @@ PHASE 2 — Visible app skeleton
 [x] 2.3 [CODE] Calendar grid. `calendar_grid.tscn` + `day_cell.tscn`. Reads `State.days`. 9-state cell model (UNMARKED/RED/ORANGE/YELLOW/GREEN/REST + DEAD_HISTORICAL/PRE_INSTALL/FUTURE). Prev/next month nav bounded by install_iso (left) and today (right). Off-month cells render real prev/next dates dead-treated. Always 6 rows. Sessions 13+14+15. ~5h total.
 [x] 2.4 [CODE] Task list. `task_list.tscn` + `task_row.tscn`. Reads State. Tap toggles via State.toggle_task (no in-flight guard, no rollback). Past days render as post-payout (done = green ✓, undone = red ✕). Rest days = all rows purple ✓. Partner tray read-only. Session 15. ~2h.
 [x] 2.5 [CODE] Tasks tray. `tasks_tray.tscn` per panel. Slide-down on day-cell tap, slide-up on close ✕ or tap-same-day. Day-swap = close + open new. Cross-panel day-carry on swipe. Session 15. ~1.5h.
-[ ] 2.6 [CODE] Coin display + status subheader (static).
-[ ] 2.7 [CODE] Streak display (static).
-[ ] 2.8 [CODE] Partner panel mirror. Polling every 30s while foregrounded. Refresh day-cell state, not just metadata.
+[x] 2.6 [CODE] Streak bar — self panel. Flame + current_streak + coin pill in single rounded bar. Merged with 2.7 (same visual unit). Session 16. ~2h combined.
+[x] 2.7 [CODE] Bonus pill — partner panel. Purple capsule showing partner-yesterday-derived multiplier. Bonus.gd autoload computes; client-side rule mirrors the future server payout rule. Session 16. ~2h combined.
+[x] 2.8 [CODE] Partner panel polling. 30s foreground / paused background / 10s deferred focus-in. Backend.poll_user() + State selective-merge (in-flight write preservation). Verified end-to-end via curl. Session 16. ~1.5h.
 [ ] 2.9 [CODE] Reboot button. Long-press, confirm popup, wipe + clear identity → onboarding.
 
 GATE: Boot with seeded pair, see tasks, tick them, see saves server-side, switch panels, see partner data, reboot to onboarding. Bones present.
@@ -313,4 +313,4 @@ COMPLETED LEDGER
 
 See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with hours, commit hashes, and design rationale.
 
-Running project total at session 15 close: ~82.25h.
+Running project total at session 16 close: ~85.75h.

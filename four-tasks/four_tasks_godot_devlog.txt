@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
 Last edit: 2026-05-22 AWST
-Last updated: May 2026 (session 15)
+Last updated: 2026-05-22 (session 16 close — tiles 2.6/2.7 + 2.8 landed; Bonus.gd + Poll.gd autoloads)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1129,5 +1129,105 @@ NEXT SESSION:
 
 Session 15 time: ~8h.
 Running total: ~82.25h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ SESSION 16 (22 May 2026, FIFO laptop) — Tiles 2.6/2.7, 2.8. Time: ~3.5h. ━━━
+
+CLOSED:
+  - Tile 2.6/2.7: Streak bar (self panel) + bonus pill (partner panel).
+    Merged into a single tile — same visual unit. Self panel: white rounded
+    bar with flame + current_streak + comma-grouped coin pill. Partner
+    panel: centred purple capsule showing "✨ ×N.N coin bonus active",
+    hidden when multiplier == 1.0 with StatusArea slot reserved for
+    layout parity.
+  - Tile 2.8: Background polling. Self+partner refresh every 30s while
+    foreground, paused on FOCUS_OUT. Single deferred poll 10s after
+    FOCUS_IN, cancelled if focus lost again, never stacks. Every poll
+    resets the 30s interval so cadence is "30s since last poll" not
+    "30s since boot."
+
+NEW INFRASTRUCTURE:
+  - Bonus.gd autoload — partner_multiplier() reads State.partner_user's
+    yesterday row, returns 1.0/1.2/1.3/1.4/1.5 by done-count, 1.5 on
+    rest day. Same six-line rule the claim endpoint will apply server-
+    side at payout time. Per architectural-preference, kept simple
+    rather than caching a server-baked field.
+  - Poll.gd autoload — owns the interval timer, focus-in deferred timer,
+    foreground state. Registered after Backend + State.
+  - streak_bar.tscn/.gd + bonus_pill.tscn/.gd — both apply Palette/Layout
+    styling at runtime in _apply_styles + _apply_fonts so the .tscn
+    files carry no literals to mirror.
+
+ARCHITECTURE CHANGES:
+  - State.gd: added yesterday_iso() helper mirroring today_iso().
+    Used by Bonus.gd and bonus_pill.gd's day_changed filter.
+  - Backend.gd: added poll_user() method that hits the same
+    /users/:user_id endpoint as load_user but emits poll_completed /
+    poll_failed signals. Different routing lets State apply a
+    selective merge instead of the full reset that bootstrap does.
+  - State.gd: _on_poll_completed selective merge — self_user replaced
+    verbatim, partner/pair replaced verbatim, days diffed per-row
+    with in-flight-write preservation on self days (same rule as
+    _on_day_written). Emits day_changed only for rows that actually
+    changed. _dict_equal helper via JSON round-trip suppresses
+    re-renders on no-op polls.
+  - Layout.gd: STATUS_HEIGHT 55 → 90 (prototype font weights didn't
+    fit 55). TASKS_TRAY_MIN_HEIGHT 970 → 935 to absorb the bump.
+    Added STREAK_BAR_*, COIN_PILL_*, BONUS_PILL_* constants + matching
+    FONT_SIZE_* entries.
+  - Palette.gd: added STREAK_BAR_BG/BORDER, TEXT_STREAK_COUNT,
+    COIN_PILL_BG, TEXT_COIN_PILL, BONUS_PILL_BG, TEXT_BONUS_PILL.
+
+DECISIONS LOCKED:
+  - Bonus computation stays client-side. Display rule (here) and
+    payout rule (claim endpoint, when written) are the same six-line
+    table expressed twice. Per architectural-preference, two simple
+    expressions of one rule is acceptable; a server-baked field
+    + client mirror is over-engineering for a calendar app.
+  - Poll endpoint reuses /users/:user_id rather than a new lighter
+    endpoint. One round-trip per 30s carrying redundant self data
+    is trivial; a new endpoint is server work for no real win.
+  - Poll cadence: 30s foreground, paused background, 10s deferred
+    focus-in. Failure silent — next tick retries.
+  - In-flight optimistic writes preserved across poll responses via
+    the existing _writes_in_flight dict + same merge rules as
+    _on_day_written. Self user dict itself takes server's value
+    (brief stomp risk on rare in-flight rename accepted for v1.0).
+
+VERIFICATION:
+  - 2.6/2.7: visual pass at 1080×2400. Self panel bar renders, coin
+    formatting commas correctly. Bonus pill hidden in default state.
+  - 2.8: full end-to-end with curl writes against partner's yesterday
+    row. 1→×1.2, 3→×1.4, 4→×1.5, rest→×1.5, 0→hidden. Pill updated
+    within 30s each time. wrangler tail confirmed GET cadence after
+    focus-in deferred poll edge cases ironed out.
+
+GOTCHAS LEARNED:
+  - First pass of bonus_pill.gd shipped with @onready paths missing
+    the CenterContainer wrapper ($Pill instead of $Center/Pill).
+    Patched in same session. Pattern: when scene introduces a
+    wrapper for layout (centering, margin), script @onready paths
+    must traverse it.
+  - Hand-rolled UIDs in new .tscn files trip Godot's "invalid UID"
+    warning. Harmless — Godot falls back to script path. Resaving
+    the scene in the editor once replaces them with real UIDs.
+  - PowerShell mangles JSON in curl -d arguments. Workaround:
+    write body to file via `Out-File -Encoding ascii -NoNewline`
+    then `curl.exe --data-binary "@body.json"`. Documented for
+    future testing rounds.
+  - When poll appears stuck, check Project Settings → Autoload that
+    Poll is actually registered. Adding the file without registering
+    it is silent failure.
+
+DOC DRIFT FLAGGED:
+  - None this session.
+
+NEXT SESSION:
+  - Tile 2.9 — reboot button. Long-press, confirm popup, wipe +
+    clear identity → onboarding.
+  - DevKit in-app debug tools still parked from session 15 NEXT.
+
+Session 16 time: ~3.5h.
+Running total: ~85.75h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
