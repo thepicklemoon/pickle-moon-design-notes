@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
-Last edit: 2026-05-21 AWST
-Last updated: May 2026 (session 13 — Phase 1 client-side + first scenes)
+Last edit: 2026-05-22 AWST
+Last updated: May 2026 (session 15)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1028,5 +1028,106 @@ NEXT SESSION:
 
 Session 14 time: ~3h.
 Running total: ~74.25h.
+
+━━━ SESSION 15 (22 May 2026, home office) — Tile 2.3 close, 2.5, 2.4. Time: ~8h. ━━━
+
+CLOSED:
+  - Tile 2.3: CalendarGrid wired into PanelYou + PanelPartner. Polish
+    pass landed (slate weekday strip 28px uppercase, month label 36px
+    dark slate, nav buttons 140×60 with disabled-state colour, 6-row
+    always-rendered, card hugs content via custom_min_size 1020).
+  - Tile 2.5: TasksTray scene (slide-down per-panel card). Open/close/
+    swap-day choreography. Cross-panel day-carry on swipe. Close ✕ +
+    tap-same-day retract.
+  - Tile 2.4: TaskRow + TaskList scenes. Tap toggles via State.toggle_task.
+    Past days render as if morning-payout settled (done = green ✓,
+    undone = red ✕). Rest days = all rows purple ✓. Partner tray
+    read-only.
+
+NEW INFRASTRUCTURE:
+  - Layout.gd autoload — single source of truth for layout dimensions.
+    Scenes carry literals; comment blocks at top of each .tscn map
+    literals to Layout names.
+  - Palette.gd autoload — same pattern for non-sacred colours. Sacred
+    cell-tier ramp + task-row state colours stay in day_cell.gd /
+    task_row.gd respectively (theme-locked).
+  - seed_partner.sql — re-runnable seed in `server/`. Sets both users'
+    created_at to 2026-05-15, creates pair, seeds full state ramp
+    across 8 days for both users. Enabled visual verification of all
+    cell states + partner panel.
+
+ARCHITECTURE CHANGES:
+  - State.install_iso() now takes user_id; per-user cache. Was hardcoded
+    to self_user, meaning partner calendar used self's install date as
+    floor. Bug fixed.
+  - State.toggle_task dropped in-flight guard + snapshot rollback.
+    Was causing dropped taps on rapid input. Optimistic-fires-immediately,
+    server reconciles. Tile 2.4 close acknowledges no rollback path for
+    task taps — server doesn't reject self-writes, so nothing to revert.
+  - State._on_day_written merge policy: server-controlled fields take
+    server's value (stamp, sealed_at, day_theme_state); user-controlled
+    fields (tasks_done, motd, rest_day) preserve local optimistic state.
+    Stops post-write flicker when rapid taps race server responses.
+  - App.gd swipe lock simplified: no vertical-vs-horizontal intent
+    decision, just an 8px deadzone before drag commits. Vertical lock
+    was eating tap input inside the tray.
+
+DECISIONS LOCKED:
+  - Working pattern: replace whole .tscn files instead of inspector
+    instructions. Same rule as GDScript no-snippets. Cognitive load
+    is on file ops, not navigation. Applies to all future scene edits.
+  - Tasks-only writes are not rolled back. v1.0 server is permissive
+    on self-writes. If a future endpoint rejects (permission, schema
+    constraint), rollback gets reintroduced then.
+  - Tray is NOT an overlay. Sits inline below CalendarCard in the
+    Layout VBox. Viewport-fitted (no vertical scroll); calendar 1020
+    + tray 970 fits within 2400 - chrome.
+  - Future days (DEAD_FUTURE) and pre-install days (DEAD_PRE_INSTALL)
+    are dead-dead: not interactive, tray doesn't open. Prototype's
+    "tray opens but tasks non-toggleable" was rejected as confusing.
+  - DEAD_HISTORICAL stays interactive (off-month context cells from
+    real lived days). Past rest day = all 4 rows REST_DONE (purple ✓)
+    regardless of underlying tasks_done. Past non-rest = done rows
+    DONE (green), undone rows MISSED (red ✕).
+  - Cross-panel day-carry: when swipe completes between panels with
+    a tray open, target panel opens its tray on the same date after
+    SNAP_DURATION + 20ms delay. Only fires if target user is loaded.
+
+KNOWN GAPS:
+  - On-touch jitter feel pass deferred. Mouse testing makes the 8px
+    deadzone hard to evaluate. Phone test will be required to tune.
+  - State write path: rollback path retained for MOTD/rest_day writes
+    via _pending_snapshot. Untested. Revisit when those tiles land.
+
+GOTCHAS LEARNED:
+  - GDScript can't infer types when multiplying autoload constants.
+    `var x := Layout.ROWS * Layout.COLUMNS` fails; explicit `: int =`
+    required. Family of the session-14 bool-inference gotcha.
+  - rest_day field may arrive as either bool (false) or int (0/1)
+    depending on origin (local _new_day_row vs server response).
+    Always cast via `bool(...)` when comparing — `== 1` crashes on
+    a bool.
+  - Godot autoload path resolution lags after first registration.
+    Newly-added autoload may show as "Failed to load from path: ."
+    until project reload. Close/reopen resolves.
+  - Run window vs editor preview ratio differ. Editor at 405×900,
+    design target 1080×2400. Layout decisions must be made against
+    actual runtime, not preview.
+  - StyleBoxFlat children inside Container nodes need `size_flags_
+    horizontal = 3` (FILL+EXPAND) explicitly. Default size_flags
+    behaviour gives zero width and cells stack invisibly.
+  - GridContainer with no children at layout time computes minimum
+    height as 0; runtime-instantiated children don't re-trigger parent
+    re-layout. Workaround: assert custom_minimum_size on the grid
+    matching expected populated size.
+
+NEXT SESSION:
+  - DevKit: in-app debug tools to seed users / toggle states without
+    SQL. Now worth building (5+ tiles deep, manual SQL friction real).
+  - Tile 2.6 / 2.7 — coin display + streak counter (status area).
+  - Tile 2.8 — partner panel polling.
+
+Session 15 time: ~8h.
+Running total: ~82.25h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
