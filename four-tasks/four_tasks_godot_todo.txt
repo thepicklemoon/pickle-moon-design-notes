@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-05-26 AWST
-Last updated: session 17 close — design session. DevKit + content authoring tool docs locked. Tile 2.9 renumbered (was reboot button, now DevKit). Morning sequence collision flagged as content-drop blocker.
+Last updated: session 18 close — tile 2.9 DevKit landed. Morning sequence collision still flagged as content-drop blocker.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -84,7 +84,7 @@ PHASE 2 — Visible app skeleton
 [x] 2.6 [CODE] Streak bar — self panel. Flame + current_streak + coin pill in single rounded bar. Merged with 2.7 (same visual unit). Session 16. ~2h combined.
 [x] 2.7 [CODE] Bonus pill — partner panel. Purple capsule showing partner-yesterday-derived multiplier. Bonus.gd autoload computes; client-side rule mirrors the future server payout rule. Session 16. ~2h combined.
 [x] 2.8 [CODE] Partner panel polling. 30s foreground / paused background / 10s deferred focus-in. Backend.poll_user() + State selective-merge (in-flight write preservation). Verified end-to-end via curl. Session 16. ~1.5h.
-[ ] 2.9 [CODE] DevKit. Scenario menu overlaid on live app, separate dev worker + D1, `OS.has_feature("devkit")` build flag. See `four_tasks_devkit_design_notes.md`.
+[x] 2.9 [CODE] DevKit. Scenario menu overlaid on live app, separate dev worker + D1, build-flag-gated (editor OR custom feature). Three live scenarios (default / fresh_install / recovery_flow); ~15 more stubbed. See `four_tasks_devkit_design_notes.md`. Session 18. ~1h.
 
 GATE: Boot with seeded pair, see tasks, tick them, see saves server-side, switch panels, see partner data, reboot to onboarding. Bones present.
 
@@ -160,7 +160,7 @@ Fork between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork, Four Task
 [ ] 4.17 [CODE] Coin name generator (server-side). DEFERRED.
 [ ] 4.18 [CODE] Coin name reroll UI + endpoint. DEFERRED (depends on 4.17).
 [ ] 4.19 [CODE] TutorialCoordinator autoload + reveal content. v1.x scope. Reads `users.tutorial_progress`, computes day-of-use, fires one reveal per session boot. Day-2 long-press philosophy reveal uses gesture-dismissal (no "Got it" button). Reference: `four_tasks_staggered_disclosure_design_notes.md`.
-[ ] 4.20 [CODE] Palette derivation devtool. Loads sticker.png, displays derived palette swatches with RGB + pixel counts. Read-only. Grey-exclusion rule MUST match runtime renderer (shared function). Lives in `scenes/devkit.tscn`.
+[ ] 4.20 [CODE] Palette derivation devtool. Loads sticker.png, displays derived palette swatches with RGB + pixel counts. Read-only. Grey-exclusion rule MUST match runtime renderer (shared function). Lands as a DevKit scenario / sub-screen rather than a separate scene.
 [ ] 4.21 [CODE] Un-pair flow — symmetric break + change-username follow-up + dismissable banner. Time: ~3-4h.
     Server: POST /users/:user_id/unpair already implemented (tile 1.3). Dismiss endpoint already implemented.
     Client A (initiator): long-press partner panel header → menu → `Un-pair`. Popup: title `Un-pair?`, no body, Cancel/Un-pair (mild red tint). On 200, change-username follow-up popup: `Change your username?`, pre-filled input, Skip/Save.
@@ -177,7 +177,7 @@ PHASE 5 — Ship Four Tasks to stores
 (Mac decision deferred from tile 0.8. Options: M4/M5 mini, MacInCloud, borrow. Needed before tile 5.5.)
 
 [ ] 5.1 [CONFIG] Production Worker deployment. Real domain (`api.fourtasks.thepicklemoon.com`). Builds point to production; dev/test to staging.
-[ ] 5.2 [CODE] DevKit excluded from release exports.
+[ ] 5.2 [CONFIG] DevKit excluded from release exports — verify "devkit" custom feature is absent from store export presets (Project → Export → preset → Resources → Custom Features). Build-flag plumbing already done in tile 2.9; this tile is the audit at Phase 5 gate.
 [ ] 5.3 [CODE] Production logging + error reporting.
 [ ] 5.4 [CONFIG] Android build — release signing, keystore, signed `.aab`, verify on Pixel.
 [ ] 5.5 [CONFIG] iOS build — Xcode export, signing, archive, TestFlight, install on iOS device.

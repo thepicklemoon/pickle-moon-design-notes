@@ -103,9 +103,10 @@ look.
     back on the main calendar.
 
 The button is a build-flag artifact — present in DevKit builds, absent
-in store builds. Implemented via `OS.has_feature("devkit")`, a custom
-feature tag set in the DevKit export preset. Same scene tree, button's
-`visible` field is set conditionally at `_ready`.
+in store builds. Implemented by checking `OS.has_feature("editor") or
+OS.has_feature("devkit")` at `_ready()`; the `editor` feature covers
+editor + editor-run builds, the `devkit` custom feature is added to
+the DevKit export preset for in-pocket testing.
 
 ## Scenario menu structure
 
@@ -169,9 +170,8 @@ production. Two reasons:
 
   - Production users' calendar data can never be touched by DevKit
     code paths, accidental or otherwise.
-  - Production worker bundle contains zero DevKit code — no flag
-    checks, no dev-only endpoints, no test seed helpers. Smaller,
-    simpler, audit-friendly.
+  - Production worker URL is distinct from dev. Misdirected traffic
+    physically cannot reach the wrong database.
 
 Deployment surface:
 
@@ -188,6 +188,20 @@ The dev D1 is a fresh empty database. Production data is not migrated
 in — there is nothing to migrate. The schema is applied via
 `schema.sql` (the same file production uses) and the default seed via
 `seed_devkit.sql` (new, lives alongside the existing `seed_partner.sql`).
+
+### Source file: shared, route-gated
+
+Both environments deploy the same `index.ts` source. The `/devkit/*`
+routes are gated at the top of the dispatcher by `env.IS_DEV === "true"`.
+The dev wrangler.toml's `[env.dev.vars]` sets `IS_DEV = "true"`;
+production omits the var, so production worker 404s on devkit paths.
+
+This is a pragmatic relaxation of the original "production bundle
+contains zero DevKit code" goal. The practical security boundary is
+identical (routes unreachable in prod) and the engineering cost of
+the relaxation is one env-var check. If strict source separation is
+ever needed (audit, app-store concern), this becomes a build-step
+strip in a later session.
 
 ## DevKit endpoints
 
@@ -239,15 +253,24 @@ ahead of time, features implement against that contract.
   - Scenes: `devkit_menu.tscn` (the overlay), `devkit_button.tscn`
     (the corner button parented inside PanelYou).
   - Script: `DevKit.gd` autoload. Always registered in `project.godot`;
-    `_ready()` checks `OS.has_feature("devkit")` and self-deletes if
-    the flag is absent. Cost-free in store builds.
-  - Loader prints `[Loader] devkit=<true|false>` at boot as a sanity
-    check that the flag is set correctly in the current build.
-  - Build flag: `OS.has_feature("devkit")` checked at boot. Set in the
-    editor run config + DevKit export preset, absent in store presets.
-  - Backend.gd `BASE_URL` constant becomes build-conditional — points
-    at the dev worker in DevKit builds, production worker in store
-    builds.
+    `_ready()` checks the build flag (see below) and self-deletes if
+    absent. Cost-free in store builds.
+  - Loader prints `[Loader] editor=<bool> devkit=<bool>` at boot as a
+    sanity check on the current build context.
+  - **Build flag — two checks combined:**
+      - `OS.has_feature("editor")` is true in the Godot editor and
+        editor-run builds. Editor runs are treated as DevKit by default
+        — only Morgan uses the editor, and he always wants the dev
+        worker there.
+      - `OS.has_feature("devkit")` is a custom feature set in DevKit
+        export presets (Project → Export → preset → Resources → Custom
+        Features). Store presets leave it unset.
+      - Combined check: `OS.has_feature("editor") or OS.has_feature("devkit")`.
+        Used identically in `Backend._base_url()`, `DevKit._ready()`,
+        and `devkit_button.gd._ready()`.
+  - `Backend.gd` `BASE_URL` constant becomes build-conditional via the
+    combined check — points at the dev worker in DevKit builds (editor
+    + dev export), production worker in store builds.
   - Schema for dev D1: `schema.sql` (same file as production).
   - Default seed for dev D1: `seed_devkit.sql` (new file).
 

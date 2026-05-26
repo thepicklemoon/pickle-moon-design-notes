@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
 Last edit: 2026-05-26 AWST
-Last updated: 2026-05-26 (session 17 close — design session: DevKit + content authoring tool docs locked; tile 2.9 renumbered)
+Last updated: 2026-05-26 (session 18 close — tile 2.9 DevKit infrastructure landed)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1271,5 +1271,127 @@ NEXT SESSION:
 
 Session 17 time: ~3h.
 Running total: ~88.75h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ SESSION 18 (26 May 2026, home laptop) — Tile 2.9 DevKit landed. Time: ~1h. ━━━
+
+DevKit infrastructure shipped end-to-end. Separate dev worker + D1
+deployed, three live scenarios wired, build-flag plumbing done,
+verified by booting into the seeded calendar on TestUser.
+
+CLOSED:
+  - Tile 2.9 [CODE] DevKit infrastructure. ~1h.
+
+NEW INFRASTRUCTURE:
+  - Dev worker `four-tasks-api-dev.thepicklemoon.workers.dev` bound to
+    new D1 `four-tasks-dev` (UUID 0f46f48e-...). Free tier, OC region.
+    wrangler.toml split into [env.production] + [env.dev]; top-level
+    config mirrors prod so naked `wrangler deploy` (no --env) stays
+    safe.
+  - /devkit/scenario/<name> route on the shared bundle, gated by
+    env.IS_DEV. Set on env.dev.vars only. Production redeployed with
+    the same bundle; gate verified to 404 there.
+  - Three live scenarios:
+      - default       — wipe both test users + pair, reseed canonical
+                        spread.
+      - fresh_install — server-side teardown only; client wipes
+                        identity.cfg, Loader routes to onboarding.
+      - recovery_flow — same teardown; client diverges (recovery UI
+                        not built yet, stub for now).
+    ~15 other scenarios stubbed in menu, no-op until their features
+    land.
+  - seed_devkit.sql: TestUser + TestPartner paired with stable
+    hardcoded UUIDs (aaaa...0001 / aaaa...0002 / bbbb...0001). ~6
+    days each covering every cell colour + a rest day + a gap.
+    Re-runnable.
+  - DevKit.gd autoload — flag-gated, dormant in store builds. Wires
+    Backend.devkit_scenario_ran to a full Loader re-boot so every
+    scenario exercises the real boot path.
+  - devkit_button.tscn parented inside PanelYou below Layout. Yellow
+    [DEV] button, ugly on purpose. Visible only in editor + devkit-
+    flagged exports.
+  - devkit_menu.tscn full-screen overlay, scenarios grouped by
+    category, stubs rendered as disabled rows with "(stub)" suffix.
+  - Backend.gd BASE_URL build-conditional. Two URLs (prod + dev) and
+    a per-request _base_url() picker.
+
+DECISIONS LOCKED:
+  - Scenarios are targeted mutations, not "reset to default then
+    seed." Each scenario rewrites only the fields gating the thing
+    being tested. Default scenario exists to give the calendar
+    something to render; not a baseline anything resets to.
+  - Build flag is the OR of two features:
+      OS.has_feature("editor") or OS.has_feature("devkit")
+    Editor + editor-runs always count as DevKit (Morgan is the only
+    user of the editor). The "devkit" custom feature is set per
+    DevKit export preset, only relevant in Phase 5. Used identically
+    in Backend.gd, DevKit.gd, devkit_button.gd; Loader logs both at
+    boot.
+  - Worker source stays a single bundle. /devkit routes are runtime-
+    gated by env.IS_DEV. Original design doc's "production contains
+    zero devkit code" goal relaxed; practical security boundary
+    (routes unreachable in prod) is identical and the gate is one
+    `if`. If strict source separation is ever needed it becomes a
+    build-step strip.
+  - Stable hardcoded UUIDs for TestUser + TestPartner + pair_id.
+    Devkit reset never changes them — identity.cfg on the dev
+    workstation stays correct across all resets.
+  - Date computation in seed uses `DATE('now', '+8 hours', '-N days')`
+    so seeded rows match the app's AWST today_iso(). Without the
+    offset, AWST midnight-to-8am window produces off-by-one dates.
+
+KILLED:
+  - Tile 0.4 stub files (scripts/devkit.gd, scenes/devkit.tscn).
+    User-facing reboot button concept from the PWA era stays dead.
+
+DOC REVISIONS:
+  - `four_tasks_devkit_design_notes.md` updated to reflect per-
+    scenario mutation model (replaces "reset then seed" framing),
+    the combined editor/devkit feature check, and the single-bundle
+    route-gating approach.
+
+GOTCHAS LEARNED:
+  - Godot 4 has no editor-side UI to set custom features for editor
+    runs. `application/config/features` in project.godot applies to
+    ALL contexts including exports, so it's not the right knob.
+    Correct pattern: combine OS.has_feature("editor") (built-in,
+    true in editor + editor runs) with OS.has_feature("devkit")
+    (custom, set per export preset). No project.godot edits needed.
+  - Cloudflare requires non-inheritable keys (d1_databases, vars)
+    to be repeated per-environment when any env overrides them.
+    Top-level [[d1_databases]] retained as prod fallback for safety
+    against naked `wrangler deploy`.
+  - `_cf_KV` table in a fresh D1 means schema didn't apply yet.
+    `wrangler d1 execute --file=schema.sql` must be run before any
+    seed. SQLite's `sqlite_sequence` table appears post-schema as a
+    side-effect of AUTOINCREMENT; harmless.
+  - identity.cfg on the dev workstation needs to be hand-pointed at
+    TestUser's UUID once. Without it, Loader hits the retry screen
+    on first DevKit boot because the old prod user_id 404s against
+    the dev D1.
+
+VERIFICATION:
+  - Dev worker deployed, /health 200s.
+  - GET /users/<TestUser> returns proper payload: self + partner +
+    pair + 10 day rows across both users, dates landing on the
+    correct calendar slots (25 May down to 20 May).
+  - POST /devkit/scenario/default re-seeded twice cleanly, idempotent
+    teardown verified.
+  - POST /devkit/scenario/default on production worker 404s — IS_DEV
+    gate holds, prod DB untouched.
+  - Editor boot prints `[Loader] editor=true devkit=false` and
+    `[DevKit] flag on, scenarios available`. App loads on TestUser,
+    calendar renders seeded spread.
+  - UI: no tap-through issues observed when tray is closed; tray-
+    open behaviour deferred to live testing as the feature lands.
+
+DOC DRIFT FLAGGED:
+  - None this session.
+
+NEXT SESSION:
+  - Phase 2 next tile. Check todo for the topmost open tile.
+
+Session 18 time: ~1h.
+Running total: ~89.75h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
