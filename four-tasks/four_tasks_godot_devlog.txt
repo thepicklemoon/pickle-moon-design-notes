@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
 Last edit: 2026-05-26 AWST
-Last updated: 2026-05-26 (session 18 close — tile 2.9 DevKit infrastructure landed)
+Last updated: 2026-05-26 (session 18 close — tile 2.9 DevKit + panel heading + project font)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1391,7 +1391,96 @@ DOC DRIFT FLAGGED:
 NEXT SESSION:
   - Phase 2 next tile. Check todo for the topmost open tile.
 
-Session 18 time: ~1h.
-Running total: ~89.75h.
+Session 18 time: ~1h (tile 2.9 closed); ~2h (panel heading + fonts);
+~3h total.
+Running total: ~91.75h.
+
+━━━ SESSION 18 continued (26 May 2026, home laptop) — Panel heading + project-wide font. Time: ~2h. ━━━
+
+Same date as tile 2.9. Fly-out-eve prep — wanted meaningful text on
+screen before leaving so theme art could be visualised in situ.
+
+CLOSED:
+  - Tile 2.A [CODE] Panel heading (title + subtitle block). ~2h.
+
+NEW INFRASTRUCTURE:
+  - `panel_heading.tscn` / `panel_heading.gd` — title + subtitle block
+    living in each panel's HeaderArea. Same scene instanced twice;
+    inspector-set `side: String = "self" | "partner"` picks which user
+    the heading reads from.
+  - Title: "{display_label}'s four tasks". Tap to flip between name
+    and username for that user, on that device, vanity-only.
+  - Subtitle: today's motd if set, falls back to yesterday's motd.
+    Slot is never empty in steady-state (motd rolls on onboarding,
+    refreshes via morning sequence).
+  - `Prefs.gd` autoload — owns `user://prefs.cfg`, two bools
+    (`self_title_uses_name`, `partner_title_uses_name`), default
+    false (= username). Signals `self_title_mode_changed` /
+    `partner_title_mode_changed` for headings to re-render.
+  - `Fonts.gd` autoload — exposes `Fonts.UI` (Departure Mono) and
+    `Fonts.MOTD` (JetBrains Mono Regular) as constants. Single edit
+    point for font swaps.
+  - Project Settings → GUI → Theme → Custom Font set to Departure
+    Mono. Project-wide default. Per-element overrides win where
+    explicitly applied (currently only panel_heading subtitle uses
+    `Fonts.MOTD`).
+  - Layout.gd: `FONT_SIZE_HEADING_TITLE = 60`,
+    `FONT_SIZE_HEADING_SUBTITLE = 30`.
+
+DECISIONS LOCKED:
+  - Title display: name renders verbatim (e.g. "Morgan Ryan"),
+    username lowercased at render time (e.g. "MoR91rY" → "mor91ry").
+    DB values untouched, transform is display-only. Default mode
+    on both panels is username.
+  - Per-device, per-panel title-mode toggle. No server propagation,
+    no sync. Pure vanity. The argument for this over server-side:
+    no round trip, two devices can disagree and nobody cares, and
+    the partner sees both name + username on pair anyway (pair-key
+    six-tuple) so they already have the info.
+  - Departure Mono is the project-wide default UI font; JetBrains
+    Mono is the deliberate exception used for the MOTD subtitle.
+    Font choices can be swapped at will: edit the two consts in
+    `Fonts.gd`, edit Project Settings' Custom Font path.
+  - Subtitle slot is never empty in v1.0 — motd rolls on onboarding
+    (Phase 3) and refreshes via morning sequence (tile 4.6). The
+    "today empty? fall back to yesterday" lookup covers the boot-
+    before-morning-sequence edge.
+
+GOTCHAS LEARNED:
+  - `@export var side: Side = Side.SELF` with a typed-enum default
+    and `.tscn`-level integer overrides (`side = 0`, `side = 1`)
+    doesn't bind in Godot 4 — the scene instance keeps the default.
+    Switching to `@export var side: String = "self"` with string
+    overrides (`side = "self"`, `side = "partner"`) makes the bind
+    work. String export keeps the .tscn format obvious.
+  - Inspector-set Layout Mode "Position" can render at top-left
+    even when Transform Position is set, if the parent's anchor
+    context isn't what the editor expects. Switching to Layout
+    Mode "Anchors" → preset "Custom" or "Center" + explicit
+    Transform Position makes the placement deterministic.
+  - `ThemeDB.fallback_font = UI` from an autoload doesn't override
+    the project's bundled default theme. The reliable mechanism for
+    a project-wide font is Project Settings → GUI → Theme → Custom
+    Font. Autoload constants remain useful for explicit per-element
+    overrides via `add_theme_font_override("font", ...)`.
+
+PARKED:
+  - Username display normalisation consistency. Lowercase at render
+    is local-only; DB stores as typed. Need to verify this doesn't
+    create inconsistency with the pair-key recovery six-tuple
+    (which hashes stored values, not displayed). Pre-Phase-3 check.
+  - Max-display-length handling. A 40-char lowercase username plus
+    "'s four tasks" overflows the 60pt title at 1080 panel width.
+    Need a soft cap or ellipsis treatment for long names/usernames.
+    Pre-Phase-5 check, not blocking.
+  - Seal-day beat capture. Substantive event when a day seals —
+    cell flies up, enlarges, sticker pops, retreats. Coin payout
+    decoupled from same-moment, lands next-morning to anchor "come
+    back tomorrow" hook. Reshapes morning sequence beat ordering.
+    Design pass needed; covers same doc as the morning-sequence-
+    beat-collision item already in ACTIVE.
+
+Session 18 (continued) time: ~2h.
+Running total: ~91.75h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

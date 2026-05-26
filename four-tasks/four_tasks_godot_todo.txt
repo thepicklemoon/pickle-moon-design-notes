@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-05-26 AWST
-Last updated: session 18 close — tile 2.9 DevKit landed. Morning sequence collision still flagged as content-drop blocker.
+Last updated: session 18 close — tile 2.9 DevKit + tile 2.A panel heading + project font landed. Morning sequence collision still flagged as content-drop blocker.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -85,6 +85,7 @@ PHASE 2 — Visible app skeleton
 [x] 2.7 [CODE] Bonus pill — partner panel. Purple capsule showing partner-yesterday-derived multiplier. Bonus.gd autoload computes; client-side rule mirrors the future server payout rule. Session 16. ~2h combined.
 [x] 2.8 [CODE] Partner panel polling. 30s foreground / paused background / 10s deferred focus-in. Backend.poll_user() + State selective-merge (in-flight write preservation). Verified end-to-end via curl. Session 16. ~1.5h.
 [x] 2.9 [CODE] DevKit. Scenario menu overlaid on live app, separate dev worker + D1, build-flag-gated (editor OR custom feature). Three live scenarios (default / fresh_install / recovery_flow); ~15 more stubbed. See `four_tasks_devkit_design_notes.md`. Session 18. ~1h.
+[x] 2.A [CODE] Panel heading + project-wide font. Per-panel `{display}'s four tasks` title (tap to flip name/username, lowercase username at render) + MOTD subtitle (today fallback to yesterday). Local per-device prefs via new `Prefs.gd` autoload. Departure Mono set as project font (Project Settings → GUI → Theme); JetBrains Mono explicit on MOTD subtitle. New `Fonts.gd` autoload exposes both. Session 18. ~2h.
 
 GATE: Boot with seeded pair, see tasks, tick them, see saves server-side, switch panels, see partner data, reboot to onboarding. Bones present.
 
@@ -219,6 +220,12 @@ ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [ ] Morning sequence beat collision resolution. Priority hierarchy across payout / staggered disclosure / content drops / urgent comms / single-fire comms; per-morning popup cap; per-user per-beat "shown" tracking. Update `four_tasks_morning_sequence_design_notes.md`. Blocks content drops shipping in production.
+
+[ ] Seal-day hero beat. When a day seals (last task ticked off, or rest-day claim), the cell flies up + enlarges to fill most of the screen, sticker pops while the cell zooms back into position, and a popup frames the coin payout as arriving tomorrow morning rather than same instant. Decouples seal from payout — creates a "come back tomorrow" hook. Reshapes morning sequence beat ordering and disclosure timing for first occurrence. Design pass against `four_tasks_morning_sequence_design_notes.md` — touches same surface as the collision item above; resolve together.
+
+[ ] Username display normalisation consistency vs pair-key recovery. `panel_heading.gd` lowercases usernames at render time (DB stores as typed). Pair-key recovery six-tuple hashes against stored values, so user typing "MoR91rY" stores MoR91rY and recovers as MoR91rY — but they SEE "mor91ry" everywhere in the app, including the title flip toggle. Verify this doesn't trip new users at recovery. Either propagate the lowercase to server-side normalisation, or accept the display-vs-storage divergence as expected behaviour. Pre-Phase-3 audit. See `four_tasks_pair_key_design_notes.md` Section 12.
+
+[ ] Max display length for headings. Long names/usernames overflow the 60pt title at 1080 panel width — a 40-char lowercase username plus "'s four tasks" doesn't fit. Soft cap, ellipsis, or auto-shrink. Probably ellipsis since the user knows their own name and partial render is acceptable. Pre-Phase-5 polish, not blocking.
 
 [ ] On-touch jitter tuning pass. Mouse testing makes the 8px DRAG_DEADZONE hard to evaluate. Tap-with-finger-jitter behaviour needs phone test. Constants `DRAG_DEADZONE` (App.gd) and `TAP_DRAG_THRESHOLD` (Layout.gd, used by TaskRow + DayCell) may need separate values for touch. Defer until first Android run.
 
