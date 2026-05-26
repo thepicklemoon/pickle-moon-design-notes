@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-05-22 AWST
-Last updated: session 16 close — tiles 2.6/2.7 merged + 2.8 closed. Bonus.gd + Poll.gd autoloads landed. Background polling verified end-to-end via curl.
+Last edit: 2026-05-26 AWST
+Last updated: session 17 close — design session. DevKit + content authoring tool docs locked. Tile 2.9 renumbered (was reboot button, now DevKit). Morning sequence collision flagged as content-drop blocker.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -84,7 +84,7 @@ PHASE 2 — Visible app skeleton
 [x] 2.6 [CODE] Streak bar — self panel. Flame + current_streak + coin pill in single rounded bar. Merged with 2.7 (same visual unit). Session 16. ~2h combined.
 [x] 2.7 [CODE] Bonus pill — partner panel. Purple capsule showing partner-yesterday-derived multiplier. Bonus.gd autoload computes; client-side rule mirrors the future server payout rule. Session 16. ~2h combined.
 [x] 2.8 [CODE] Partner panel polling. 30s foreground / paused background / 10s deferred focus-in. Backend.poll_user() + State selective-merge (in-flight write preservation). Verified end-to-end via curl. Session 16. ~1.5h.
-[ ] 2.9 [CODE] Reboot button. Long-press, confirm popup, wipe + clear identity → onboarding.
+[ ] 2.9 [CODE] DevKit. Scenario menu overlaid on live app, separate dev worker + D1, `OS.has_feature("devkit")` build flag. See `four_tasks_devkit_design_notes.md`.
 
 GATE: Boot with seeded pair, see tasks, tick them, see saves server-side, switch panels, see partner data, reboot to onboarding. Bones present.
 
@@ -218,7 +218,7 @@ GATE: APPtrioc live, video dropped, Reddit post up. Both products in market.
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] DevKit overlay — in-app debug tools. Now worth building after 5 tiles deep; manual SQL friction is real. Scope: seed users / pair / day rows from UI; toggle cell states without writing through normal flow; inspect State dict; force-load a UUID without identity.cfg edit. Lives in `scenes/devkit.tscn` (Phase 0 skeleton exists). Gated to debug-only loading in tile 5.2.
+[ ] Morning sequence beat collision resolution. Priority hierarchy across payout / staggered disclosure / content drops / urgent comms / single-fire comms; per-morning popup cap; per-user per-beat "shown" tracking. Update `four_tasks_morning_sequence_design_notes.md`. Blocks content drops shipping in production.
 
 [ ] On-touch jitter tuning pass. Mouse testing makes the 8px DRAG_DEADZONE hard to evaluate. Tap-with-finger-jitter behaviour needs phone test. Constants `DRAG_DEADZONE` (App.gd) and `TAP_DRAG_THRESHOLD` (Layout.gd, used by TaskRow + DayCell) may need separate values for touch. Defer until first Android run.
 
@@ -284,7 +284,7 @@ PARKED — known, not blocking
 
 [ ] Pack drop content buffer — Phase 4 art prep. 3-4 packs queued before launch (half subscriber-only, half free-thank-you). First subscriber-only ~2 weeks post-launch, first free-thank-you ~4 weeks. Maintenance: 1-2 packs/fortnight. Honest skip-this-fortnight communication acceptable if buffer hits zero.
 
-[ ] Patch announcement system. Per-user dismissable popups for "what's new" content. Open-set, content-authored, needs own design doc before schema lands. Additive migration when designed.
+[ ] Content drops pipeline — schema + read endpoint + in-app popup rendering pre-launch; authoring tool post-launch. See `four_tasks_content_authoring_tool_design_notes.md`. Blocked on morning sequence beat collision resolution.
 
 [ ] Theme slot catalogue gaps. Popup skin slot, meta mods definition. Theme design doc enumeration may be incomplete. Resolve before 4.14b.
 
@@ -313,4 +313,4 @@ COMPLETED LEDGER
 
 See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with hours, commit hashes, and design rationale.
 
-Running project total at session 16 close: ~85.75h.
+Running project total at session 17 close: ~88.75h.

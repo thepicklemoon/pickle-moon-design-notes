@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
-Last edit: 2026-05-22 AWST
-Last updated: 2026-05-22 (session 16 close — tiles 2.6/2.7 + 2.8 landed; Bonus.gd + Poll.gd autoloads)
+Last edit: 2026-05-26 AWST
+Last updated: 2026-05-26 (session 17 close — design session: DevKit + content authoring tool docs locked; tile 2.9 renumbered)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1229,5 +1229,47 @@ NEXT SESSION:
 
 Session 16 time: ~3.5h.
 Running total: ~85.75h.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ SESSION 17 (26 May 2026, home laptop) — Design session. Time: ~3h. ━━━
+
+No code shipped. Two design docs locked, one tile renumbered, one
+hard dependency flagged.
+
+DOCS LOCKED:
+  - `four_tasks_devkit_design_notes.md` — NEW. Native DevKit replaces
+    tile 0.4 skeleton thinking. Separate worker + D1, scenario menu
+    overlaid on live app, `OS.has_feature("devkit")` build flag.
+  - `four_tasks_content_authoring_tool_design_notes.md` — NEW. Web
+    tool, static HTML on Cloudflare Pages, separate admin worker,
+    R2 for art. Three content shapes (sticker drop / patch / single-
+    fire comm). Cron-released Thursday UTC, per-user local-time
+    delivery, forward-only.
+
+DECISIONS LOCKED:
+  - Tile 2.9 renumbered: was "reboot button," now "DevKit." User-
+    facing reboot button killed (PWA-era affordance, not needed
+    natively).
+  - Three-worker target: dev + prod for v1.0, staging added before
+    first post-launch patch.
+  - Authoring tool deferred to post-launch. App reads from
+    content_drops pre-launch; authoring side ships when SQL editing
+    outgrows usefulness.
+  - No in-app news/history v1.0. thepicklemoon.com is the archive.
+
+HARD DEPENDENCY FLAGGED:
+  - Morning sequence beat collision resolution. Priority + per-morning
+    cap + per-user "shown" tracking. Blocks shipping content drops in
+    production; needs design pass against
+    `four_tasks_morning_sequence_design_notes.md` before Phase 3 ramp.
+
+DOC DRIFT FLAGGED:
+  - None this session.
+
+NEXT SESSION:
+  - Tile 2.9 — DevKit infrastructure.
+
+Session 17 time: ~3h.
+Running total: ~88.75h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
