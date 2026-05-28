@@ -50,7 +50,7 @@ The change vs prior versions of this doc: theme depth and MOTD moved from schedu
 
 ## The schedule
 
-Day counts are absolute from install date, not pair-formation date. Some reveals fire as scheduled regardless of pair state (e.g. partner reactions fires on day 4 whether or not the user is paired — for solo users, the framing becomes a soft recruitment nudge for when they pair).
+Day counts are absolute from install date, not pair-formation date. Some reveals fire as scheduled regardless of pair state (e.g. partner reactions was designed to fire on day 4 whether or not the user is paired — but partner reactions is deferred to v1.x, so that slot is dormant at launch; for solo users, the framing would become a soft recruitment nudge for when they pair).
 
 | Day | Feature surfaced                                          |
 |-----|-----------------------------------------------------------|
@@ -58,7 +58,7 @@ Day counts are absolute from install date, not pair-formation date. Some reveals
 | 1   | First morning sequence — stamp animation, coin payout     |
 | 2   | Long-press philosophy reveal — triggers week mode tutorial|
 | 3   | Rest day intro                                            |
-| 4   | Partner reactions intro                                   |
+| 4   | Partner reactions intro — DEFERRED to v1.x with the feature |
 | 5   | First streak milestone (trigger-gated, fires on 5-day)    |
 | 14  | Coin name personalisation (trigger-gated by affordability)|
 | 21  | Subscription disclosure                                   |
@@ -92,7 +92,9 @@ Fired by the day-2 long-press. Introduces per-weekday task templating. Copy and 
 
 Per existing design. Long-press on a future cell. The day-2 reveal has already established long-press as the app's gesture, so day 3 reuses the gesture on a different surface. Sequential teaching that compounds across consecutive days.
 
-### Day 4 — partner reactions intro
+### Day 4 — partner reactions intro — DEFERRED (v1.x)
+
+> Partner reactions are deferred to v1.x (tile 4.16; doc in `deferred/`). This schedule slot is held for when the feature lands — it does NOT fire in v1.0. The design below is retained so the slot is ready.
 
 Per existing design. Primary teaching moment for the partner reaction mechanic. Trigger-gated reaffirmation still fires if a partner reaction lands earlier than day 4, but day 4 is the scheduled primary reveal.
 
@@ -198,13 +200,13 @@ The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup
 ## Cross-cutting hooks for current and planned tiles
 
 - **Onboarding (tiles 3.1-3.x)** — locked at the eight-screen flow documented in onboarding design notes. Includes theme, MOTD, partner panel intro, coin grant, library sharing plant. Anything beyond that floor waits for the staggered schedule.
-- **Morning sequence (tile 4.6)** — natural surfacing window for scheduled reveals on subsequent days. Day-2 long-press philosophy fires here. Day-3 rest day intro fires here. Day-4 partner reactions fires here.
+- **Morning sequence (tile 4.6)** — natural surfacing window for scheduled reveals on subsequent days. Day-2 long-press philosophy fires here. Day-3 rest day intro fires here. Day-4 partner reactions would fire here when that feature ships (deferred to v1.x).
 - **Week mode tutorial** — chained off the day-2 long-press philosophy reveal. Implementation lands alongside week mode feature in v1.0.
 - **MOTD reroll** — fully introduced in onboarding screen 6. No separate reveal needed.
-- **Help menu (tile 4.11)** — always-available escape hatch from the staggered approach. Scope obligation: must include reference copy for every staggered reveal (day-2 philosophy, day-3 rest day, day-4 partner reactions, picker context menu, coin name personalisation, subscription disclosure, streak milestones). The "reveals never re-fire" rule depends on the help menu being a complete reference for users who dismissed too fast or want to revisit.
+- **Help menu (tile 4.11)** — always-available escape hatch from the staggered approach. Scope obligation: must include reference copy for every staggered reveal that ships (day-2 philosophy, day-3 rest day, picker context menu, coin name personalisation, subscription disclosure, streak milestones; partner reactions copy lands with the feature in v1.x). The "reveals never re-fire" rule depends on the help menu being a complete reference for users who dismissed too fast or want to revisit.
 - **Basic sticker picker (tile 4.14a, pre-fork)** — pool toggle is available immediately. No reveal needed. APPtrioc inherits this picker.
 - **Sticker picker context menu (tile 4.14b, post-fork)** — trigger-gated on first picker open, not day-7 scheduled. APPtrioc never gets this surface (it's the conversion mechanic).
-- **Partner reactions (tile 4.16)** — day-4 scheduled reveal + trigger-gated reaffirmation if reaction lands earlier.
+- **Partner reactions (tile 4.16)** — DEFERRED to v1.x (doc in `deferred/`). When it ships: day-4 scheduled reveal + trigger-gated reaffirmation if a reaction lands earlier.
 - **Day-21 subscription disclosure** — value summary against actual play history per monetisation v2.0. Builds on the day-0 library-sharing plant. Copy authoring job, lands Phase 5 alongside paywall UI.
 - **Coin name personalisation** — trigger-gated by affordability, not strict day count.
 
@@ -212,13 +214,13 @@ The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup
 
 - **Schedule data structure:** time-based ("day N of use") vs trigger-based ("after first 5-day streak"). The current schedule uses both. Real implementation might want a unified abstraction with trigger overrides.
 - **Holdouts for re-engagement:** are some features surfaced *only* if the user comes back after a lapse, as a "welcome back, did you know..." nudge? Probably yes, post-v1.0.
-- **Skip-everything mode:** devkit toggle to dismiss all tutorial reveals immediately. Implementation hook in tile 0.4's devkit pattern.
+- **Skip-everything mode:** devkit scenario to dismiss all tutorial reveals immediately. Hooks into the tile 2.9 DevKit scenario menu (the old tile-0.4 devkit skeleton was killed at session 17).
 - **Order conflicts:** if a trigger-gated reveal fires on the same day as a scheduled reveal, which goes first? Likely the trigger-gated one (because it's responding to a user action), but worth spec'ing.
 
 ## Cross-references
 
 - `four_tasks_coin_name_design_notes.md` — feature surfaced day 14 trigger-gated. Provides the schema reservation pattern that `tutorial_progress` follows.
-- `four_tasks_partner_reactions_design_notes.md` — day-4 scheduled reveal + trigger-gated reaffirmation.
+- `four_tasks_partner_reactions_design_notes.md` (in `deferred/`) — day-4 scheduled reveal + trigger-gated reaffirmation, when the feature ships in v1.x.
 - `four_tasks_morning_sequence_design_notes.md` — natural surfacing window for daily reveals. The day-1 morning sequence is the user's first encounter with the ritual.
 - `four_tasks_theme_design_notes.md` — sticker picker context menu is a trigger-gated reveal on first picker open (session 8 change from day-7 scheduled).
 - `four_tasks_onboarding_design_notes.md` — onboarding floor. Substantially expanded session 8 to include theme, MOTD, partner panel, coin grant. Anything beyond the floor lives in this doc's schedule.

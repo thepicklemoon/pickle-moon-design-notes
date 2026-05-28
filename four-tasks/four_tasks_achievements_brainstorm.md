@@ -661,13 +661,13 @@ RELATED DOCS
     disclosure pattern.
   - four_tasks_morning_sequence_design_notes.md — MOTD
     vocabulary is the natural pool for achievement names.
-  - four_tasks_pair_key_v2_design_notes.md — #6 The Buddy
-    Exchange depends on pair-key migration semantics. Name
-    immutability constrains the swap to username + icon only.
-  - four_tasks_write_rules_design_notes.md — server-side
-    detection points live in the write endpoints. Each
-    relevant endpoint runs achievement checks after its main
-    logic.
+  - four_tasks_pair_key_design_notes.md — #6 The Buddy
+    Exchange depends on pair-key rotation semantics. Name
+    immutability constrains the swap to username + active_leader
+    only.
+  - four_tasks_system_map.md — server-side detection points
+    live in the write endpoints (§5). Each relevant endpoint
+    would run achievement checks after its main logic.
   - four_tasks_sticker_pack_brainstorm.md — pack-specific
     achievements scale with the catalogue. The brainstorm is
     where pack-specific "devotion day" achievements would be

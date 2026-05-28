@@ -1,6 +1,6 @@
 # Four Tasks — Theme & Sticker System Design Notes
 
-Last edit: 2026-05-21 AWST
+Last edit: 2026-05-15 21:35 AWST
 
 Status: FOUNDATION LOCKED (session 5)
         STICKER CANVAS SIZE LOCKED (session 6 mobile)
@@ -202,7 +202,7 @@ CELL TREATMENT (overlay + mask architecture — locked session 7)
                                 bricks-as-outline, frost creeping
                                 in from corners, etc. The stock
                                 cell renders normally underneath
-                                (date number, partial pips, stamp).
+                                (date number, partial pips, sticker).
     cell_mask_<state>.png     — alpha mask CUTTING the stock cell.
                                 Burn-from-bottom, claw-marks,
                                 irregular edges. Black pixels in
@@ -217,21 +217,33 @@ CELL TREATMENT (overlay + mask architecture — locked session 7)
   requirements. Stickers that DO ship treatments are the visually
   ambitious ones.
 
+  OPEN (resolve at tile 4.14b): these four treatment buckets are
+  coarser than the runtime's nine cell states (the shipped model
+  splits "completed" into the red/orange/yellow/green tier ramp by
+  task count — see system map §7.4). Decide whether one
+  `cell_overlay_completed.png` covers the whole done ramp, or
+  "completed" means 4/4 only with "partial" covering 1-3. The
+  renderer's overlay-lookup must agree with the painter's
+  expectation. Not blocking until themed cell overlays are wired.
+
   NO UNDERLAY SLOT. Tinted backdrops behind cells are achieved
   through the palette source slot (which retints the stock cell
   fill). A separate underlay layer would be overkill for the
   decorative effect overlays already provide.
 
-  Z-ORDER PIPELINE (locked session 7):
+  Z-ORDER PIPELINE (locked session 7; layer 3 corrected session 14):
     1. Stock cell fill (with mask applied if present) + border
     2. Stock cell content — date number, partial-task pips
-    3. Stamp art (when claimed)
-    4. Theme overlay (cell_overlay_<state>.png if shipped)
-    5. Completion sticker (when present, randomly slapped)
+    3. Theme overlay (cell_overlay_<state>.png if shipped)
+    4. Completion sticker (when present, randomly slapped)
 
-  Overlay sits above stamp, below the completion sticker. Sticker
-  stays the loudest visual element on completed days; overlay is
-  atmospheric decoration.
+  NOTE (session 14): the cell face carries NO stamp layer. The
+  STAMP (tier colour + tier message, the sealed-day artefact) lives
+  on the TRAY, not the cell. The cell's loudest element is the
+  completion STICKER. Earlier drafts of this pipeline listed "stamp
+  art" as a cell layer — that was wrong. Sticker on the cell, stamp
+  on the tray. Overlay is atmospheric decoration sitting below the
+  sticker.
 
 DEAD-CELL TREATMENT (cell_overlay_dead.png + cell_mask_dead.png —
                      optional, rarely shipped)
@@ -516,12 +528,11 @@ THEMED-STICKER MARKING IN THE GRID:
 STAGGERED DISCLOSURE OF THE LONG-PRESS GESTURE:
   Long-press in the picker is a slow-reveal feature per the
   staggered disclosure doc. Day-1 onboarding teaches TAP only
-  (pool toggle). Long-press is revealed by a TRIGGER condition,
-  not a scheduled day-N popup — when the user owns enough stickers
-  for the gesture to be meaningfully useful, the hint surfaces:
-  "you've collected a few stickers — did you know you can
-  long-press to combine their elements?" Trigger condition
-  defined in the staggered disclosure doc.
+  (pool toggle). Long-press is revealed TRIGGER-GATED on first
+  picker open (session 8 change — was previously day-7 scheduled),
+  surfaced explicitly: "did you know you can long-press to combine
+  their elements?" Until then, long-press is functional but
+  unsurfaced.
 
   Four Tasks only. APPtrioc never reveals long-press — for
   APPtrioc users, long-press is inert.
@@ -968,16 +979,12 @@ PAST DAYS PRESERVE FULL SLOT STATE:
   forever with whatever slots they had filled, even after
   unsub.
 
-  Schema implication: `days.day_theme_state` (JSON, frozen at
-  seal) captures the full slot map for that day, not just
-  day_leader + day_palette as previously sketched in
-  monetisation v2.0.
-
-  This is the second iteration on monetisation v2.0's schema
-  recommendation. The previous two-column approach
-  (day_leader + day_palette) is superseded by the single
-  json column to handle the full slot set. Landed in v1.0
-  schema at session 12 as `days.day_theme_state`.
+  Schema (shipped tile 1.3, session 12): `days.day_theme_state`
+  (JSON, frozen at seal) captures the full slot map for that day,
+  not just day_leader + day_palette as previously sketched in
+  monetisation v2.0. The earlier two-column approach
+  (day_leader + day_palette) is superseded by the single JSON
+  column to handle the full slot set.
 
 INSTANT FEEDBACK STILL APPLIES TO LOCKED STICKERS' PREVIEW:
   The preview button on a locked sticker temporarily applies all
@@ -1109,25 +1116,22 @@ PAIR-KEY PARTICIPATION:
   active_leader participates in the pair-key identity hash. All
   other slots are non-identity fields, freely changeable without
   pair-key rotation. This is the schema split the previous theme
-  doc deferred. LOCKED: leader is identity, everything else is
-  theme state.
+  doc deferred. LOCKED now: leader is identity, everything else
+  is theme state.
 
-V1.0 SCHEMA (session 12 wholesale rewrite):
-  The columns previously sketched as migration_005 landed in the
-  v1.0 schema directly. `schema.sql` is the single source of
-  truth — no migration files. The relevant columns:
-
-    users.active_leader     TEXT      -- sticker ID, identity field
-    users.active_theme      TEXT      -- JSON map, theme slot state
-    users.active_stickers   TEXT      -- JSON array, sticker pool
-    days.day_theme_state    TEXT      -- JSON map, snapshot at seal
+THEME SCHEMA (shipped tile 1.3, session 12 — wholesale, no migration):
+  The theme columns landed in the v1.0 schema rewrite, not as an
+  incremental migration. Final shape on the live schema:
+    users.active_leader   TEXT NOT NULL   -- participates in pair-key hash
+    users.active_theme    TEXT NOT NULL DEFAULT '{}'   -- JSON slot map
+    users.active_stickers TEXT NOT NULL DEFAULT '[]'   -- JSON pool array
+    days.day_theme_state  TEXT NOT NULL DEFAULT '{}'   -- JSON, frozen at seal
 
   active_leader is its own column because it participates in
-  pair-key hashing. The rest are JSON for flexibility.
-
-  The `icon` column from prototype-era schema is gone — its role
-  is split across active_leader (identity) and the active_theme
-  JSON's `palette` key (visual).
+  pair-key hashing. The rest are JSON for forward-compat with new
+  slots. The prototype-era `icon` column does not exist in the v1.0
+  schema — its role is split across active_leader and the
+  active_theme JSON's `palette` key.
 
 THE PALETTE_TABLE.TRES TILE (4.G) — STILL SUPERSEDED.
   Both the original central palette table model AND the
@@ -1285,9 +1289,9 @@ RELATED DOCS
     changes are instant.
 
   - four_tasks_staggered_disclosure_design_notes.md
-    Long-press gesture (per-element context menu) is a slow-
-    reveal — trigger-gated by sticker ownership, not day-7
-    scheduled. Four Tasks only — APPtrioc never reveals this.
+    Long-press gesture (per-element context menu) is a trigger-
+    gated reveal on first picker open (session 8 — was day-7
+    scheduled). Four Tasks only — APPtrioc never reveals this.
     The post-fork picker depth is the conversion mechanic from
     APPtrioc to Four Tasks.
 
@@ -1298,9 +1302,10 @@ RELATED DOCS
     declaration under the painter's constraint; a sidecar would
     be a second source of truth with no real benefit.
 
-  - four_tasks_pair_key_design_notes.md
-    active_leader changes trigger pair-key rotation. Other slot
-    changes are normal user-field writes, no rotation.
+  - four_tasks_pair_key_design_notes.md (identity authority)
+    active_leader changes trigger pair-key ROTATION. Other slot
+    changes are normal user-field writes, no rotation. (The old
+    write_rules doc is superseded; pair-key doc is the authority.)
 
   - four_tasks_morning_sequence_design_notes.md
     Q1 — MOTD's emoji slot reads from the active_stickers pool.
@@ -1309,8 +1314,9 @@ RELATED DOCS
   - four_tasks_monetisation_position.md
     Library access mechanic depends on subscription state.
     Catalogue purchase gate makes subscription the access path to
-    new monthly drops. Immutable past extends to full slot state
-    via `days.day_theme_state` (v1.0 schema, session 12).
+    new monthly drops. Immutable past extends to full slot state,
+    not just leader/palette — captured in the single
+    `days.day_theme_state` JSON column (shipped v1.0 schema).
 
   - four_tasks_sticker_pack_brainstorm.md
     Content-side brainstorm of which packs ship which elements.

@@ -1,17 +1,17 @@
 # Stamp Tier — Design Notes
 
-Last edit: 2026-05-21 AWST
+Last edit: 2026-05-15 21:45 AWST
 
 **Status:** LOCKED for v1.0 (session 6). Structural design closed.
 Content authoring (the actual message strings in each pool) is a
 separate later task that happens against this spec.
 
-**Implementation timing:** consumed by the morning-payout claim
-endpoint (landed at tile 1.3, session 12, in `server/src/index.ts`)
-and by tile 4.7 (stamp slap animation). Pool file
-(`server/src/stamp_messages.ts`) is currently stubbed with 1-2
-placeholder messages per tier; real authoring is a parked content
-task, not a v1.0 blocker.
+**Implementation timing:** consumed by the claim endpoint (designed
+in `four_tasks_morning_sequence_design_notes.md`, shipped in tile 1.3
+as `POST /users/:user_id/claim`) and by tile 4.7 (stamp slap
+animation). The pool files need to exist before tile 4.7 can ship
+usefully; stub pools (1-2 messages per tier) are enough for early
+testing and currently live in `server/src/stamp_messages.ts`.
 
 **References:**
 - `four_tasks_morning_sequence_design_notes.md` — defines when and
@@ -19,14 +19,15 @@ task, not a v1.0 blocker.
   variant. This doc only covers the *content* side.
 - `four_tasks_timezone_and_sealing_design_notes.md` — sealing model.
   Day sealing happens inside the claim endpoint transaction (lazy
-  seal-on-open). Stamp selection happens in the same transaction.
+  seal-on-open), not via a nightly cron. Stamp selection happens
+  in the same transaction.
+- `four_tasks_system_map.md` — `days.stamp` is a server-only column
+  (written at seal time inside the claim transaction); users never
+  write stamps directly. See the seal invariants (§10.1) and claim
+  contract (§5.3).
 - `four_tasks_architectural_preference.md` — clarity-over-cleverness;
   applied here as "simple random pick from server-held pools, no
   anti-repeat tracking, no streak-banded sub-pools."
-
-Note: `days.stamp` is a server-only column. Users never write stamps
-directly. The claim endpoint picks the message and writes the column
-inside the seal-and-payout transaction (tile 1.3, session 12).
 
 ---
 
@@ -35,10 +36,12 @@ inside the seal-and-payout transaction (tile 1.3, session 12).
 When the user claims their morning payout (claim endpoint, designed
 in morning sequence doc), the server seals the previous day inside
 the claim transaction (lazy seal-on-open per the timezone+sealing
-doc) and picks a *stamp message* from a tier-appropriate pool,
-writing it to `days.stamp` for that date. The message + tier
-together form the visual + textual content of the day's
-"fingerprint" on the calendar.
+doc — sealing lives in the claim transaction, not a nightly cron;
+the old tile 1.4 was absorbed into the tile 1.3 claim endpoint at
+session 12) and picks a
+*stamp message* from a tier-appropriate pool, writing it to
+`days.stamp` for that date. The message + tier together form the
+visual + textual content of the day's "fingerprint" on the calendar.
 
 The tier is derived from the day's completion state:
 
@@ -64,8 +67,9 @@ permanent fingerprint.
 ## Pool structure
 
 Pools live as **server-side TypeScript constants**, mirroring the
-existing MOTD wordlist pattern. File location:
-`server/src/stamp_messages.ts` (landed session 12 with stub pools).
+existing MOTD wordlist pattern. Probable file location:
+`server/src/stamp_messages.ts` (final filename to match project
+conventions at implementation time).
 
 Shape:
 
@@ -95,11 +99,12 @@ already established.
 
 `days.stamp` stores the *selected message string* directly, not a
 pool index. The client receives the chosen message in the claim
-endpoint response and in subsequent GET /pair/:key payloads. The
+endpoint response and in subsequent `GET /users/:user_id` payloads. The
 client never needs to know what *other* messages were in the pool.
 
-This avoids the two-sources-of-truth problem flagged in the write
-rules doc (re. MOTD wordlist mirroring). Stamp pools live only on
+This avoids the two-sources-of-truth problem (re. MOTD wordlist
+mirroring) captured in the architectural-preference doc. Stamp pools
+live only on
 the server.
 
 ---
@@ -278,29 +283,31 @@ shape. Not a v1.0 concern.
 
 ## Implementation notes
 
-The claim endpoint (session 12, `server/src/index.ts`) does the
-following inside its atomic seal-and-payout transaction:
+When the morning-payout claim endpoint implementation lands:
 
-1. Imports `STAMP_MESSAGES` from `server/src/stamp_messages.ts`.
-2. Determines the tier from the day's task-completion count +
-   `rest_day` flag. Tier mapping is the table at the top of this
-   doc. 0-task non-rest days are excluded (no stamp written).
-3. `Math.random()` into the appropriate pool array; pulls one
+1. Import `STAMP_MESSAGES` from the pool module.
+2. Determine the tier from `days.tasks_done` count and
+   `days.rest_day`. Tier mapping is the table at the top of this
+   doc.
+3. `Math.random()` into the appropriate pool array; pull one
    message string.
-4. Writes that string to `days.stamp` as part of the seal.
-5. Returns the chosen string in the claim endpoint response so the
-   client can play the stamp slap animation against real data.
+4. Write that string to `days.stamp` as part of the atomic claim
+   transaction.
+5. Include the chosen string + the tier (or its colour) in the
+   claim endpoint response so the client can play the stamp slap
+   animation against real data.
 
 The tier is implicit from `tasks_done` + `rest_day` and doesn't
 need its own column in `days`. The morning sequence animation
 (tile 4.7) reads the tier from the same derivation.
 
-### Stub pools
+### Stub pools for early implementation
 
-`server/src/stamp_messages.ts` currently holds 1-2 placeholder
-strings per tier (e.g. `"[red stamp message]"`). Real authoring is
-a parked content task (see todo). Stub messages get replaced
-without code changes when real content lands.
+Until real content is authored, stub each pool with 1-2 placeholder
+strings (e.g. `"[red stamp message]"`). This lets the claim
+endpoint and morning sequence animation ship and be tested without
+blocking on content authoring. Stub messages get replaced as real
+authoring happens; no code changes required.
 
 ---
 

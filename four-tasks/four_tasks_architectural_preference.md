@@ -12,9 +12,9 @@ conversation.
 ## The rule
 
 Four Tasks is a low-throughput calendar app. A typical user produces
-roughly six writes per day (four task ticks, possibly a diary edit,
-possibly emoji fiddling). At 10,000 users that's 60,000 writes daily,
-spread across 24 hours — load Cloudflare's infrastructure handles
+roughly six writes per day (four task ticks, possibly an MOTD edit,
+possibly sticker-pool fiddling). At 10,000 users that's 60,000 writes
+daily, spread across 24 hours — load Cloudflare's infrastructure handles
 without effort.
 
 The architectural preference, locked in session 2:
@@ -41,8 +41,8 @@ theoretical performance gain.
   never queried individually.
 - **Hash-based pair-key.** Fixed-width primary key for cleaner
   indexes; readable alternative kept in `users` rows for debugging.
-- **Re-entrant pair-key migrations.** Sometimes performs a "wasted"
-  duplicate rewrite when two simultaneous migrations land. Correct,
+- **Re-entrant pair-key rotations.** Sometimes performs a "wasted"
+  duplicate rewrite when two simultaneous rotations land. Correct,
   legible, no lock or batching window needed.
 - **Polling for partner data every 30s.** Not WebSocket realtime.
   Polling is correct *because* it's simpler, not in spite of it.
@@ -50,32 +50,33 @@ theoretical performance gain.
   Sealing logic lives in the claim endpoint transaction rather than a
   scheduled job. Removes an entire class of "what if the cron failed"
   reasoning. Per-user, on-demand, atomic.
-- **Per-sticker palette.tres files instead of central palette table**
-  (session 5 theme doc). Each sticker self-describes its palette.
-  Adding a sticker is dropping a folder; no central registry to
-  update. File-existence is declaration.
+- **Palette derived from the painted sticker.png instead of a sidecar
+  file or central table** (session 8 theme doc, supersedes both the
+  earlier per-sticker palette.tres model and the central-table model).
+  The renderer reads the painted pixels by frequency; the art file is
+  the only source of truth. Adding a sticker is dropping a folder; no
+  registry, no sidecar to keep in sync. File-existence is declaration.
 - **Folder-per-sticker with optional feature files** (session 7 theme
   doc rewrite, supersedes earlier tier-based model). Each sticker
   ships whatever subset of theme files makes sense. No central
   manifest. Sparsity is a design axis. Adding a new theme slot later
-  is dropping a new optional file, no migration needed.
+  is dropping a new optional file, no schema change needed.
 - **JSON column for per-day theme state snapshot** (session 7 theme
   doc rewrite, supersedes earlier two-column sketch). Single
   `days.day_theme_state` column captures the full slot map. Forward-
   compatible with future slot additions without further schema
-  migrations.
+  changes.
 - **Per-slot context menu with INSTANT application** (session 7 theme
   doc rewrite). No commit-on-close pattern for theme slot changes —
   theme state is per-user, mutable, cheap. Identity changes
   (active_leader, username) keep the heavier commit pattern because
-  they trigger pair-key migration.
+  they trigger pair-key rotation.
 - **Server-side coin name generator instead of client-side**
   (coin name doc). One source of truth, tamper-proof, content
   iteration without client deploys.
-- **Trust-the-client + length cap on diary content** (write rules
-  doc). Server doesn't validate MOTD wordlists. Duplicating ~300
-  words across client and server would create two sources of truth
-  that will drift.
+- **Trust-the-client + length cap on MOTD content.** Server doesn't
+  validate MOTD wordlists. Duplicating ~300 words across client and
+  server would create two sources of truth that will drift.
 - **Single coin pricing ramp for all stickers** (session 7
   monetisation update). Each pack costs the same regardless of how
   feature-rich it is, because "value" is what the user perceives.

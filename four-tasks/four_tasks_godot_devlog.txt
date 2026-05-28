@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
-Last edit: 2026-05-26 AWST
-Last updated: 2026-05-26 (session 18 close — tile 2.9 DevKit + panel heading + project font)
+Last edit: 2026-05-28 AWST
+Last updated: 2026-05-28 (session 20 close — drift audit + alignment interview; 14-item capture file pending propagation)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1483,4 +1483,114 @@ PARKED:
 Session 18 (continued) time: ~2h.
 Running total: ~91.75h.
 
+
+━━━ SESSION 19 (28 May 2026, mobile) — Doc de-stale pass. Time: ~2h. ━━━
+
+No code. Audited all design docs against the system map + test
+matrix, corrected drift across the set. Full file list in the
+commit message; logged here for the one load-bearing catch.
+
+LOAD-BEARING CATCH:
+  - week_mode doc's schema section was WRONG against shipped: specced
+    seven boolean cols + (pair_key, name) override table w/ task_1..4.
+    Shipped is the bitmask + (user_id, weekday) PK + task_labels JSON.
+    Would have driven the wrong table at 4.D2. Fixed to schema.sql.
+    Status also v1.x → v1.0 (promoted S9, doc never caught up).
+
+Session 19 time: ~2h.
+Running total: ~93.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+━━━ SESSION 20 (28 May 2026, mobile) — Drift audit + alignment interview. Time: ~3h. ━━━
+
+No code. Full meticulous read of every project file (devlog, todo, repo
+index, system map, schema, Worker, State/calendar_math/day_cell,
+architectural-preference doc), then a rigorous alignment interview.
+Output is a single ephemeral capture file
+(`four_tasks_session_19_capture.md`, 14 items) to be propagated across
+the real docs at a laptop — see its PROPAGATION PROTOCOL header. This
+block records only WHAT was decided; the capture file holds the detail.
+
+CODE/DRIFT FINDINGS (captured, not yet propagated):
+  - Optimistic-write guard machinery in State.gd (_writes_in_flight,
+    _pending_snapshot, per-field merge) is INERT under last-write-wins.
+    Kept-local-on-success is safe for three different reasons (taps=LWW,
+    motd=single-writer write-on-exit, rest_day=refundable); code comment
+    explains only the first. Leave code; document as deliberate. (Item 1)
+  - panel_heading subtitle uses one-row-back fallback; locked design is
+    carry-forward-until-seal rotated by morning sequence. Same pixels;
+    reconcile at tile 4.6. Intended rule = most-recent-non-empty-motd
+    ≤ today (gap-day safe), same SHAPE as claim walkback, different
+    predicate. (Items 3, 6)
+  - _dict_equal uses JSON.stringify equality = key-ORDER-sensitive →
+    spurious day_changed re-renders on locally-shaped rows. Dormant in
+    Phase 2 (flat cells); visible once cells carry art. CODE FIX:
+    order-independent deep compare. Apply + TEST on device at laptop,
+    before Phase 4. (Item 8)
+  - "Empty day" is per-consumer and undocumented — calendar, claim, and
+    subtitle each derive their own predicate. Needs a day-state taxonomy
+    (4-soon-5 states + canonical predicate per consumer). Doc only, NO
+    schema change. Pre-empts re-derivation across 4.6 / 4.8 / 4.D2 +
+    week-mode/streak interaction. (Item 6)
+  - Identity-field character policy lives nowhere as a stated rule. Keep
+    |+__ banned (pair-key separators); KEEP - and single _ allowed (valid
+    in real names; banning them was rejected); /+\ optional-ban. Give it
+    one home in the pair-key doc. (Item 9)
+  - index.ts router is ordered + prefix-matched, assumes no path segment
+    carries user input — note the convention in system map §5. Cosmetic
+    duplicate comment block (~L167-173) fix on next touch. (Item 10)
+  - Timezone gap is date-computation correctness, NOT atomicity — guard
+    the wording in docs. (Item 5)
+  - NEW: DevKit mockable clock (force today_iso/install_iso) so date-
+    boundary bugs are reproducible without real IANA support. (Item 4)
+  - System map change-log dates session 19 to 27 May; actual session 19
+    (this devlog) is 28 May doc-de-stale pass. Fold the correction into
+    the system-map edit.
+
+NEW DOC TO AUTHOR:
+  - four_tasks_motd_design_notes.md — one widget / three triggers
+    (onboarding free-play, morning-sequence daily spin, anytime
+    long-press reroll ~90-110); carry-forward-until-seal display;
+    long-press reroll always targets TODAY; yesterday sealed-immutable;
+    long-press trigger is staggered-disclosure-taught. (Item 2)
+
+ALIGNMENT LOCKED:
+  - Success model = Version A AS THE STRATEGY FOR B. Craft IS the
+    go-to-market: no ad budget, so quality does the work advertising
+    would. "Received well, once, by each person who tries it."
+  - Launch scope line = CURRENT feature set. Already defended (partner
+    reactions, achievements cut cleanly). Staggered-disclosure features
+    past ~week-two are fast-follow-patch candidates, not launch blockers
+    — disclosure trigger is the real deadline, not store-submission day.
+  - Real stressors are pixel-art VOLUME and whether it succeeds — NOT
+    finishing (not the fear) and not the code (in competence band).
+  - Art volume is smaller than feared: sticker ships whatever slot-subset
+    its art fills (sparsity is a design axis); ~2-tweaks is a ceiling not
+    a floor; 40-50 stickers ≠ 100+ elements. Launch needs "shop feels
+    alive," not the whole catalogue (rest = content-drop ammunition).
+    Scoping DEFERRED to tile 4.14b — build picker to accept placeholder
+    art to feel out the minimum count cheaply. (Item 11)
+  - Launch video (5b.10) is the conversion aperture — load-bearing for
+    the whole success ladder. Morgan-owned (internal doc, YouTube-
+    literate, confident delivery). Frame discussed: video's job is
+    CONVERSION not raw reach (retained users move the ladder, not meme-
+    installs); APPtrioc = hook, Four Tasks = headline, mines-and-partner
+    story = the hinge that converts attention to intent. (Item 12)
+  - Post-launch operating model: thepicklemoon.com = owned HUB; ONE
+    async conversation channel at launch (lean Reddit — forgives a
+    roster; Discord DEFERRED); content buffer must survive worst month;
+    first hire may need to precede the 10k rung. (Item 13)
+  - Referral/buddyware revenue-share (~50% of referred sub's first year)
+    MOVES REAL MONEY — needs its own design pass before build
+    (attribution, payout cadence, tax/ledger, fraud defence). (Item 14)
+
+NEXT SESSION:
+  - Propagate the capture file at a laptop, per its protocol header. Code
+    items (esp. _dict_equal) applied + tested, not blind. System-map
+    items as ONE edit. Delete the capture file only when all 14 land.
+
+Session 20 time: ~3h.
+Running total: ~96.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+

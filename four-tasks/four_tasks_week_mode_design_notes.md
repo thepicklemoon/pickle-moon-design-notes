@@ -1,10 +1,11 @@
 # Four Tasks — Week Mode Design Notes
 
-Last edit: 2026-05-21 AWST
-
 Status: DESIGN LOCKED (session 8 mobile, session 12 cascade flow added).
-        v1.0 scope (promoted from v1.x at session 9).
-        Implementation tile not yet numbered; lands in Phase 4.
+        v1.0 SCOPE (promoted from v1.x at session 9 — features touching
+        schema, calendar UI, the ritual loop, or write rules ship at
+        launch rather than retrofitted against frozen code).
+        Schema shipped in the v1.0 wholesale rewrite (session 12).
+        Implementation tile 4.D2 (Phase 4).
 
 Schema implications: one new optional table (user_weekday_overrides).
 Reveal: day-2 cascade from long-press philosophy reveal (per staggered
@@ -370,11 +371,9 @@ THE STANDARD FOUR:
   the cal-icon for the rest of the day, to prevent retroactive
   ambiguity.
 
-  Schema: stored on `users` table. Currently `users.task_1,
-  users.task_2, users.task_3, users.task_4` (or whatever the
-  prototype's existing convention is — confirm at implementation
-  time). No new columns needed for this concept; it already
-  exists.
+  Schema: the standard four live in `users.task_labels` (a JSON
+  array of four strings, shipped v1.0). No new columns needed for
+  this concept; it already exists.
 
 WEEKDAY TEMPLATES (NEW):
   Optional per-user per-weekday overrides of the standard four.
@@ -382,32 +381,25 @@ WEEKDAY TEMPLATES (NEW):
   has changed at least one task while on a week-mode day for
   that weekday.
 
-  Schema: new table `user_weekday_overrides` (proposed name).
-  Columns: user identity (matching project convention —
-  likely (pair_key, name) compound key), weekday (0-6 or
-  "Mon"-"Sun"), task_1, task_2, task_3, task_4, created_at,
-  updated_at. Rows exist only for weekdays where the user has
-  authored divergence. Absence of a row = no template = render
-  standard four.
+  Schema (shipped): table `user_weekday_overrides`, keyed on
+  `(user_id, weekday)` where weekday is ISO 1-7. One
+  `task_labels` JSON-array column holds the four. Rows exist only
+  for weekdays where the user has authored divergence. Absence of
+  a row = no template = render the standard four.
 
 WEEK MODE TOGGLE STATE:
   Whether the long-press-task-label gesture is enabled for a
   given user × weekday. Independent of whether a template
   exists.
 
-  Schema: stored on users table. Two options to decide at
-  implementation:
-    - Seven boolean columns (week_mode_sun ... week_mode_sat).
-      Pros: legible everywhere it's read, matches
-      architectural preference for clarity over cleverness.
-      Cons: seven columns for one logical concept.
-    - One INTEGER bitmask column (week_mode_weekdays).
-      Pros: one column, one migration line.
-      Cons: every read site needs bitshift math
-      (`(week_mode_weekdays >> 2) & 1`), reduced legibility.
-  Architectural preference doc leans toward booleans for this
-  app's throughput profile (~6 writes/user/day). Lock the
-  choice when this migration lands.
+  Schema (SHIPPED, session 12): stored on the users table as a
+  single INTEGER bitmask, `week_mode_weekdays` (default 0). Bit N
+  set = ISO 8601 weekday N is in week mode (ISO: 1 = Monday ...
+  7 = Sunday). The earlier open choice between seven boolean
+  columns and one bitmask was resolved in favour of the bitmask
+  at the v1.0 schema lock — read sites do bitshift math
+  (`(week_mode_weekdays >> (iso_weekday - 1)) & 1`). One column,
+  trivially forward-compatible.
 
   Possible (forward-compatible) cleanup at implementation time:
   consider whether to fold this into the user_weekday_overrides
@@ -557,49 +549,37 @@ to help.
 SCHEMA SUMMARY
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-New schema additions for this feature (lands in whichever
-migration introduces it — NOT bundled with current Phase 1
-migrations 003/004/005):
+Schema (SHIPPED in the v1.0 wholesale rewrite, session 12 — both
+already present in `schema.sql`, no migration to apply):
 
-  -- Option A (preferred per architectural preference doc):
-  ALTER TABLE users ADD COLUMN week_mode_sun BOOLEAN DEFAULT 0;
-  ALTER TABLE users ADD COLUMN week_mode_mon BOOLEAN DEFAULT 0;
-  ALTER TABLE users ADD COLUMN week_mode_tue BOOLEAN DEFAULT 0;
-  ALTER TABLE users ADD COLUMN week_mode_wed BOOLEAN DEFAULT 0;
-  ALTER TABLE users ADD COLUMN week_mode_thu BOOLEAN DEFAULT 0;
-  ALTER TABLE users ADD COLUMN week_mode_fri BOOLEAN DEFAULT 0;
-  ALTER TABLE users ADD COLUMN week_mode_sat BOOLEAN DEFAULT 0;
+  -- On users: bitmask of weekdays in week mode for this user.
+  -- Bit N set = ISO 8601 weekday N (1 = Monday ... 7 = Sunday).
+  week_mode_weekdays  INTEGER NOT NULL DEFAULT 0
 
-  -- Option B (denser, if column count is a concern):
-  -- ALTER TABLE users ADD COLUMN week_mode_weekdays INTEGER
-  --   DEFAULT 0;
-  --   -- Bitmask of weekdays where week mode is on for this user.
-  --   -- Bit 0 = Sunday, bit 1 = Monday, ..., bit 6 = Saturday.
-
-  -- Template table (compound primary key matching project convention):
+  -- Per-user, per-weekday divergent task labels.
+  -- Row exists only when the user has authored divergence.
   CREATE TABLE user_weekday_overrides (
-    pair_key TEXT NOT NULL,
-    name TEXT NOT NULL,
-    weekday INTEGER NOT NULL,  -- 0-6, same convention as above
-    task_1 TEXT NOT NULL,
-    task_2 TEXT NOT NULL,
-    task_3 TEXT NOT NULL,
-    task_4 TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    PRIMARY KEY (pair_key, name, weekday),
-    FOREIGN KEY (pair_key, name) REFERENCES users(pair_key, name)
+    user_id      TEXT NOT NULL REFERENCES users(user_id),
+    weekday      INTEGER NOT NULL,          -- ISO weekday 1-7
+    task_labels  TEXT NOT NULL,             -- JSON array of 4 strings
+    PRIMARY KEY (user_id, weekday)
   );
 
 Notes:
-  - A row in user_weekday_overrides exists only when the user
-    has authored divergence (changed at least one task while on
-    a week-mode day for that weekday). Absence = no template.
-  - The week mode toggle state is independent. A template
-    can exist while week mode is off (user authored then
-    toggled off). The render logic combines both.
-  - This is a self-write only. Partners cannot read or write
-    each other's week mode state or user_weekday_overrides.
+  - The override table is keyed on `user_id` (the shipped identity
+    model — personal data attaches to the person, not the pair),
+    not the old `(pair_key, name)` composite.
+  - `task_labels` is a single JSON-array column per the
+    JSON-in-a-column convention, not four separate task columns.
+  - A row exists only when the user has authored divergence
+    (changed at least one task while on a week-mode day for that
+    weekday). Absence = no template.
+  - The week mode toggle state (`week_mode_weekdays`) is
+    independent of the override rows. A template can exist while
+    that weekday's bit is off (user authored, then toggled off).
+    The render logic combines both.
+  - Self-write only. Partners cannot read or write each other's
+    week mode state or overrides.
     Write rules at implementation time treat these as private
     user fields.
   - Foreign key shape assumes pair_key + name as the user
@@ -703,18 +683,25 @@ RELATED DOCS
     Sealed past days are immutable, which constrains template
     propagation rules.
 
-  - four_tasks_pair_key_design_notes.md (v2)
+  - four_tasks_system_map.md
+    Live schema for `week_mode_weekdays` and the
+    `user_weekday_overrides` table (§4.2, §4.3). Week mode columns
+    are self-write only; partner cannot read or write either.
+
+  - four_tasks_pair_key_design_notes.md
     Neither week mode columns nor user_weekday_overrides
     participates in pair-key hashing. They're private user
-    state, freely changeable without identity migration.
+    state, freely changeable without pair-key rotation.
 
   - four_tasks_architectural_preference.md
     Clarity over cleverness informed the divergence-on-edit
-    model AND the seven-boolean schema preference over the
-    bitmask. The cheaper alternatives (toggle creates a template
+    model. The cheaper alternatives (toggle creates a template
     immediately, or toggle and edit happen as separate actions)
     were rejected for being slightly more complex without being
-    any clearer.
+    any clearer. (Note: the schema choice went the other way —
+    the bitmask won over seven booleans at the v1.0 lock, because
+    one forward-compatible column beat seven for a feature whose
+    read sites are few.)
 
   - four_tasks_tracking_design_notes.md
     Not directly related, but the same conversation produced
@@ -748,10 +735,12 @@ SESSION 12 CHANGES SUMMARY
   most-recently-tapped-day-cell-that-happens-to-be-today.
 - Mid-day toggle behaviour explicitly documented in render
   logic section.
-- Schema: bitmask column replaced as primary option with
-  seven boolean columns, per architectural preference doc.
-  Bitmask retained as commented Option B fallback.
-- Schema: user_weekday_overrides FK shape aligned to
-  (pair_key, name) compound key matching project convention.
+- Schema note (corrected): the v1.0 schema lock chose the bitmask
+  column `week_mode_weekdays` (INTEGER), NOT the seven-boolean
+  layout an earlier draft of this doc preferred. The override
+  table shipped keyed on `(user_id, weekday)` with a single
+  `task_labels` JSON column — not the old `(pair_key, name)` /
+  `task_1..4` shape. See the SCHEMA SUMMARY above for the live
+  shape.
 - Cross-references updated to point to the staggered
   disclosure doc's day-2 cascade and help menu obligations.

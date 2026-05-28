@@ -2,9 +2,21 @@
 
 **Status:** LOCKED (session 11 close — un-pair UX detail pass
 complete). Canonical identity model for Four Tasks v1.0+.
-Implementation lands in tile 1.3 (server-side defensive write
-rules), tile 4.14b (theme manager / picker UX), and tile 4.21
-(un-pair flow — full UX spec).
+
+**Schema status (session 12):** the schema described throughout this
+doc SHIPPED in the v1.0 wholesale rewrite — `user_id` PK, `pair_id`
+(nullable FK), `pair_key` (UNIQUE), `pending_unpair_notice`, and the
+rest are all live in `server/schema.sql`. References to "migration_005"
+below are historical (that was the working name for this delta before
+session 12 collapsed all migrations into a single wholesale schema);
+read them as "the v1.0 schema," not as a pending migration. Server
+endpoints (`/resolve`, `join_by_values`, `unpair`, rotation on
+`PUT /users/:user_id`) shipped in tile 1.3. See `four_tasks_system_map.md`
+§3–§5 for the live operational view.
+
+Implementation landed in tile 1.3 (server-side write rules + rotation),
+with tile 4.14b (theme manager / picker UX) and tile 4.21 (un-pair
+flow — full UX spec) still ahead.
 
 This doc supersedes the v1 two-name model. The v1 doc
 (`four_tasks_pair_key_identity_design_notes.md`) is referenced for

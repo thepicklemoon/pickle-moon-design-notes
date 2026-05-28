@@ -5,9 +5,10 @@
 Brand position, pricing, founders model, store mechanics carry
 forward from v1.1 (session 1). The "what does subscription buy"
 answer is superseded. Session 7 updates: fortnightly alternating
-drop cadence locked, schema sketch updated for migration_005 JSON
-column, tier language dropped to align with theme doc's
-feature-catalogue model.
+drop cadence locked, schema reframed to a single JSON column for
+per-day theme state, tier language dropped to align with theme
+doc's feature-catalogue model. (That schema shipped in the v1.0
+wholesale rewrite, session 12 — see Schema implication below.)
 
 **Source:**
   - v1.1 — session 1 decision conversation (subscription product
@@ -160,7 +161,8 @@ SCHEMA IMPLICATION:
   Written at day-seal time (per the sealing logic in the timezone
   design doc). Never modified after. Read by the historical renderer.
 
-  This is migration_005. Apply alongside or after migration_004.
+  This shipped as `days.day_theme_state` in the v1.0 schema
+  (session 12 wholesale rewrite — not an incremental migration).
 
   Schema NOTE (session 7 update): the earlier sketch of two
   separate columns (day_leader + day_palette) was superseded by
@@ -405,8 +407,8 @@ Implementation:
 Edge cases resolved:
   - Pair breakup / partner changes: subscription state moves with
     each user individually. A user's subscription persists across
-    pair-key migrations (per pair-key v2 doc, the user identity
-    stays, only the pair-key hash changes).
+    pair-key rotations (per the pair-key doc, the user identity —
+    user_id — stays; only the pair-key hash changes).
   - One user subs, other doesn't: standard expected case. Library
     access is bilateral. Coin bonus accrues only to the subscriber.
   - User leaves pair entirely (rare; defer to v1.x): subscription

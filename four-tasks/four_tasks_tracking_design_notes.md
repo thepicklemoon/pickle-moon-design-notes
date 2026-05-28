@@ -329,9 +329,9 @@ LIFETIME_COINS (column on users):
   Decrement site: NONE. Lifetime is monotonic — spending coins
   does not decrement lifetime_coins. The user's current spendable
   coin balance is a separate column.
-  Migration: lands in whichever migration introduces the
-  leaderboard support (TBD — not part of migration_003-005
-  bundle currently sketched for tile 1.3).
+  Schema: `lifetime_coins` shipped on the `users` table in the v1.0
+  wholesale schema (session 12). Any leaderboard-specific support
+  beyond it is deferred with the leaderboard feature.
 
 LONGEST_STREAK (column on users):
   Surfaced by: leaderboard (secondary display number).

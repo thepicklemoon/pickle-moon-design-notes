@@ -361,9 +361,10 @@ FIFO / DISTANCE WORK.
 
 COUPLES (GENERAL).
   Angles: the obvious one. A small daily ritual you do together,
-  whatever shape that takes. The partner reactions, the MOTD, the
-  morning sequence — all designed around two people sharing
-  something small daily.
+  whatever shape that takes. The shared calendar, the MOTD, the
+  morning sequence, the partner panel — all designed around two
+  people sharing something small daily. (Partner reactions deepen
+  this but land in v1.x — don't lead launch copy with them.)
   Channels: r/relationships, r/marriage, r/longdistance, couples
   Discord servers (small and scattered). Wedding/anniversary blogs.
   Voice: warm, no schmaltz, no normative assumptions about what
@@ -854,8 +855,9 @@ SERVER ENDPOINTS NEEDED (Phase 5 work):
       trial_extension_days INTEGER DEFAULT 0
       founders_rate_eligible BOOLEAN DEFAULT 0
 
-  Belongs in migration_006 (or whatever number is free at
-  Phase 5 entry).
+  These tables + columns already exist in the v1.0 schema
+  (shipped session 12, inert). What's pending is the `/redeem`
+  endpoint, at Phase 5 entry.
 
 APPLE / GOOGLE POLICY COMPLIANCE:
 
@@ -1102,13 +1104,15 @@ Locked positions:
     + founders lock (loyalty) + future hike (retroactive
     validation). All reinforce buddy-ware tone, none predatory.
 
-Server work needed for promo codes: new /redeem endpoint,
-promo_codes + redemption_attempts tables, two new users columns
-(trial_extension_days, founders_rate_eligible). Bundled into
-migration_006 at Phase 5 entry. NOT a v1.0 launch blocker for
-the store ship — but is a blocker for the first targeted post.
-The first promo code can't be issued until the redeem endpoint
-exists.
+Server work needed for promo codes: the `/redeem` endpoint. The
+`promo_codes` + `redemption_attempts` tables and the
+`trial_extension_days` / `founders_rate_eligible` user columns
+already SHIPPED in the v1.0 schema (session 12) — they sit inert,
+no read/write path touches them yet. So the remaining work is the
+endpoint plus a promo-codes design doc, at Phase 5 entry. NOT a
+v1.0 store-ship blocker — but it IS a blocker for the first
+targeted post: no promo code can be issued until the redeem
+endpoint exists.
 
 Marketing pre-engagement note: Morgan joining subs today is the
 "belong before pitching" pattern. Genuine community membership

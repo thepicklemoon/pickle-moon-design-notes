@@ -219,6 +219,10 @@ GATE: APPtrioc live, video dropped, Reddit post up. Both products in market.
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+[     ] Theme cell-overlay buckets vs runtime cell states. Overlay file naming uses unmarked/completed/partial/rest (4 buckets); runtime has 9 states incl. the red/orange/yellow/green tier ramp. Decide whether one cell_overlay_completed.png covers the whole done ramp or "completed" = 4/4 only with "partial" = 1-3. Renderer lookup must match painter expectation. Resolve at 4.14b. See theme doc cell-treatment section.
+
+[     ] Tray MOTD subtitle — not built in port. Prototype shows each day's tray carrying its own MOTD as a subtitle under the day label; Godot tray currently renders task rows only (system map §7.5). Really a tasks_tray.tscn change. Currently implied inside tile 4.6 — give it its own line/sub-bullet so it doesn't fall through the gap. See morning sequence doc MOTD section.```
+
 [ ] Morning sequence beat collision resolution. Priority hierarchy across payout / staggered disclosure / content drops / urgent comms / single-fire comms; per-morning popup cap; per-user per-beat "shown" tracking. Update `four_tasks_morning_sequence_design_notes.md`. Blocks content drops shipping in production.
 
 [ ] Seal-day hero beat. When a day seals (last task ticked off, or rest-day claim), the cell flies up + enlarges to fill most of the screen, sticker pops while the cell zooms back into position, and a popup frames the coin payout as arriving tomorrow morning rather than same instant. Decouples seal from payout — creates a "come back tomorrow" hook. Reshapes morning sequence beat ordering and disclosure timing for first occurrence. Design pass against `four_tasks_morning_sequence_design_notes.md` — touches same surface as the collision item above; resolve together.

@@ -1,53 +1,42 @@
 # Four Tasks — Onboarding Design Notes
 
-Last edit: 2026-05-21 AWST
+**Status:** LOCKED. Eight-screen flow, copy, and screen ordering locked session 8. Server-side identity model (solo identity, pair join) reflects the shipped session-12 implementation: `pair_id NULL` solo model, separate `POST /users` / `join_by_values` / `resolve` endpoints.
 
-**Status:** LOCKED (session 8 rewrite). Server-side identity model sections (solo identity, pair join flow) re-synced at session 11 close to match pair-key Section 5's `pair_id NULL` solo model — the original session-8 `solo:<uuid>` pair-row convention is superseded. Endpoint shapes (`POST /users`, `POST /users/:user_id/join_by_values`) landed at session 12. Remaining sections (eight-screen flow, copy, screen ordering) untouched.
-
-**Implementation tiles:** 3.1 through 3.x (Phase 3). Required reading before any Phase 3 tile lands.
+**Implementation tiles:** 3.1 through 3.10 (Phase 3). Required reading before any Phase 3 tile.
 
 **Cross-references:**
 - `four_tasks_pair_key_design_notes.md` — identity model, collision resolution, recovery.
+- `four_tasks_system_map.md` — live endpoint contracts (`§5`).
 - `four_tasks_theme_design_notes.md` — slot catalogue, leader sticker, picker model.
 - `four_tasks_staggered_disclosure_design_notes.md` — what onboarding teaches vs what waits.
-- `four_tasks_morning_sequence_design_notes.md` — day-1 ritual, first claim, MOTD context.
-- `four_tasks_timezone_and_sealing_design_notes.md` — silent timezone capture at install.
+- `four_tasks_morning_sequence_design_notes.md` — day-1 ritual, first claim.
 - `four_tasks_monetisation_position.md` — library sharing plant on screen 7.
 
 ---
 
 ## Problem
 
-Four Tasks is a two-user app by premise. Pair-key v2 requires all six identity values (name + username + active_leader × 2 users) to compute a real pair-key. The naive interpretation — both users must complete onboarding together — creates an adoption-killing friction point.
+Four Tasks is a two-user app by premise, but requiring both users to onboard together is an adoption-killer. Onboarding must work for two real install patterns:
 
-Onboarding must work for two real-world install patterns:
-
-1. **User installs alone**, will recruit partner later (or never).
+1. **User installs alone**, recruits partner later (or never).
 2. **User installs after their partner**, joins via the partner's three values.
 
-A third pattern — both users installing simultaneously side-by-side — exists but is treated as rare (real-world frequency unknown; revisit if friends-and-family native testing surfaces it).
+A third pattern (both installing side-by-side simultaneously) is treated as rare — revisit only if friends-and-family testing surfaces it.
 
-All paths land at the same end state: a functioning pair. The timing varies.
+All paths land at the same end state: a functioning pair. Only the timing varies.
 
 ---
 
 ## Decision summary
 
-1. **Solo mode is the default outcome of onboarding.** Every install completes onboarding solo. No partner fork during onboarding.
-
-2. **Partner pairing is a post-onboarding action.** A persistent "Add my partner" button lives on the empty partner calendar UI. User taps it when ready.
-
-3. **Pairing mechanism is typed three values.** Joining user types partner's name, username, and picks partner's leader sticker from a visual grid. No codes, no URLs, no universal links.
-
-4. **Solo data migrates into the pair on join.** When solo user A is joined by B, A's calendar history, coins, streaks all carry over. Re-uses pair-key migration machinery.
-
-5. **Ambiguous-match collisions resolved by username variation.** Rare collision case (multiple solo users with identical three values) is resolved by asking the inviting user to temporarily vary their username. After pairing succeeds, they can revert because the full six-value hash now includes the partner half.
-
-6. **Theme and MOTD are introduced in onboarding.** Both are permanent UI elements; hiding them from day zero meant showing UI elements with no framing. The staggered disclosure principle yields to features whose UI is always visible.
-
-7. **Library sharing is planted in onboarding.** Single line on the partner calendar screen. Not a pitch; a forward-reference so the eventual day-21 subscription disclosure has a mental hook.
-
-8. **Coin grant on final screen.** Generous starter balance (sized for 2-3 stickers) animates in during the read of the closing screen. The user lands in the app already participating in the economy.
+1. **Solo mode is the default outcome of onboarding.** Every install completes solo. No partner fork during onboarding.
+2. **Partner pairing is a post-onboarding action.** A persistent "Add my partner" button lives on the empty partner calendar. User taps it when ready.
+3. **Pairing mechanism is typed three values** — partner's name, username, and leader sticker picked from a visual grid. No codes, no URLs, no universal links.
+4. **Solo data stays put on join.** Day rows are keyed by `user_id`, which never changes, so a solo user's history is already part of the pair the moment they join — nothing moves.
+5. **Ambiguous-match collisions resolved by username variation.** Multiple solo users with identical three values → ask the inviting user to temporarily vary their username, pair, then revert (the six-value hash now includes the partner half).
+6. **Theme and MOTD are introduced in onboarding** — both are permanent UI elements, so hiding them from day zero would mean showing unexplained UI. The staggered-disclosure principle yields to always-visible features.
+7. **Library sharing is planted in onboarding** — a single line on the partner screen, a forward-reference so the day-21 subscription disclosure has a hook. Not a pitch.
+8. **Coin grant on the final screen** — a generous starter balance (2-3 stickers' worth) animates in during the closing read. The user lands already participating in the economy.
 
 ---
 
@@ -67,9 +56,7 @@ That's the whole app.
 [ Get started ]
 ```
 
-The three-line pitch is the brand voice in compressed form. "Four small things" is concrete; "do them with someone" carries the two-user premise without explanation; "that's the whole app" pre-empts the "wait, that's it?" reaction by making it the pitch.
-
-No recovery link on this screen. Recovery lives on screen 1a.
+Brand voice compressed. "That's the whole app" pre-empts the "wait, that's it?" reaction by making it the pitch. No recovery link here — recovery lives on 1a.
 
 ### Screen 1a — First time, or returning?
 
@@ -81,11 +68,9 @@ Are you new here, or rejoining a pair?
       Recover my calendar
 ```
 
-"First time here" is the primary CTA — full-width filled button. "Recover my calendar" is visually secondary — smaller, lighter weight beneath. Recovery on native stores is expected to be rare; the visual hierarchy matches expected frequency.
+"First time here" is the primary CTA (full-width filled). "Recover my calendar" is visually secondary — recovery is expected to be rare. "Calendar" not "account" because the calendar is the concrete object the user lost, and it matches vocabulary used throughout the app.
 
-"Recover my calendar" rather than "Recover my account" because the calendar is the concrete object the user lost. The word also matches what they'll see throughout the app (the calendar tour, the partner calendar, etc.) — consistent vocabulary.
-
-Recovery path branches here, owned by tile 3.4 design.
+Recovery branches here → tile 3.10 (six-value entry → `POST /resolve`).
 
 ### Screen 2 — Your name
 
@@ -100,9 +85,9 @@ exact for your partner to connect with you.
 [ Continue ]
 ```
 
-Question framing, not instructional label. The body sentence gives the user a *reason* to type carefully (partner connection) rather than a UX scold (immutability). Immutability is named on the next screen where it's load-bearing.
+Question framing, not a UX scold. The body gives a *reason* to type carefully (partner connection); immutability is named on the next screen where it's load-bearing.
 
-Validation: non-empty, no `|` or `__` characters (server rules). Continue greys until valid. Edge-case validation surfaces as inline server errors when triggered, not as pre-emptive copy.
+Validation: non-empty, no `|` or `__` (pair-key delimiter chars). Continue greys until valid.
 
 ### Screen 3 — Confirm your name
 
@@ -111,18 +96,14 @@ Unlike your username which you will choose next,
 this cannot be changed later. Are you sure
 this is how you spell your name?
 
-[ JAMIE ]
+[ Jamie ]
 
 [ Back ] [ Continue ]
 ```
 
-The forward-reference to username does psychological work: it tells the user "you'll get a flexible handle in a moment, this isn't your last chance to express yourself." Removes hesitation that would otherwise stall the name commit.
+The forward-reference to username removes hesitation ("you'll get a flexible handle in a moment"). Back is essential — this is the moment regret strikes.
 
-The name is displayed EXACTLY as typed — preserving case, whitespace as the user entered it (server-side normalisation handles NFC + collapsed-whitespace internally, but the confirmation modal shows the user their literal input). Case-sensitivity matters for the join flow (pair-key Section 12, session 10) — "jamie" and "Jamie" are different identities. The confirmation is the moment the user sees their exact stored form.
-
-Back button is essential — the confirmation is the moment regret strikes. Without Back, a user staring at a typo is trapped.
-
-Name is committed as immutable on Continue. No app-UI path to change it afterward.
+The confirmed value is displayed **exactly as typed** — no all-caps or other transform. Names are case-sensitive in the pair-key hash (no casefold), so the displayed string must match the stored string character-for-character. Name commits as immutable on Continue.
 
 ### Screen 4 — Your username
 
@@ -137,9 +118,7 @@ can be changed as often as you like.
 [ Continue ]
 ```
 
-Parallel structure to screen 2 ("What is your name?" / "What username would you like?"). The body sentence explicitly contrasts against the previous screen, reversing the immutability stake the user was just primed on. No confirmation screen — mutable, low stakes.
-
-The user is not told that changing username triggers a pair-key migration. That's leaky abstraction. The user is not told that partners see the username. They'll figure that out the first time they see the partner panel.
+Parallel structure to screen 2, explicitly reversing the immutability stake. No confirmation screen — mutable, low stakes. The user is not told that changing username triggers a pair-key rotation (leaky abstraction) or that partners see the username (they'll learn it on the partner panel).
 
 ### Screen 5 — Pick your starting avatar
 
@@ -154,32 +133,21 @@ decorate your calendar.
 [ Continue ]
 ```
 
-The popup is the framing. "Avatar" names the function (the sticker is who the user will be in the app, visible to their partner forever). "It'll give you a bunch of UI elements to decorate your calendar" names what's about to happen — the sticker brings things, you receive them.
+"Avatar" names the function (the sticker is who the user is in the app, visible to their partner). Continue dismisses the popup and activates the picker.
 
-Continue dismisses the popup and activates the picker.
+**Picker layout:** picker takes 30-50% of the screen on the left; calendar is visible on the right, updating in real time as stickers are tapped. The picker shows a **curated launch starter subset** — every sticker here ships full UI coverage so every tap is a visibly transformative reveal.
 
-**Picker layout:** sticker picker takes 30-50% of the screen on the left. Calendar UI is visible on the right, updating in real time as the user taps stickers. The picker shows a **curated launch starter subset** — every sticker on this screen ships full UI element coverage (background, palette, cell variants, etc.) so every tap is a visibly transformative reveal.
+**Starter subset selection criteria:** ships many slots (taps feel meaningful), looks distinct from the others (shows theming range), reads well on marketing screenshots (the store gallery uses this picker). The subset is **fixed across all installs** and is also the seed pool for screen 5b. Not the full catalogue — that's reserved for post-onboarding discovery.
 
-**Selection criteria for the launch starter subset:**
-- Stickers that ship many slots (so taps are meaningful).
-- Stickers that look distinct from each other (showing the range of theming).
-- Stickers that read well on marketing screenshots (the install-store gallery uses this picker).
+**Continue (off the picker) commits the chosen sticker** as `active_leader` and fires the theme assembly theatre.
 
-**The starter subset is fixed across all installs.** It is also the seed pool for screen 5b. Same selection, same purpose. Not the full launch catalogue — that's reserved for post-onboarding discovery via the picker.
+### Theme assembly theatre (transition, ~2s)
 
-**Continue (off the picker) commits the chosen sticker** as `active_leader`, fires the theme assembly theatre.
-
-### Theme assembly theatre (transition, ~2 seconds)
-
-Loading-screen-style moment. The chosen leader sticker is centred. Glitch-typewriter loading text. Themed UI elements assemble onto the calendar in z-index order with small bounce-and-twist animations. The pair-key (or solo-pair-key) hashes during this window.
-
-Skippable on tap.
-
-This is reserved for onboarding only. Mid-app theme changes apply instantly or near-instantly (per the theme doc).
+Loading-screen moment. Chosen leader centred, glitch-typewriter loading text, themed UI elements assemble onto the calendar in z-index order with small bounce-and-twist animations. Skippable on tap. Onboarding-only — mid-app theme changes apply instantly per the theme doc.
 
 ### Screen 5b — Themed companion pool
 
-Popup over the themed calendar (calendar visible underneath, MOTD area present in the header):
+Popup over the themed calendar (calendar visible underneath, MOTD area present in header):
 
 ```
 Here are some stickers that match your theme,
@@ -192,9 +160,7 @@ These have a chance to appear each day you
 complete.
 
 [ animated 7-day strip: 6/7 days green with
-  themed stickers placed; the strip updates
-  as the user could imagine toggling pool
-  members, though no toggle interaction here ]
+  themed stickers placed ]
 
 They also complete your message of the day
 — let's see what that is.
@@ -202,19 +168,13 @@ They also complete your message of the day
 [ Continue ]
 ```
 
-**Themed companion architecture:** each curated launch leader has a small set of companion stickers attached as a bundle. Frog → swamp companions (lily pad, fly, swamp light, swamp flower). Vampire → castle companions. Cat → cat companions. Each leader's bundle is data-driven, defined alongside the curated launch subset.
+**Themed companion architecture:** each curated launch leader has a small bundle of companion stickers (Frog → swamp companions, etc.), data-driven alongside the curated subset. **Art budget note:** every curated launch leader needs full-slot UI coverage AND 4-5 companions — larger than one sticker per leader.
 
-**Content authoring constraint:** every curated launch leader needs full-slot UI coverage AND 4-5 companion stickers in its world. The art budget for the launch starter set is larger than a single sticker per leader.
-
-**Pool seeding:** screen 5b commits the chosen leader + its themed companions as the user's `active_stickers` pool.
-
-The animated 7-day strip teaches the per-day rotation mechanic visually. No copy needed beyond the supporting sentence.
-
-The trailing line ("they also complete your message of the day") sets up the next screen's reveal without explaining MOTD here. The user reads "let's see what that is" and taps Continue genuinely curious.
+Screen 5b commits the leader + companions as the user's `active_stickers` pool. The animated strip teaches the per-day rotation mechanic visually. The trailing line sets up screen 6 without explaining MOTD yet.
 
 ### Screen 6 — Your message of the day
 
-The popup dismisses, the user's attention is drawn to the MOTD area under the `[username]'s calendar` header. A new popup overlays the calendar:
+The popup dismisses; attention is drawn to the MOTD area under the header. A new popup overlays:
 
 ```
 Your message of the day
@@ -232,19 +192,15 @@ to get you started.
                               [ Save ]
 ```
 
-**MOTD mechanic:** four spinners, each pulling from its own pool. Adverb / verb / noun / sticker. The first three are server-side word lists. The fourth pulls from the user's `active_stickers` pool. Output assembles into a four-element phrase ("Quietly | tended | the swamp | 🐸"). Dark-Souls-death-message energy.
+**MOTD mechanic:** four spinners — adverb / verb / noun / sticker. First three are server-side word lists; the fourth pulls from the user's `active_stickers` pool. Output is a four-element phrase ("Quietly | tended | the swamp | 🐸"). Dark-Souls-death-message energy.
 
-**Tutorial coin loop:** the "More coins" button arms whenever the user's balance falls below the reroll cost threshold (70-110). Tapping it tops the balance back up to 750. Infinite tutorial rerolling. The user can spin freely without spending real economy.
+**Tutorial coin loop:** the "More coins" button arms whenever balance falls below the reroll threshold (70-110); tapping tops back up to 750. Infinite tutorial rerolling. The user learns the economy by playing it, not by reading about it.
 
-**Why this works as the coin introduction:** the user implicitly learns "coins are spent on rerolls" by spending them. They learn "coins have a balance" by watching it deplete and replenish. They learn the *feel* of the economy through play, not text.
-
-**Save commits the MOTD.** It typewriters onto the header in the position where it belongs. Onboarding moves to the next screen.
-
-**Note on coin state at end of MOTD screen:** the carryover balance is discarded. Whatever the user has when they tap Save is irrelevant — screen 8 will grant a fresh coin amount. Tutorial coins do not persist as live economy currency.
+**Save commits the MOTD** (typewriters onto the header) and advances. **Tutorial coins do not persist** — the carryover balance is discarded; screen 8 grants the real starting amount.
 
 ### Screen 7 — Your partner's calendar
 
-Setup: typewriter MOTD finishes animating onto the header. A subtle swipe-right prompt (arrow, chevron, or animated indicator) appears. The user swipes. The view slides to the partner calendar — empty, muted styling, neutral header. A popup overlays.
+The typewriter MOTD finishes; a subtle swipe-right prompt appears; the user swipes to the empty, muted partner calendar. A popup overlays:
 
 ```
 Your partner's calendar
@@ -266,13 +222,11 @@ to theirs.
 
 **The persistent "Add my partner" button lives on the partner calendar UI itself, not in this popup.** The popup teaches; the button is the always-available action.
 
-**The subscription plant:** single line introducing bilateral library sharing as the value proposition of subscription. Not a pitch, not a pricing surface. The framing "subscribing later" defuses sales pressure by naming the action as a future option. The bilateral phrasing ("they'll have access to your stickers... you'll have access to theirs") is precise about what library sharing actually does.
-
-**"UI they bring"** establishes vocabulary the user will encounter again on screen 8 and in the picker. "Stickers" plus "the UI they bring" tells the user that a sticker is a multi-faceted object without naming slots or the feature-catalogue model — which they don't need yet.
+**Subscription plant:** one line introducing bilateral library sharing as the value of subscription. "Subscribing later" defuses sales pressure by naming it a future option. "UI they bring" establishes vocabulary reused on screen 8 and in the picker — a sticker is a multi-faceted object, without naming slots.
 
 ### Screen 8 — Coins and the picker
 
-User swipes back to their own calendar. The themed UI is fully present. Popup overlay. **A coin blitz animation fires during the read** — coin counter ticks up from current state to a clean generous starting balance (sized for 2-3 sticker purchases at expected pricing).
+User swipes back to their own (fully themed) calendar. Popup overlay. **A coin blitz fires during the read** — the counter ticks up to a clean generous starting balance (2-3 stickers' worth at expected pricing).
 
 ```
 One more thing.
@@ -290,229 +244,15 @@ It's your app.
 [ Start the day ]
 ```
 
-**The animation is the announcement.** The copy doesn't need to say "here's some coins" because the user is watching them arrive. The phrase "here's some coins to play with" is deliberately understated — calling the gift "some" lets the size feel surprising rather than oversold.
+The animation is the announcement — "some coins" is understated so the size feels surprising. "It's your app" names the pattern every prior screen demonstrated through behaviour. "Start the day" names the daily rhythm.
 
-**Weight comes from animation time, not language.** ~2 seconds of slow coin counter climb, soft audio if appropriate, final balance lands with a small settling beat. Long enough to feel the size of the gift; short enough not to be waiting.
+**After "Start the day":** popup dismisses, user is on their themed calendar with their saved MOTD, granted coins, and picker accessible. No calendar tour overlay — the partner panel and coins each got their own screen, and the UI assembled in front of the user during the theatre. They're dropped onto the calendar and trusted to use it.
 
-**"It's your app."** Brand thesis stated plainly. Every previous screen showed this through behaviour (you can change usernames, you can spend everything, you can keep whatever stickers you want). This sentence names the pattern.
+**Open question:** does "Start the day" fire the day-1 morning sequence immediately, or drop the user on a flat calendar with the sequence firing on next open? Morning sequence assumes a sealed previous day; day 1 has none. Resolve in the morning sequence doc's next pass.
 
-**"Start the day"** as the button label. Echoes the previous sentence's "head into your first day." Names the daily rhythm the app will use forever. Stronger than "Continue" or "Start my first day."
+### The four-tasks entry screen (placement open)
 
-### After "Start the day"
-
-The popup dismisses. The user is on their themed calendar with the MOTD they saved, the coins they were granted, and the picker accessible (wherever the picker lives on the UI — deferred design decision, internally parked).
-
-**No calendar tour overlay.** The original session 6 design had a screen 12 with arrow annotations pointing at today, the partner panel, and the coin balance. Removed in session 8 because the partner panel got its own screen, coins got their own screen, and the calendar UI assembled in front of the user during the theme theatre. The user is dropped onto the calendar and trusted to use it.
-
-**Open question:** does "Start the day" trigger the day-1 morning sequence immediately, or does it just drop the user on a flat calendar with the morning sequence firing on next app open? Morning sequence design assumes a sealed previous day; on day 1 there isn't one. Real design question for the morning sequence doc's next pass.
-
----
-
-## Solo mode — app behaviour
-
-What works in solo mode:
-
-- Full task list, tick, MOTD, calendar.
-- Stamp animation on completion.
-- Coin economy at base rate (no 1.5x multiplier — that requires a partner).
-- Morning sequence — fires normally. Partner panel section of the sequence is replaced with a recruitment beat.
-- Theme system (active_stickers pool, active_leader, active_theme slots) all functional. Post-fork features (per-slot context menu on long-press) trigger-gated on first picker open per staggered disclosure.
-- Streaks, rest days, milestones — all work.
-- Day-2 long-press philosophy reveal fires. Day-3 rest day intro fires. Day-4 partner reactions reveal fires (framed prospectively for solo users: "when you pair up, you'll be able to react to each other's days").
-
-What does not work:
-
-- Partner reactions. No partner exists.
-- 1.5x multiplier on daily payout.
-- Partner panel content. Empty calendar + persistent "Add my partner" button.
-
-**The partner panel as recruitment surface:**
-
-- Muted, gently styled empty calendar — visibly not broken, just empty.
-- Centred copy (placeholder, copy job parked):
-  - "Your partner's space is waiting."
-  - "Pair with them to see their tasks here, and they'll see yours."
-- Persistent button: `[ Add my partner ]`.
-
-Tapping Add my partner opens the join-by-values flow (see Server section below).
-
----
-
-## Server — solo identity model
-
-A solo user has:
-- A `user_id` (server-generated UUID v4, assigned at the end of onboarding).
-- A `users` row keyed by `user_id`, holding their identity values (name, username, active_leader), personal state (coin balance, theme, etc.), and `pair_id = NULL`.
-- A `days` row each day they use the app, attached to their `user_id` (not to a pair).
-- **No `pairs` row.** Solo is `users.pair_id IS NULL`; there is nothing in the `pairs` table to point at yet.
-
-This is the same model used post-un-pair (see pair-key Section 17): solo is solo, whether the user just finished onboarding or just un-paired from someone. The structural state is identical.
-
-The previous session-8 sketch proposed a `solo:<uuid>` prefix in the `pairs.key` column to model solo users as a "pair of one." That convention is **superseded by the session-10 user_id model** — there is no solo `pairs` row, and the `pair_id NULL` predicate replaces the prefix check for "is this user solo."
-
-Schema: see `four_tasks_pair_key_design_notes.md` Section 5 (`users.pair_id TEXT NULL REFERENCES pairs(pair_id)`) and Section 15 (full migration_005 delta).
-
----
-
-## Server — pair join flow
-
-**Single endpoint replacing the session 6 `join_by_link` / `join_by_values` pair.**
-
-`POST /join_by_values`
-
-```
-Body: {
-  partner_values: { name, username, active_leader },
-  joiner_values:  { name, username, active_leader }
-}
-```
-
-**Logic:**
-
-1. Search for solo users (`users.pair_id IS NULL`) whose `(name, username, active_leader)` matches `partner_values` exactly (case-sensitive, NFC-normalised + whitespace-trimmed per pair-key Section 12).
-
-2. **If exactly one solo match:**
-   - Compute new real pair-key from all six values.
-   - Open D1 transaction.
-   - Generate fresh `pair_id` (UUID v4).
-   - INSERT new `pairs` row with `pair_id` + computed `pair_key`.
-   - UPDATE the existing solo `users` row: set `pair_id` to the new pair_id.
-   - Generate fresh `user_id` for the joiner. INSERT new `users` row for the joiner with that `user_id` and the new `pair_id`.
-   - **Days are not moved.** Day rows are keyed by `user_id`, which doesn't change. The existing solo user's days remain attached to their existing user_id, now part of a pair. The joiner has no prior days (they were never solo at this user_id).
-   - Commit. Return `pair_id`, `pair_key`, both users' `user_id`s, and full pair state to the joiner.
-
-3. **If zero solo matches:** search real pairs (`users.pair_id IS NOT NULL`) where one user matches `partner_values` AND the partner user matches `joiner_values` exactly. This handles the recovery case (existing real pair, joiner is reinstalling).
-   - If found: this is recovery, not a fresh join. Return the joiner's `user_id`, the `pair_id`, the current `pair_key`, the partner's `user_id`, and full pair state. Joiner writes everything to identity.cfg and resumes normal operation.
-   - If not found: this is a "no such partner" join — partner hasn't installed yet or typed values don't match anyone. **Decision deferred:** does the endpoint create a phantom pair, or reject with a "partner not found" message? The session-8 sketch had phantom-pair creation; under the user_id model that has more downsides (an orphaned `users` row representing the phantom partner) and the user-facing UX is probably cleaner if it just says "couldn't find your partner — make sure they've installed and their three values are correct." Decide at tile 3.x implementation time. This is captured in Open Work below.
-
-4. **If more than one solo match:** return 409 `ambiguous_match`. Client surfaces the collision-resolution UX (see below).
-
-**Cross-reference:** the distinction between this section's ambiguous-match (multiple solo users matching one set of partner values) and pair-key Section 9.3's wrong-attach (joiner's six values happen to hash to a real pair that isn't the intended one) is important. They are mechanically different problems:
-- **Ambiguous-match (this section):** detected by counting solo matches before any hash is computed. Server-detectable, returns 409, prevents the bad join.
-- **Wrong-attach (pair-key Section 9.3):** detected only post-hash — server returns 200 with the matched pair's state, and human verification at the joiner's UI is what catches it.
-- **Hash collision (pair-key Section 13):** two distinct intended pairs hashing to the same `pair_key`. UNIQUE constraint catches it at write time.
-
-These three failure modes share surface ("the system did something wrong") but have separate response paths.
-
----
-
-## Ambiguous-match resolution UX
-
-When B types A's three values and the server returns 409 `ambiguous_match`:
-
-Copy shown to joiner:
-
-```
-We couldn't find your partner uniquely.
-
-There's more than one person matching the
-details you typed. Ask your partner to change
-their username slightly, then try again.
-
-They can change it back once you're paired.
-```
-
-**Why this works:**
-
-- The fix is on A's side, not B's. B can't fix this by retyping; the copy routes them correctly.
-- A goes into settings, changes username to something more distinctive, taps save. The pair-key migrates. The solo match becomes unique.
-- B retries. Pair forms.
-- After pairing, A can revert username if they want — the full six-value hash now includes B's half, so even reverting to identical-to-the-other-Sarah's-username produces a different pair-key. Post-pair username revert is an explicit supported flow.
-
-**Vocabulary lesson the user absorbs without explanation:**
-
-- Usernames are mutable.
-- Pair identity is robust to username changes after pairing.
-- The collision was a join-time issue, not a permanent issue.
-
-The frequency of this case is expected to be vanishingly low. Two solo users with identical name + username + leader sticker is unlikely at any real scale. The UX exists for the rare case, not as a common flow.
-
----
-
-## Recovery path
-
-Triggered from screen 1a's "Recover my calendar" button.
-
-Owned by tile 3.4 design. Recovery flow:
-
-- User enters all six values (their own three + partner's three, from memory or from the partner's visible app state).
-- Server resolves to existing pair-key.
-- If match: data loads, user lands in main app, skips onboarding.
-- If no match: collision popup with masked-hint mechanism (see pair-key doc's "Masked-hint recovery aid" section — exact rate limiting and which fields are hint-eligible are pair-key doc's outstanding work).
-
-Recovery only resolves real pairs (six-value pair-keys). Solo users have no pair_key and no partner-mediated recovery layer — they fall back to OS-level identity.cfg backup (iCloud Keychain / Google Drive) per pair-key Section 17 "Solo recovery implications." A solo user with no OS backup who loses their device can re-install fresh as solo (a new `user_id`); their previous solo data is unrecoverable. This is a deliberate accept — solo users have less to lose than paired users, and the partner-mediated mechanism specifically requires a partner.
-
----
-
-## Staggered disclosure intersection
-
-The onboarding floor (what gets taught on day zero) is now defined in this doc's eight-screen flow. The staggered disclosure design notes hold the principle and the day-2-onward schedule.
-
-Onboarding teaches:
-- Name, username, starting avatar.
-- Themed companion pool and per-day rotation mechanic.
-- MOTD spin/save mechanic and coin reroll cost.
-- Partner calendar location and post-onboarding pairing.
-- Library sharing concept (subscription plant).
-- Four tasks (placeholder pool, mutability).
-- Coins as live currency, earnable daily.
-
-Onboarding does NOT teach:
-- Rest days (day-3 reveal).
-- Long-press philosophy and week mode (day-2 reveal + cascade).
-- Picker context menu (trigger-gated on first picker open).
-- Partner reactions (day-4 reveal).
-- Streak milestones, coin name personalisation, subscription specifics, leaderboard.
-
-This is the load-bearing intersection. Onboarding may absorb more features over time if their UI is permanent; anything not permanent in the UI waits.
-
----
-
-## Edge cases
-
-### Joint in-person install dissonance
-
-Two users installing side-by-side at the same time may experience cross-talk as they each navigate their own onboarding. The current solo-default architecture makes this less acute than the session 6 design — neither user is proxy-onboarding the other; they each set up their own app, and pairing happens after via the post-onboarding button.
-
-Real-world frequency unknown. Worth watching during friends-and-family native testing. If joint install proves common and produces UX issues, revisit. Currently not blocking.
-
-### iOS install-referrer
-
-Not relevant in the current design. The session 6 design relied on universal links carrying invite parameters; we no longer use invite links. iOS users install fresh, run through full onboarding, then enter their partner's three values manually. Android users do the same. No platform asymmetry.
-
-The pickle-moon-public repo's universal link / app link configuration (AASA file, assetlinks.json) is now optional — only needed if Four Tasks later wants deep-link support for marketing URLs (e.g. "open the app to this specific page"). Not v1.0 blocking.
-
-### Two-solo-users pair-merge
-
-If both A and B installed solo independently and later want to combine, one of them has to reboot their install and join the other via the join-by-values flow. The rebooted user's solo history is lost.
-
-This is an accept. The scenario is rare (two people in a relationship both happening to install the app independently and never tell each other), and the workaround is straightforward. Solo data is meant to migrate into a pair on join, but the join flow requires one user to be solo at join time — there's no clean way to merge two existing histories.
-
-Future v1.x consideration: a pair-merge flow that asks "which user's history should be preserved?" and discards the other. Not v1.0 work.
-
----
-
-## Open work
-
-Defer to implementation or future design passes:
-
-- **`POST /join_by_values` zero-match behaviour.** Under the user_id model, the session-8 sketch's phantom-pair creation produces an orphaned `users` row representing a partner who never installs. Decide at tile 3.x implementation: (a) reject with friendly "couldn't find your partner" message and no DB write, or (b) keep phantom-pair creation but add cleanup logic for stale phantoms. Leaning toward (a) for simplicity. Captured at session 11 sync.
-- **Placeholder task pool** — ~50 examples for the four-tasks input on screen 7 (which the design doc doesn't currently include — see Note below). Curated copy authoring tile.
-- **Curated launch starter subset definition** — concrete list of leader stickers and companion bundles. Art + content authoring tile.
-- **MOTD word pools** — adverb, verb, noun lists. Server-side content authoring. Tonally consistent, never bleak, slightly off-kilter.
-- **Partner panel empty state copy** — placeholder above; needs polish pass.
-- **Recovery flow detail** — masked hint mechanism, rate limiting, fields eligible for hinting. Captured in pair-key design doc; lands at tile 3.4 implementation.
-- **Confirmation modal exact UX (screen 3)** — single button to lock vs full-screen modal vs inline accordion. Implementation decision.
-- **"Is this your partner?" sanity-check screen** — after manual pair resolve, optionally show partner name + active_leader sticker for confirmation before fully committing. Defer to v1.x polish.
-- **Whether "Start the day" triggers day-1 morning sequence immediately or defers it.** Real design question for morning sequence doc's next pass.
-
-### Note on missing screen
-
-The original session 6 design had a "Your four tasks" screen as part of the partner-fork flow (screen 11 in the old numbering). The session 8 rewrite organised around eight screens centred on identity + theme + MOTD + partner intro + coin grant — the four-tasks entry was implicitly subsumed but not given its own explicit screen number in this rewrite.
-
-**This is a gap.** The user needs to enter their four tasks somewhere. The likely placement is between screen 6 (MOTD) and screen 7 (partner calendar), or between screen 7 and screen 8. To be resolved in the next design pass.
-
-Working copy from session 8:
+The user must enter their four tasks somewhere in the flow — this screen is real, but its placement (between 6 and 7, or 7 and 8) and presentation (full screen, loading-screen style, whatever) are **implementer's choice at tile 3.x**. Not locked, no strong preference. Working copy:
 
 ```
 Your four tasks
@@ -529,42 +269,100 @@ do them. You can change them later.
 [ Continue ]
 ```
 
-"Keep them small enough that you'll actually do them" is the most important sentence in the entire onboarding. The four-tasks placement question is real and needs resolution.
+"Keep them small enough that you'll actually do them" is the most important sentence in onboarding. Validation: each label non-empty, no `|` / `__`, UX cap ~30 chars (server caps at 49).
 
 ---
 
-## Session 8 changes summary (vs session 6 doc)
+## Solo mode — app behaviour
 
-- 12 screens → 8 screens (plus the four-tasks screen still to be placed).
-- Partner fork removed. Solo is the default outcome of onboarding.
-- Partner-entry screens (old 7-9) removed.
-- Solo confirm screen (old 10) removed.
-- Manual fallback flow removed.
-- Invite link flow (old A1-A7) removed entirely.
-- MOTD moved into onboarding (was explicitly excluded in session 6).
-- Theme depth moved into onboarding (was deferred to day-7).
-- Leader pick now has a curated launch starter subset with themed companion bundles.
-- Theme assembly theatre added as a transition moment.
-- Themed companion pool reveal added (screen 5b).
-- MOTD tutorial coin loop added.
-- Coin blitz on closing screen added.
-- Library sharing plant added (screen 7).
-- Server endpoints: `join_by_link` and `join_by_values` collapse into a single `join_by_values`. No URL parameters, no codes.
-- Universal links / app links / install-referrer SDK decisions: no longer relevant. The pickle-moon-public AASA / assetlinks files become optional (deep-link support for marketing URLs, not pairing).
-- Ambiguous-match resolution UX added (ask partner to vary username temporarily).
-- Calendar tour overlay removed (old screen 12). Replaced by per-screen-context introductions across screens 5b, 6, 7, 8.
-- "Add my partner" button now lives on the partner calendar UI as a persistent action, not in the partner-entry onboarding screens (which no longer exist).
+**Works in solo mode:** full task list / tick / MOTD / calendar; stamp animation; coin economy at base rate (no 1.5x — that needs a partner); morning sequence (partner-panel beat replaced by a recruitment beat); full theme system; streaks, rest days, milestones; the day-2/3/4 staggered reveals (day-4 partner-reactions reveal is deferred with the feature — see staggered disclosure doc).
+
+**Does not work:** partner reactions (no partner), 1.5x multiplier, partner panel content.
+
+**Partner panel as recruitment surface:** muted, gently styled empty calendar (visibly not broken, just empty), centred placeholder copy ("Your partner's space is waiting." / "Pair with them to see their tasks here, and they'll see yours."), persistent `[ Add my partner ]` button. Tapping it opens the join-by-values flow.
 
 ---
 
-## Session 11 sync (partial)
+## Server — identity and pairing (shipped session 12)
 
-Server-side identity model sections re-synced to match pair-key Section 5's `pair_id NULL` solo model. Specifically:
+### Solo identity model
 
-- "Server — solo identity model" rewritten: no `solo:<uuid>` pair row; solo is `users.pair_id IS NULL`. Days attach to `user_id`, not to a solo pair-key.
-- "Server — pair join flow" rewritten: the solo-match transaction is now an UPDATE on the existing solo user's `pair_id` (not a DELETE of a solo pairs row + UPDATE of days). Days don't move on join because they're already keyed by `user_id`.
-- "If zero solo matches, no recovery match" sub-case: flagged as a v1.0 decision pending tile 3.x implementation (phantom-pair creation vs friendly-rejection). Added to Open Work.
-- "Recovery path" updated: solo users have no partner-mediated recovery; OS-level identity.cfg backup is their path.
-- Cross-reference paragraph added distinguishing ambiguous-match (this doc), wrong-attach (pair-key Section 9.3), and hash collision (pair-key Section 13).
+A solo user has a `user_id` (server-generated UUID v4, assigned when the `users` row is created at the end of onboarding), a `users` row holding identity + personal state with `pair_id = NULL`, and a `days` row per day of use attached to that `user_id`. **No `pairs` row** — solo is `users.pair_id IS NULL`. This is the same state as post-un-pair: solo is solo regardless of history.
 
-The eight-screen flow, copy, and screen ordering were not touched. They remain at session-8 lock.
+### When the user row is created
+
+`POST /users` fires at the **end of onboarding** (screen 8 "Start the day"), returning the user's `user_id`, which the client writes to `identity.cfg`. Pairing is always a later action against an already-existing `user_id`.
+
+### Pair join flow
+
+`POST /users/:user_id/join_by_values` — body `{partner: {name, username, active_leader}}`. The caller's own triple is read from their stored `users` row, not sent in the body.
+
+1. Caller must be solo (`pair_id IS NULL`), else 409 `already_paired`.
+2. Search solo users (`pair_id IS NULL`, excluding self) matching `partner` exactly (case-sensitive, NFC-normalised, whitespace-trimmed per pair-key Section 12).
+3. **Exactly one match:** derive pair-key from both triples, UNIQUE-check (409 `pair_key_collision` on clash), then atomically INSERT the `pairs` row and UPDATE both users' `pair_id`. Returns `{pair_id}`. Days don't move — they're already `user_id`-keyed.
+4. **Zero matches:** 404 `partner_not_found`. No phantom-pair creation — the session-8 phantom-pair sketch was dropped (it produced orphaned `users` rows). The client surfaces "couldn't find your partner — check they've installed and their three values are correct."
+5. **Two-plus matches:** 409 `ambiguous_match` → collision-resolution UX below.
+
+### Recovery (separate endpoint)
+
+`POST /resolve` — body is both triples. Matches the six-value pair-key, disambiguates the recovering user by `self.name`, returns `{user_id, pair_id}`. 404 `pair_not_found` if no pair matches. This is **not** part of `join_by_values`; recovery and fresh-join are distinct endpoints.
+
+Solo users have no `pair_key` and no partner-mediated recovery — they fall back to OS-level `identity.cfg` backup (iCloud Keychain / Google Drive) per pair-key Section 17. A solo user with no OS backup who loses their device re-installs fresh as a new `user_id`; prior solo data is unrecoverable. Deliberate accept — solo users have less to lose, and the partner-mediated mechanism requires a partner.
+
+### Three failure modes, kept distinct
+
+- **Ambiguous-match** (this doc): multiple solo users match one set of partner values. Counted before any hash; 409, prevents the bad join.
+- **Wrong-attach** (pair-key Section 9.3): joiner's six values happen to hash to a real but unintended pair. Detected only post-hash; server returns 200, human verification at the UI catches it.
+- **Hash collision** (pair-key Section 13): two distinct intended pairs hash to the same `pair_key`. UNIQUE constraint catches it at write time.
+
+---
+
+## Ambiguous-match resolution UX
+
+On 409 `ambiguous_match`, shown to the joiner:
+
+```
+We couldn't find your partner uniquely.
+
+There's more than one person matching the
+details you typed. Ask your partner to change
+their username slightly, then try again.
+
+They can change it back once you're paired.
+```
+
+The fix is on the partner's side, not the joiner's — the copy routes them correctly. Partner changes username → pair-key rotates → the solo match becomes unique → joiner retries → pair forms. After pairing, the partner can revert: the six-value hash now includes the joiner's half, so even an identical-to-the-other-person username produces a different pair-key. Post-pair revert is an explicitly supported flow.
+
+The user absorbs three lessons without being told: usernames are mutable, pair identity survives username changes after pairing, and the collision was a join-time issue not a permanent one. Frequency is expected to be vanishingly low; the UX exists for the rare case.
+
+---
+
+## Staggered disclosure intersection
+
+Onboarding teaches: name, username, starting avatar; themed companion pool + per-day rotation; MOTD spin/save + reroll cost; partner calendar location + post-onboarding pairing; library sharing concept; four tasks; coins as live, earnable currency.
+
+Onboarding does NOT teach: rest days (day-3 reveal), long-press philosophy + week mode (day-2 reveal + cascade), picker context menu (trigger-gated on first picker open), streak milestones, coin name personalisation, subscription specifics, leaderboard. (Partner reactions deferred to v1.x with the feature.)
+
+The load-bearing rule: onboarding may absorb a feature only if its UI is permanently visible from day zero. Everything else waits for the staggered schedule.
+
+---
+
+## Edge cases
+
+- **Joint in-person install** — two users onboarding side-by-side may cross-talk. The solo-default architecture makes this mild (neither proxy-onboards the other). Frequency unknown; watch during friends-and-family testing.
+- **iOS install-referrer** — not relevant. No invite links; all users onboard fresh then type partner values manually. No platform asymmetry. AASA / assetlinks files are now optional (only for marketing deep-links, not pairing).
+- **Two-solo-users pair-merge** — if both installed solo independently and later want to combine, one must un-pair/reboot and join the other; the rebooted user's solo history is lost. Rare; the join flow requires one party solo at join time. Future v1.x: a pair-merge flow that picks which history to keep.
+
+---
+
+## Open work
+
+- **Four-tasks entry screen** — placement + presentation, implementer's choice at tile 3.x (see above).
+- **"Start the day" trigger** — fire day-1 morning sequence immediately or defer to next open? Morning sequence doc's next pass.
+- **Curated launch starter subset** — concrete leader + companion-bundle list. Art + content authoring.
+- **Placeholder task pool** — ~50 examples for the four-tasks inputs. Copy authoring.
+- **MOTD word pools** — adverb / verb / noun lists, server-side. Tonally consistent, never bleak, slightly off-kilter.
+- **Partner panel empty-state copy** — placeholder above needs a polish pass.
+- **Recovery flow detail** — masked-hint mechanism, rate limiting, hint-eligible fields. Captured in pair-key doc; lands at tile 3.10.
+- **Screen 3 confirmation UX** — single lock button vs modal vs inline accordion. Implementation decision.
+- **"Is this your partner?" sanity-check screen** — optional post-resolve confirmation (partner name + sticker) before committing. v1.x polish.
