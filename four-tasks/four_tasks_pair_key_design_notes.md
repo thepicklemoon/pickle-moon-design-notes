@@ -582,10 +582,8 @@ touch day rows at all) but still matters for the *sealing* logic
 that accompanies it. Tile 4.6 implementation should preserve the
 non-interactive window.
 
-See `four_tasks_morning_sequence_design_notes.md` "Migration window
-property" for the hard time budget. That cross-reference uses the
-older "migration" terminology; will be synced to "rotation" at next
-housekeeping pass.
+See `four_tasks_morning_sequence_design_notes.md` "Rotation window
+property" for the hard time budget.
 
 ---
 
@@ -1065,12 +1063,25 @@ no separate write-rules doc.
 The canonical string is:
 
 ```
-<name_A>|<username_A>|<active_leader_A>__<name_B>|<username_B>|<active_leader_B>
+<name_A>|<username_A>|<active_leader_A>||<name_B>|<username_B>|<active_leader_B>
 ```
 
 Where:
-- `__` is a double underscore (the inter-user separator).
-- `|` is a vertical bar (the intra-user separator).
+- `|` is a vertical bar (the intra-user separator, between the three
+  fields of one user).
+- `||` is a double vertical bar (the inter-user separator, between the
+  two users' blocks).
+- **Both separators are built from `|`, and `|` is banned in every
+  value (see Validation rules).** This is deliberate: because no value
+  can contain a single `|`, no value can ever forge a separator, so a
+  field's contents can never shift a boundary. This is what lets `_`
+  and `-` stay legal in names and usernames (see below) — they cannot
+  collide with a pipe-based separator. (The earlier spec used `__` as
+  the inter-user separator; that was built from `_`, a legal value
+  character, so a trailing/leading underscore adjacent to the separator
+  could forge it — e.g. `frog_` + `__` + `cat` and `frog` + `__` +
+  `_cat` both produce `frog___cat`. Basing the separator on the banned
+  `|` closes that boundary collision.)
 - `A` and `B` are determined by lexicographic sort on the normalised
   `name` (after normalisation, see below). `A` is the smaller name.
 - **Tiebreaker:** if both users' normalised names are identical
@@ -1103,16 +1114,26 @@ name, character for character.
 
 ### Validation rules (enforced server-side)
 
-The canonical form uses `|` and `__` as separators. Allowing them in
-user input would let two distinct pairs produce identical canonical
-strings. So:
+Both separators (`|` and `||`) are built from the vertical bar, so the
+**only** character that must be banned in user values is `|`. Banning
+it makes both separators unforgeable — no value can contain a pipe, so
+no value can fake an intra- or inter-user boundary. Everything else,
+including `_` and `-`, is legal (real names and usernames use them).
 
-- **Reject `|` (single pipe) in any of the six values.** HTTP 400
-  with error code `invalid_character`.
-- **Reject `__` (double underscore) anywhere in any of the six
-  values.** HTTP 400 with `invalid_character`.
+- **Reject `|` (vertical bar) anywhere in any of the six values.** HTTP
+  400 with error code `invalid_character`. (This covers `||` as well —
+  a value can't contain two pipes if it can't contain one.)
 - **Reject empty strings** after normalisation. HTTP 400 with
   `empty_value`.
+- **`_` (any number, including `__`) and `-` are explicitly allowed.**
+  They were previously banned to protect the old `__` separator; that
+  separator is gone, so the ban is gone with it.
+
+This is the one home for the identity-field character policy: ban `|`,
+require non-empty, allow everything else. (`/` and `\` were considered
+for a defensive ban and rejected — they never enter the canonical
+string, so they can't cause a collision, and banning them would only
+reject legitimate values.)
 
 These rules apply at every endpoint that accepts identity values:
 - `/onboard`, `/resolve`, `/join_by_values`
@@ -1362,10 +1383,10 @@ migration file required.
   conversation deferred to Phase 3.
 - **Privacy policy alignment.** See Section 9.4. Update at next
   housekeeping pass.
-- **Cross-doc terminology sync.** "Migration" still appears in
-  other docs referring to pair-key rotation (especially morning
-  sequence doc's "migration window property"). Update at next
-  housekeeping pass.
+- **Cross-doc terminology sync.** "Migration" may still appear in
+  other docs referring to pair-key rotation. Sweep and sync at next
+  housekeeping pass. (Morning sequence doc already synced to
+  "rotation".)
 - **identity.cfg backup hook.** Now that user_id exists as a stable
   identifier, it could be backed up transparently via iOS Keychain
   / Android Keystore / iCloud Keychain / Google Drive backup. This
@@ -1736,8 +1757,7 @@ report's lifecycle to the pair's lifecycle.
   `active_leader` is one slot in the catalogue (the identity-hashed
   one); the rest live in the `active_theme` JSON.
 - `four_tasks_morning_sequence_design_notes.md` — rotation window
-  property and the natural protection it provides. (Currently uses
-  the older "migration window" terminology.)
+  property and the natural protection it provides.
 - `four_tasks_onboarding_design_notes.md` — recovery copy, immutable
   name confirmation, collision UX, post-attach verification UX.
   Name display case-sensitive (no caps treatment in confirmation

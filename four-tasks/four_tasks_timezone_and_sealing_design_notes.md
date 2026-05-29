@@ -1,6 +1,6 @@
 # Four Tasks — Timezone & Sealing Design Notes
 
-Last edit: 2026-05-21 AWST
+Last edit: 2026-05-29 AWST
 
 Status: LOCKED (session 6, mobile drafting). Implementation landed
 at tile 1.3, session 12 — lazy seal absorbed into the claim endpoint
@@ -44,6 +44,47 @@ DECISION SUMMARY
    section below.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+V1.0 SCOPE — WHAT ACTUALLY SHIPS (vs the target below)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The sections below describe the full IANA-based target architecture.
+v1.0 ships a deliberately smaller subset; the rest is the v1.x target,
+retained here as the plan.
+
+What v1.0 actually does:
+
+1. Client computes local_date from the OS *offset*, not an IANA name.
+   Godot cannot read the device's IANA zone name without a native
+   plugin, so v1.0 uses `Time.get_time_zone_from_system().bias` (the
+   current UTC offset, already DST-correct for "now"). No date library
+   on the client. This is safe because the client only ever computes
+   the *current* local_date for the write in hand — it never recomputes
+   a historical date — so it never needs DST history. (Replaces the
+   shipped `State.gd` hardcoded +8h. Verify the bias sign on a real
+   Android device.)
+
+2. IANA-name capture is DEFERRED to v1.x — that's what needs the native
+   plugin. Until then `users.timezone` is written best-effort / left at
+   its 'UTC' default and is NOT relied on.
+
+3. `users.timezone` therefore has NO live v1.0 consumer. The three
+   things that would read it are all unbuilt or sidestepped:
+   - Server plausibility check: SPECCED, NOT BUILT. The server trusts
+     the client's local_date in v1.0. Anti-scrubbing is a non-goal (see
+     that section), so this costs nothing.
+   - Partner-panel "are they in a new local day" math: NOT BUILT. The
+     partner panel reads the partner's rows in the VIEWER's date frame
+     (viewer's "yesterday" for the coin bonus, viewer's "today" for
+     stickiness), with no partner-timezone conversion. Cross-tz boundary
+     fuzz — a partner a few hours ahead/behind sitting on a date
+     boundary — is ACCEPTED, not corrected.
+   - tz-aware coin multiplier: unbuilt; when it lands it reads the
+     sealed row's own date, not a tz conversion.
+
+The column stays in the schema as forward-compat for v1.x, when the
+plugin lands and the IANA features above get built for real.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SCHEMA
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -63,6 +104,10 @@ Notes:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CLIENT BEHAVIOUR
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+v1.0 NOTE: v1.0 computes local_date from the OS offset, not the IANA
+name (Godot has no native IANA read without a plugin). This section is
+the v1.x IANA target — see V1.0 SCOPE above.
 
 Boot-only sync. The client checks timezone exactly once per app boot,
 not on a polling loop. If the user changes timezone mid-session
@@ -98,6 +143,10 @@ matches the user's lived reality.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SERVER BEHAVIOUR
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+v1.0 NOTE: the local_date plausibility check described here is SPECCED,
+NOT BUILT. In v1.0 the server trusts the client's local_date (anti-
+scrubbing is a non-goal, so nothing turns on it). See V1.0 SCOPE above.
 
 Server stores `users.timezone` but rarely needs to compute dates from
 it. Its job on writes is to validate that the client-reported
@@ -155,6 +204,10 @@ CROSS-USER INTERACTION (revisited)
 
 For v1.0 the cross-user surface is read-only:
 
+  v1.0 NOTE: the partner panel reads the partner's rows in the VIEWER's
+  date frame — no partner-timezone conversion. Item 1 below is the v1.x
+  target; in v1.0, cross-tz boundary fuzz is accepted. See V1.0 SCOPE.
+
   1. Partner panel rendering: read-only. Client uses the partner's
      stored timezone to compute "are they in a new local day" purely
      for display (e.g. "their today is empty because their day just
@@ -191,7 +244,7 @@ abuse surface:
 
   - Rolling the clock backward is rejected by the local_date
     plausibility check (server compares against stored timezone +
-    a generous window).
+    a generous window). (v1.0: this check is not yet built — the server trusts the client's local_date; it lands with the v1.x IANA work. Anti-scrubbing is a non-goal regardless, so nothing turns on it.)
 
   - No leaderboard is planned for v1.0 (deferred), removing the
     primary motivation for coin farming. (If a leaderboard ever

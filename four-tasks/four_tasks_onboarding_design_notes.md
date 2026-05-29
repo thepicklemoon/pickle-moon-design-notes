@@ -87,7 +87,7 @@ exact for your partner to connect with you.
 
 Question framing, not a UX scold. The body gives a *reason* to type carefully (partner connection); immutability is named on the next screen where it's load-bearing.
 
-Validation: non-empty, no `|` or `__` (pair-key delimiter chars). Continue greys until valid.
+Validation: non-empty, no `|` (the only banned character — it is the pair-key separator; `_`, `__`, `-`, apostrophes and periods are all allowed). Continue greys until valid. The full identity-field character policy and its reasoning live in pair-key Section 12; onboarding enforces it client-side, the server re-enforces it in `validateIdentityFields`.
 
 ### Screen 3 — Confirm your name
 
@@ -119,6 +119,8 @@ can be changed as often as you like.
 ```
 
 Parallel structure to screen 2, explicitly reversing the immutability stake. No confirmation screen — mutable, low stakes. The user is not told that changing username triggers a pair-key rotation (leaky abstraction) or that partners see the username (they'll learn it on the partner panel).
+
+Validation: same as screen 2 (non-empty, no `|`). Username is also part of the pair-key canonical string, so the identical character policy applies — see pair-key Section 12.
 
 ### Screen 5 — Pick your starting avatar
 

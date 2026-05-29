@@ -32,6 +32,7 @@ The prototype implements approximately this. The Godot port replicates it with a
 5. Tray flies up, detached, to screen centre. Brief pause.
 6. Each completed task jiggles in sequence. Coins fly out, blitz onto the counter. Completed checkboxes green-tick; uncompleted get a strike-through + red cross. (Rest-day variant differs — see Q6.)
 7. A stamp comes down and seals the day. Colour matches tier:
+   - 0 tasks → **disappointment tier** (colour + pool TBD — new tier, see Claim endpoint). The "you showed up and did nothing" stamp; a day you opened is a day you're judged on.
    - 1 task → red ("woops" pool)
    - 2 tasks → orange ("solid effort" pool)
    - 3 tasks → yellow ("not bad" pool)
@@ -105,9 +106,11 @@ This "dead until claimed" property is good design, not a limitation — state mo
 
 "What if the user is away for a week?" — there is no backlog of payouts.
 
-The data model enforces this for free: a day is only sealable if tasks were ticked (or it's a rest day), and task-ticking only happens on a day the user had the app open. Days during an absence are empty — never ticked, never sealable. So "away for a week" produces at most **one** pending payout: the most recent day they actually ticked something.
+The data model enforces this for free: a day is only sealable if it's **`accounted_for`** — a write-once boolean set the first time the user deliberately engages with that date (opening the app on it, ticking a task, saving a MOTD, or designating it a rest day). Days during an absence are never engaged with, so they're never `accounted_for`. So "away for a week" produces at most **one** pending payout: the most recent day the user actually showed up.
 
-**The walkback** (runs inside the claim transaction): from the request's `local_date`, find the most recent past day where `sealed_at IS NULL AND (rest_day = 1 OR tasks_done != '[false,false,false,false]')`. That's the day to seal. If none exists, no sequence fires. App-open semantics mean at most one such row exists at a time.
+**The walkback** (runs inside the claim transaction): from the request's `local_date`, find the most recent past day where `sealed_at IS NULL AND accounted_for = 1` (new `days.accounted_for` column — see schema). That's the day to seal. If none exists, no sequence fires. App-open semantics mean at most one such row exists at a time.
+
+This replaces the earlier `tasks_done != '[false,false,false,false]'` string-match. That predicate was fragile — it depended on the exact JSON serialisation of the array, so any drift in how `tasks_done` was written (spacing, ordering) would mis-seal or 500 — and it wrongly excluded legitimately-engaged days where the user ticked nothing. `accounted_for` is a boolean set once on first engagement and never cleared; **it is monotonic once the day has arrived** — you can untick every task, but you cannot un-account a day you showed up to. A day you open and complete nothing on still seals, as a **disappointment** (0-task tier). You can't dodge judgement for a day you turned up to; the only way to keep a day off the ledger is to not open the app on it at all.
 
 **Streak consequences:** empty days during an absence break the streak (no four-of-four). Rest days cover the gap only if pre-placed. The ceremony on return is for the *last actually-played day*; the user is dropped into today with the streak in whatever state the gap left it. No "you broke your streak" announcement — the dropped counter reveals it naturally.
 
@@ -144,10 +147,11 @@ This supersedes the prototype's doubling-cost mechanic. Doubling was wrong here:
 `POST /users/:user_id/claim`, body `{local_date: "YYYY-MM-DD"}`. The walkback finds what's sealable; there is no server-side "payout due" flag. Sealing happens inside the claim transaction (lazy seal-on-open per the timezone doc) — no cron.
 
 Transaction:
-1. Walkback (above) finds the most recent unsealed eligible day for this user. If none, return 200 with `sealed_day: null` and the user row unchanged. No writes.
-2. Derive the stamp tier from the day's `tasks_done` count, or purple if `rest_day = 1`.
+1. Walkback (above) finds the most recent unsealed `accounted_for` day for this user. If none, return 200 with `sealed_day: null` and the user row unchanged. No writes.
+2. Derive the stamp tier from the day's completed-task count — 0 → disappointment tier, 1 → red, 2 → orange, 3 → yellow, 4 → green — or purple if `rest_day = 1`. (0 tasks still seals; an `accounted_for` day with nothing completed gets the disappointment stamp, it is not skipped.)
 3. Pick a random message from the tier's server-held pool.
 4. Coin payout: 0 on rest days; otherwise each completed task rolls `[900, 1400]` and the rolls sum. Server-side randomness — the client can't predict it.
+   - **Partner multiplier (specced, NOT yet built — currently ×1.0 placeholder).** When implemented, the summed payout is multiplied by a factor derived from the *partner's* engagement **on the same date as the day being sealed** — i.e. the sealed row's own `local_date`, read at that date. Graduated: partner 0 tasks → 1.0, 1 → 1.2, 2 → 1.3, 3 → 1.4, 4 → 1.5, partner rest day → 1.5. **Guardrail: never hardcode "today" or "yesterday" here.** At seal time (the morning after) the sealed day is "yesterday," but the rule is "the partner's completion of *that day's date*," read against the row being sealed — not a fixed offset. The live preview pill on the client (tile 2.7) reads the partner's *current* day so it previews the multiplier the user is presently earning and flips when the partner completes; the server applies the final factor at seal against the sealed row's date. Same date, two read-points.
 5. Streak: green → +1; purple (rest) → unchanged; anything else → reset to 0. `longest_streak = max(longest_streak, new streak)`.
 6. Theme snapshot: copy `users.active_theme` into the day's `day_theme_state` (immutable past — drives the historical theme renderer per monetisation v2.0).
 7. Single atomic batch updates the day row (`stamp`, `sealed_at`, `day_theme_state`) and the user row (`coins`, `lifetime_coins`, `streak`, `longest_streak`).
@@ -159,7 +163,7 @@ Transaction:
 **Today's MOTD storage:** the MOTD the user saves during the sequence writes to **today's** `days.motd` via the normal day-write path — no `users`-level field, no schema change. It stays mutable all day (that's the reroll mechanic). When the next day opens and this day seals, `motd` is frozen by the same `sealed_at` gate that freezes `tasks_done` and `rest_day` (`PUT /days/:date` returns 409 on a sealed day). The MOTD then lives permanently in that day's record.
 
 **Two surfaces, two values (don't conflate them):**
-- The **panel header subtitle** is *today-anchored* — it always shows today's MOTD (the live daily fingerprint), regardless of which day's tray is open. Falls back to yesterday's only in the boot-before-first-sequence edge. (Shipped in the Godot port, tile 2.A.)
+- The **panel header subtitle** shows the **most recent MOTD on or before today**, found by walking back day-by-day until one turns up — not a fixed depth-1 fallback. On a normal day that's today's MOTD (set during the sequence); before today's sequence has run, or after a multi-day gap, it's the last day that has one. A plain depth-1 "fall back to yesterday" breaks across a 2+-day gap (yesterday is empty, so it shows nothing) — hence walk-back-until-found. The message lives on the `days.motd` of its generation day and never moves; the header simply stops pointing at it once a newer one commits. Never empty in practice: the onboarding seed sets a floor and the walkback is unbounded. (Shipped in the Godot port, tile 2.A — currently the depth-1 version; correct it to walk-back-until-found per `four_tasks_motd_design_notes.md`.)
 - The **tray subtitle** is *per-day* — each day's tray carries its own `days.motd` in a subtitle slot beneath the day label, mirroring the panel-heading title+subtitle block. Populated only once that day has a saved MOTD; empty on an unsealed today before the MOTD is set. (Confirmed in the PWA prototype; NOT yet built in the Godot port — the port's tray currently renders task rows only per system map §7.5. Lands with tile 4.6 / the morning sequence work.)
 
 So on a given day the header and that day's tray show the same string, but opening a *past* day's tray shows *that* day's sealed MOTD while the header keeps showing today's. The MOTD is NOT on the cell face — the cell shows the stamp; the MOTD is header + tray. Cell-vs-tray split locked session 14.

@@ -1585,12 +1585,76 @@ ALIGNMENT LOCKED:
     MOVES REAL MONEY — needs its own design pass before build
     (attribution, payout cadence, tax/ledger, fraud defence). (Item 14)
 
+━━━ SESSION 21 (29 May 2026, mobile) — Capture propagation + design locks. Time: ~4h. ━━━
+
+No code. Propagated the session-20 capture across the real docs and locked
+several NEW design decisions that SUPERSEDE parts of that capture. Code batch
+identified and deferred to a laptop. (Set time/total below to actual — ~4h est.)
+
+DESIGN LOCKS (new this session):
+  - Pair-key inter-user separator `__` → `||`. Both separators are now built
+    from `|`, the only banned value char, so no field can forge a boundary —
+    closes the `frog___cat` collision the old `__` allowed. §12 char policy =
+    ban only `|`; `_`/`__`/`-`/apostrophe/period ALLOWED. SUPERSEDES capture
+    Item 9 ("keep `__` banned") + the onboarding `__` ban. Needs server hash
+    __→|| + dev re-seed (laptop).
+  - Seal predicate = new write-once `accounted_for` boolean, replacing the
+    fragile `tasks_done != all-false` string-match. Set on first deliberate
+    engagement with a date (app-open, tick, motd, rest-designation); monotonic
+    once the day arrives. App-open is now a WRITE (creates/touches today's
+    row) — an opened-then-idle day seals as a disappointment, judgement can't
+    be dodged. SUPERSEDES capture Item 6's claim predicate. New schema column +
+    walkback rewrite (laptop).
+  - New 0-task DISAPPOINTMENT stamp tier (colour/pool TBD).
+  - Partner coin multiplier LOCKED: payout × partner's engagement on the SAME
+    DATE as the sealed row (graduated 1.0–1.5; partner rest = 1.5), read against
+    the sealed row's own date — never a hardcoded today/yesterday. Client pill
+    reads partner's current day; server applies at seal. Still unbuilt (×1.0
+    placeholder); Bonus.gd `yesterday_iso → today_iso` queued.
+  - Timezone V1.0 scope: client computes local_date from the OS offset
+    (`Time.get_time_zone_from_system().bias`), NOT an IANA name (Godot needs a
+    native plugin). IANA-name capture → v1.x. `users.timezone` has no live v1.0
+    consumer; server plausibility check unbuilt; partner panel reads the
+    VIEWER's date frame (cross-tz boundary fuzz accepted). One launch code item:
+    State.gd `+ 8*3600` → OS offset.
+  - MOTD doc authored (capture Item 2): one widget / three triggers; display =
+    carry-forward; header = walk-back-until-found (most recent motd ≤ today —
+    depth-1 breaks on a 2-day gap); memorial = HANDOFF (no flying animation,
+    message stays in that day's tray, header just lets go); never-empty via
+    onboarding seed + unbounded walkback; long-press reroll gets NO dedicated
+    reveal (onboarding plants it, day-2 philosophy reveal teaches the gesture).
+
+PROPAGATED (capture landed across docs):
+  - system map: Items 1/3/6/10; §5.3 + §10.4 reconciled to accounted_for; new
+    §10.5 day-state taxonomy; §11 tz-offset entry corrected (State.gd, not
+    calendar_math.gd) to OS-offset / v1.x framing.
+  - pair-key §12 (Item 9 — done as `||`, not the capture's `__`); morning-seq
+    (accounted_for walkback + 0-task tier + multiplier + header walk-back);
+    timezone doc (V1.0 SCOPE section); onboarding (Item 9 client-side policy +
+    corrected stale `__` ban); todo (Items 4/11/14 + IANA line reframed);
+    marketing (Item 13 operating model).
+  - SKIPPED: repo index (low-prio). Capture file NOT yet deletable — Item 7
+    (this block) done, but Item 8 + the new code batch remain.
+
+CODE DEFERRED (laptop + device test):
+  - State.gd +8 → OS offset (verify bias sign on Android).
+  - accounted_for column + walkback + 0-task tier (schema.sql + index.ts).
+  - Bonus.gd yesterday_iso → today_iso (verify partner-today live refresh).
+  - pair-key hash __→|| + dev D1 re-seed.
+  - _dict_equal order-independent deep compare (capture Item 8).
+  - index.ts duplicate-comment tidy (capture Item 10, cosmetic).
+
 NEXT SESSION:
+  - Run the code batch at a laptop, tested not blind. Delete the capture file
+    once Item 8 + the code land. Repo-index entries (MOTD doc, referral pending,
+    system map) still owed; migration→rotation todo sweep parked.
+
+    NEXT SESSION:
   - Propagate the capture file at a laptop, per its protocol header. Code
     items (esp. _dict_equal) applied + tested, not blind. System-map
     items as ONE edit. Delete the capture file only when all 14 land.
 
-Session 20 time: ~3h.
-Running total: ~96.75h.
+Session 21 time: ~4h.
+Running total: ~100.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

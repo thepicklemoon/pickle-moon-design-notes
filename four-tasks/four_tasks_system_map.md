@@ -116,6 +116,8 @@ All production responses use the uniform envelope: `{ok: true, data: ...}` on su
 
 `?caller=` is reserved and unused — all v1.0 writes are self-writes addressed by URL.
 
+The router is order-dependent and prefix-matched — each branch tests that the path starts with `/users/` and ends with a given suffix. This holds only while suffixes stay mutually non-prefixing and no path segment carries a user-controlled value (paths carry only server-generated UUIDs and validated dates). Adding a route with a colliding suffix, or routing on a user-supplied value, breaks these assumptions. No bug today — a constraint on future routes.
+
 ### 5.1 Production endpoints
 
 | Method | Path | Body | Success data | Failure codes |
@@ -151,7 +153,9 @@ Stable DevKit identifiers (hardcoded; never rotate):
 
 **`POST /users/:user_id/claim`** — the most complex endpoint by far.
 
-Walkback query: most recent past day (`date < local_date`) for this user where `sealed_at IS NULL AND (rest_day = 1 OR tasks_done != '[false,false,false,false]')`. App-open semantics mean at most one such row exists.
+Walkback query (as built): most recent past day (`date < local_date`) for this user where `sealed_at IS NULL AND (rest_day = 1 OR tasks_done != '[false,false,false,false]')`. App-open semantics mean at most one such row exists.
+
+*Locked design, not yet built:* this predicate becomes `sealed_at IS NULL AND accounted_for = 1` — a write-once engagement boolean (new `days.accounted_for` column) that retires the fragile JSON string-match and lets a genuinely-engaged 0-task day seal as a disappointment instead of being skipped. See the morning-sequence doc and the day-state taxonomy (§10.5); tracked in §11.
 
 Stamp tier from `(tasks_completed_count, rest_day)`:
 - `rest_day=1` → purple, regardless of count
@@ -159,9 +163,11 @@ Stamp tier from `(tasks_completed_count, rest_day)`:
 - count=3 → yellow
 - count=2 → orange
 - count=1 → red
-- count=0 + not rest → walkback excludes it, no claim possible
+- count=0 + not rest → *as built:* walkback excludes it, no claim possible. *Locked design:* an `accounted_for` 0-task day seals with a new **disappointment** tier (colour/pool TBD) — judgement can't be dodged for a day you showed up to. Not yet built.
 
 Coin payout: 0 on rest days; otherwise per completed task roll `Math.floor(Math.random() * 501) + 900` (so each task ∈ [900, 1400]) and sum. Server-side randomness — client cannot predict.
+
+*Partner multiplier (specced, not built — currently ×1.0):* when built, the summed payout is multiplied by the partner's engagement on the **same date as the sealed row** (graduated 1.0–1.5; partner rest = 1.5), read against the sealed row's own date — never a hardcoded today/yesterday. The client preview pill (§6.6 `Bonus.gd`) reads the partner's *current* day; the server applies the final factor at seal against the sealed date. See the morning-sequence doc.
 
 Streak update:
 - green → `streak + 1`
@@ -378,7 +384,7 @@ Apply styling at runtime in `_apply_styles` + `_apply_fonts` from `Palette` and 
 `bonus_pill.gd` reads `Bonus.partner_multiplier()` and shows "✨ ×N.N coin bonus active". Hidden when multiplier == 1.0 (slot remains in layout to preserve panel height parity).
 
 ### 7.7 `panel_heading.tscn`
-Same scene instanced into each panel, inspector-set `side: "self" | "partner"` selects which user it reads from. Title reads `"{display_label}'s four tasks"` where `display_label` flips between `user.name` and `user.username.toLowerCase()` on tap (per-device, persisted in `Prefs`). Subtitle is the user's `motd` from today's day row (falls back to yesterday's if today is empty).
+Same scene instanced into each panel, inspector-set `side: "self" | "partner"` selects which user it reads from. Title reads `"{display_label}'s four tasks"` where `display_label` flips between `user.name` and `user.username.toLowerCase()` on tap (per-device, persisted in `Prefs`). Subtitle is the user's `motd`. *As built (tile 2.A):* a two-row fallback — today's `motd`, else yesterday's. *Locked design:* carry-forward — the most recent non-empty `motd` at or before today (walk back until found), gap-day-safe where a one-row fallback is not. Same pixels most days; they diverge in the pre-morning-sequence window and across multi-day gaps. Reconciliation deferred to tile 4.6. See §11 and the MOTD design note.
 
 ### 7.8 `devkit_button.tscn` + `devkit_menu.tscn`
 **`devkit_button.tscn`** — parented inside PanelYou below `Layout`. Yellow `[DEV]` button. On `_ready`, checks `OS.has_feature("editor") or OS.has_feature("devkit")`; hides/queue_frees itself if false. Tap → instantiate `devkit_menu.tscn` as a full-screen overlay.
@@ -500,11 +506,36 @@ A row in `days` exists if and only if at least one write has happened against th
 Consequences:
 
 - An empty unsealed past day and a never-opened past day are indistinguishable in the database. Both render as `UNMARKED` in the calendar.
-- Claim's walkback filter `(rest_day = 1 OR tasks_done != '[false,false,false,false]')` correctly skips both cases — neither has data, neither needs sealing, neither breaks or extends a streak.
+- Claim's walkback filter `(rest_day = 1 OR tasks_done != '[false,false,false,false]')` (as built) correctly skips both cases — neither has data, neither needs sealing, neither breaks or extends a streak. (The locked `accounted_for` design changes this — see §10.5: a day the user *opened* becomes accounted-for and will seal, distinguishing it from a day never opened.)
 - This means the system handles "user skipped a day entirely" and "user opened the app but ticked nothing" identically. That is the intended behaviour for v1.0 (consistent with `tracking_design_notes` being DEFERRED).
-- If any future design ever needs to distinguish these cases, the schema needs a new field. Today, that distinction does not exist anywhere.
+- Distinguishing these cases needs a new field. That field is now designed — the `accounted_for` column, locked this session, not yet built; until it ships, the distinction does not exist in the database.
 
-Open question for Phase 4 morning sequence: if claim runs on app-open and the user has empty unsealed past days, does the morning flow offer a "mark yesterday as rest" path that creates a row retroactively? Resolve against `four_tasks_morning_sequence_design_notes.md` before locking.
+The `accounted_for` design clarifies the mechanics: any rest-designation sets `accounted_for` and creates the row, so a marked day seals as rest. Whether the morning flow actively *offers* a retroactive "mark yesterday as rest" remains a tile-4.6 UX decision — resolve against `four_tasks_morning_sequence_design_notes.md`.
+
+### 10.5 Day-state taxonomy
+
+"Empty day" is not one concept — it is per-consumer, and each feature has historically invented its own inline predicate. They are individually correct but undocumented, so every new day-history walker re-derives them and risks drift. This is the canonical list; new walkers reuse a named predicate rather than rolling their own.
+
+States (currently collapsed by the schema; the `accounted_for` design splits state 2):
+
+1. **Never touched** — no row in `days`.
+2. **Row exists, not engaged** — row created but all-false tasks, empty motd, not rest, and (under the locked design) `accounted_for = 0`. Indistinguishable from (1) to every current query by design (§10.4).
+3. **Engaged, unsealed** — real activity (or, under the design, any deliberate engagement incl. app-open) pre-seal. What claim hunts.
+4. **Sealed** — immutable history. What the carry-forward subtitle reads.
+5. *(arriving with week mode)* — an opted-out weekday that does not count; interacts with streak. Unresolved; tracked in the week-mode doc + todo.
+
+Per-consumer predicates (use these; do not re-derive):
+
+| Consumer | Predicate | Hunts |
+|---|---|---|
+| Calendar `_classify` | row empty OR absent → `UNMARKED` | treats 1 + 2 alike |
+| Claim walkback (as built) | `sealed_at IS NULL AND (rest_day=1 OR tasks_done != all-false)` | state 3 |
+| Claim walkback (locked design) | `sealed_at IS NULL AND accounted_for = 1` | state 3, incl. engaged 0-task |
+| Subtitle (locked design) | most recent `motd != ''`, sealed-or-not, ≤ today | 3 or 4 |
+
+**Structural guard.** Document the taxonomy; do NOT add structure to model it gratuitously — no `is_empty` column, no `status` enum, no create-rows-on-open-as-a-feature. Those are the premature-structure move the architectural-preference rule refuses. The ONE structural addition that earns its place is `accounted_for`: a single write-once boolean that *retires* a fragile JSON string-match (clarity/robustness, not cleverness — the preferred side of the meta-rule) and is what splits state 2 from state 3 for an opened-but-idle day.
+
+**Consequence (locked this session).** Under this design, app-open sets `accounted_for` on today's row, so opening the app on a date becomes a write (it creates/touches that row) — a deliberate change from §10.4's current "opening is not a write". Confirmed effect: an opened-then-idle day seals as a disappointment rather than vanishing as never-touched.
 
 ### 10.3 Cross-system
 - Every `Backend.<x>_completed` signal has a corresponding `<x>_failed` and exactly one of the two fires per call. (Network errors → failure signal.)
@@ -517,7 +548,7 @@ Open question for Phase 4 morning sequence: if claim runs on app-open and the us
 
 Captured here because the system map is also the place that should make these visible to whoever's reading.
 
-- **Hardcoded timezone offset** in `calendar_math.gd`: `+8h` for AWST. Real IANA conversion needed before non-AWST testers join. Acceptable for dev; logged as follow-up in session 14.
+- **Hardcoded timezone offset** in `State.gd` (`+ 8 * 3600` in `install_iso`/`today_iso`/`yesterday_iso`; `calendar_math.gd` does UTC-only and defers the offset to `State.gd`). v1.0 fix: use the OS offset `Time.get_time_zone_from_system().bias` — DST-correct for "now", no library. Full IANA-name capture is deferred to v1.x (needs a native plugin). See the timezone doc's V1.0 SCOPE. Verify the bias sign on a real Android device.
 - **`DeadOverlay` is a placeholder `Panel`** on `day_cell.tscn`. Theme overlay wiring deferred to tile 4.14b.
 - **Layout values duplicated as literals in `.tscn` files** with hand-maintained comment-block mappings to `Layout.gd` constants. Drift risk.
 - **`tasks_done` parses to JSON but the field on a fresh `_new_day_row` is a native array; `rest_day` similarly arrives as bool from client and int (0/1) from server.** Code casts via `bool(...)` defensively. Source of past bugs in `_classify`.
@@ -529,6 +560,10 @@ Captured here because the system map is also the place that should make these vi
 - **No retry/backoff in Backend.gd**. Single attempt per call; failure signals straight through. Tolerable while users live in Australia on home wifi; reconsider before broader testing.
 - **DevKit menu shows ~15 stub scenarios** with `(stub)` suffix and no behaviour. Visual noise during testing; cosmetic.
 - **Focus-in deferred poll suspected non-functional in editor** (session 19, observed). Print logs show only the 30s interval ticks, no `Poll: focus OUT` / `Poll: focus IN` lines. Most likely cause: Godot editor's run window doesn't reliably propagate `NOTIFICATION_APPLICATION_FOCUS_OUT/IN`. If `_is_focused` never flips, the focus-in handler is never re-armed and the 10s deferred poll never schedules. Diagnostic: alt-tab away from the run window and watch the editor output for the focus lines. If absent in editor, verify the behaviour on a real phone before treating as a real bug — focus events tend to work correctly on Android/iOS even when editor builds drop them.
+- **Optimistic-write guarding in `State.gd` is inert under last-write-wins.** `_writes_in_flight`, `_pending_snapshot`, and the per-field merge in `_on_day_written` do real work only on the failure-rollback path. On the success path the three user-controlled fields are always kept local — safe for `tasks_done` (LWW), `motd` (single-writer, write-on-exit), and `rest_day` (refundable, not time-critical), each for a different reason. Safe to delete; kept only against a future endpoint that genuinely rejects user writes. The in-code comment currently explains only the rapid-tap (task) reason.
+- **`panel_heading` subtitle uses a one-row-back fallback** (today's `motd`, else yesterday's). Intended rule is most-recent-non-empty-`motd` ≤ today (gap-day safe). Reconcile when tile 4.6 lands. See §7.7.
+- **`State._dict_equal` is key-order-sensitive** — it compares via `JSON.stringify(a) == JSON.stringify(b)`, which preserves insertion order, so two dicts with identical content but different key order miscompare as unequal and fire a spurious `*_changed` re-render on every poll. Dormant in Phase 2 (flat cells redraw invisibly); becomes visible once cells carry sticker art + theme overlays. Fix before Phase 4: replace with an order-independent recursive deep-equal (arrays stay order-sensitive). Laptop + device test.
+- **Claim seal predicate + payout are mid-redesign** (locked, not built): the `accounted_for` walkback replacing the `tasks_done` string-match, a 0-task disappointment tier, and the same-date partner multiplier. §5.3 documents both the built and design states; reconcile when the schema column + walkback land.
 
 ---
 
@@ -549,3 +584,4 @@ Captured here because the system map is also the place that should make these vi
 |---|---|---|
 | 2026-05-27 | 19 (mobile) | Initial draft. Snapshot at end of session 18 (Phase 2 closed, Phase 3 pending). |
 | 2026-05-27 | 19 (mobile) | Added §10.4 (day row existence invariant + walkback gap), flagged focus-in poll suspected-non-functional in §11. |
+| 2026-05-29 | 21 | Capture propagation: §5 router-convention note; §5.3 + §10.4 annotated with the locked `accounted_for` walkback / 0-task tier / partner-multiplier redesign; new §10.5 day-state taxonomy; §7.7 panel_heading built-vs-design; §11 added inert-guard, panel_heading, `_dict_equal`, and claim-redesign debt, and corrected the timezone-offset entry to `State.gd` / OS-offset. |

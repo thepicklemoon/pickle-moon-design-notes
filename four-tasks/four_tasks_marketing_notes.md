@@ -504,6 +504,47 @@ NATURAL MARKETING BEATS BAKED INTO THE PRODUCT:
   - Birthday anchors (potential feature). If implemented, partner's
     birthday becomes an in-app moment. Worth considering for v1.x.
 
+OPERATING MODEL — HUB + ONE CHANNEL (locked session 20):
+  The follow-through plan (content drops + subreddit + Discord +
+  localisation + street teams) is a second full-time job that starts at
+  launch and never ends, on a FIFO roster, competing for the same hours
+  as the partner the whole venture exists to protect. Running channels
+  BADLY is worse than not running them — a dead Discord signals
+  abandonment to the exact people being converted. The model is built
+  around what survives a roster, not what is theoretically optimal.
+
+  HUB — thepicklemoon.com. The owned centre (not rented land: survives
+  Reddit/Discord deplatforming and algorithm shifts). Permanent, cosy,
+  devlogs, community, and the in-app link destination. Lowest marginal
+  effort — domain already registered, Cloudflare Pages already known
+  from the APPtrioc plan, devlog content already written in the public
+  design-notes repo. This is the piece Morgan is most excited about, and
+  excitement is the only fuel that survives a roster — so it leads.
+
+  ONE CONVERSATION CHANNEL AT LAUNCH, NOT TWO. Broadcast (YouTube) plus
+  one conversation channel is the ceiling; two conversation channels is
+  not. The tension: Morgan likes Discord most, but the strategic read
+  favours Reddit — better discovery, the atrioc post lives there anyway,
+  and it is ASYNC so it forgives a week-on/week-off roster. Discord
+  demands real-time presence a FIFO schedule cannot give; a founder
+  vanishing fortnightly reads as abandonment. Lean Reddit at launch;
+  Discord deferred until volunteers or proven traction can keep it warm
+  (see CONTENT CHANNELS triage below). Decide this consciously — do not
+  drift into running both.
+
+  CONTENT BUFFER SURVIVES THE WORST REALISTIC MONTH — not merely "does
+  not hit zero". A buffer that reaches zero was too shallow to begin
+  with. Paint the stockpile pre-launch while build-energy still exists;
+  the dopamine that funds it drains after launch. (Supersedes the
+  "skip-this-fortnight acceptable if buffer hits zero" framing in the
+  todo — right in spirit, too shallow in practice.)
+
+  FIRST HIRE MAY PRECEDE THE 10k RUNG. The load from ~3k to 10k users
+  may exceed one rostered person without wheels coming off at home. The
+  case is for a part-time community manager funded by 3k-quit income —
+  to make scaling SURVIVABLE, not as a reward earned at scale. (Ladder
+  numbers are aspirational, not gospel.)
+
 CONTENT CHANNELS — PICK FEWER, DO THEM WELL:
   Running Discord + Reddit + RSS + YouTube + social media + reply-
   to-every-comment is a full-time job. Solo dev who's also FIFO
