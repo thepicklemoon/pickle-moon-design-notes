@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-05-26 AWST
-Last updated: session 21 — capture propagation (Items 4/11/14 + IANA line reframed to v1.0 OS-offset / v1.x IANA). Last code: session 18 (tile 2.9 DevKit, 2.A panel heading, project font). Morning sequence collision still flagged as content-drop blocker.
+Last edit: 2026-05-30 AWST
+Last updated: session 22 — pair-key __→|| shipped (dev); three design gates settled (grey 0-task tier, app-open folds into claim, multiplier stays ×1.0 stub). accounted_for code batch added to ACTIVE. Economy redesign opened (banked verbally, doc owed). Last code: session 22 (pair-key separator). Morning sequence collision still flagged as content-drop blocker.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -100,7 +100,7 @@ PENDING:
   - "Start the day" button on screen 8 — fire day-1 morning sequence immediately or defer?
 
 VALIDATION RULES (every name/username/sticker input):
-  - No `|`, no `__`, non-empty.
+  - No `|`, non-empty. (`__` ban REMOVED session 22 — `||` is now the separator, only `|` is banned. `_`/`__`/`-`/apostrophe/period all allowed. See pair-key doc §12.)
   - UX caps: username ~20 chars (server 40), sticker ID ~shorter (server 50), task labels ~30 (server 49).
 
 [ ] 3.1 [CODE] Onboarding scene state machine + entry routing (fresh install / post-onboarding pair / recovery).
@@ -130,7 +130,7 @@ Fork between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork, Four Task
 [ ] 4.4 [CODE] Slot machine — real wheels. Four spinners. Sticker wheel reads Lever 1 pool. FIX: true independent randomisation per slot (prototype alternates visibly).
 [ ] 4.5 [CODE] MOTD reroll cost. First free during sequence; subsequent flat 90-110 coins, no escalation. Reroll is VENT not sink. Lock button + confirm popup.
 [ ] 4.6 [CODE] Morning sequence — full coordinator. All 12 beats. Claim endpoint fires at beat 3. Reference: `four_tasks_morning_sequence_design_notes.md`. Required reading before this tile.
-[ ] 4.7 [CODE] Stamp slap animation. Tier colours red/orange/yellow/green/purple. Authoring 10-20 messages per tier (stubs in stamp_messages.ts currently).
+[ ] 4.7 [CODE] Stamp slap animation. Tier colours grey(0)/red(1)/orange(2)/yellow(3)/green(4)/purple(rest). Grey 0-task disappointment tier locked session 22 (cell tappable, standard tray, four red-crossed rows; stub pool ["[disappointment stamp message]"]). Authoring 10-20 messages per tier (stubs in stamp_messages.ts currently).
 [ ] 4.8 [CODE] Rest day system. Long-press future cell, confirm, refund. Same morning sequence with content swaps. Author rest-day task label pool (~15-30).
 [ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days.
 [ ] 4.10 [CODE] Month stamp + month stats popup.
@@ -145,7 +145,7 @@ Fork between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork, Four Task
 
 [ ] 4.A [ART] Coin sprite.
 [ ] 4.B [ART] Frog mascot.
-[ ] 4.C [ART] Stamp set. Five+ stamps with variants.
+[ ] 4.C [ART] Stamp set. Five+ stamps with variants. (Now six tiers: grey/red/orange/yellow/green/purple — grey 0-task added session 22.)
 [ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png` naming. Palette derived from sticker.png pixel-frequency (≤3 non-grey colours). 32×32 RGBA. Sticker.png is the EXCEPTION to palette-agnostic art rule (real colours; all else in canonical reference values, retinted at runtime). First frog painted (session 8, ongoing in `pickle-moon-assets`). Painting continues at FIFO/laptop time. Reference: `four_tasks_theme_design_notes.md`.
 [ ] 4.E [ART] UI chrome (buttons, popups, dividers, util bar). Themed surfaces in reference palette; sacred-semantic in final colours.
 [ ] 4.F [ART] Onboarding example calendar screenshots. Real Godot build screenshots once theming in.
@@ -154,7 +154,7 @@ Fork between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork, Four Task
 
 ━━━ POST-FORK CODE TILES (Four Tasks exclusive) ━━━
 
-[ ] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration) on picker. Unlocked sticker menu: per-slot icons, tap = instant application + APPLY ALL. Locked sticker menu: PREVIEW button (temporary, ~30s revert). Pair-key migration fires on `active_leader` change ONLY.
+[ ] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration) on picker. Unlocked sticker menu: per-slot icons, tap = instant application + APPLY ALL. Locked sticker menu: PREVIEW button (temporary, ~30s revert). Pair-key rotation fires on `active_leader` change ONLY.
     BLOCKERS: theme implementation prep items (see PARKED). Reference: `four_tasks_theme_design_notes.md`.
     ART SCOPE (deferred to this tile): build the picker to accept placeholder/throwaway art so the minimum sticker count that reads as 'alive' can be felt on-device before committing real painting hours. Do not size launch art earlier — sparse stickers are valid (a one-element sticker is complete), so '40-50 stickers' is not '100+ elements', and not all are launch scope.
 [ ] 4.15 [CODE] Username + icon edit. Settings → triggers rotation. "Changes may take a minute" dismissible popup.
@@ -220,9 +220,23 @@ GATE: APPtrioc live, video dropped, Reddit post up. Both products in market.
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+[x] Pair-key inter-user separator __→|| + remove all four __-value bans (option A, only `|` banned). Server hash + dev D1 re-seed. Deployed to dev, round-trip verified. Session 22. ~2h (incl. the three design gates below).
+
+[ ] accounted_for code batch (LAUNCH, item two). Schema column `days.accounted_for` (write-once boolean) + walkback rewrite + grey 0-task disappointment tier. schema.sql + index.ts. FLAGGED don't-apply-blind. Gates settled session 22:
+    - App-open folds into the existing POST /claim (no new endpoint, no rename): claim transaction also upserts today's row accounted_for=1, atomic with walkback+seal. Contract widened to "user opened the app on local_date".
+    - INVARIANT (load-bearing): walkback filters strictly `< local_date`. A `<=` would seal today on open and 409 all further edits. Verify index.ts reads `<`; document as invariant, never relax.
+    - 0-task tier = grey, tappable, standard tray, stub pool. SUPERSEDES stamp-tier doc "no stamp" line.
+    Device-tested not blind. Then State.gd offset, then _dict_equal. See devlog session 22.
+
+[ ] Client local-date offset fix (LAUNCH). `State.install_iso()`/`today_iso()`/`yesterday_iso()` hardcode `+ 8 * 3600` (AWST, no DST). v1.0 fix: use the OS offset `Time.get_time_zone_from_system().bias` — DST-correct for now, no library. Verify the bias sign on a real Android device. See `four_tasks_timezone_and_sealing_design_notes.md` V1.0 SCOPE.
+
+[ ] `_dict_equal` order-independent deep compare (LAUNCH). Currently JSON.stringify equality = key-ORDER-sensitive → spurious day_changed re-renders on locally-shaped rows. Dormant in Phase 2 (flat cells); visible once cells carry art. Apply + device-test before Phase 4. FLAGGED don't-apply-blind. Capture Item 8.
+
+[ ] Riders (cosmetic, fold into next index.ts/Bonus.gd touch): Bonus.gd `yesterday_iso`→`today_iso` (verify partner-today live refresh); index.ts duplicate-comment tidy (~L167-173, capture Item 10).
+
 [     ] Theme cell-overlay buckets vs runtime cell states. Overlay file naming uses unmarked/completed/partial/rest (4 buckets); runtime has 9 states incl. the red/orange/yellow/green tier ramp. Decide whether one cell_overlay_completed.png covers the whole done ramp or "completed" = 4/4 only with "partial" = 1-3. Renderer lookup must match painter expectation. Resolve at 4.14b. See theme doc cell-treatment section.
 
-[     ] Tray MOTD subtitle — not built in port. Prototype shows each day's tray carrying its own MOTD as a subtitle under the day label; Godot tray currently renders task rows only (system map §7.5). Really a tasks_tray.tscn change. Currently implied inside tile 4.6 — give it its own line/sub-bullet so it doesn't fall through the gap. See morning sequence doc MOTD section.```
+[     ] Tray MOTD subtitle — not built in port. Prototype shows each day's tray carrying its own MOTD as a subtitle under the day label; Godot tray currently renders task rows only (system map §7.5). Really a tasks_tray.tscn change. Currently implied inside tile 4.6 — give it its own line/sub-bullet so it doesn't fall through the gap. See morning sequence doc MOTD section.
 
 [ ] Morning sequence beat collision resolution. Priority hierarchy across payout / staggered disclosure / content drops / urgent comms / single-fire comms; per-morning popup cap; per-user per-beat "shown" tracking. Update `four_tasks_morning_sequence_design_notes.md`. Blocks content drops shipping in production.
 
@@ -245,10 +259,9 @@ ACTIVE — ad-hoc items found during the port
     - `four_tasks_morning_sequence_design_notes.md`: MOTD framing (MOTD in onboarding per session 9). "Migration window" → "rotation window" terminology.
     - `four_tasks_theme_design_notes.md`: `<id>_<role>.png` naming convention update; trigger-gated picker hint replacing day-7 scheduled. Z-order pipeline layer 3 says "stamp art (when claimed)" — actually means STICKER, not stamp. Cell stack is: bg → date/pips → sticker → theme overlay → (no stamp layer). Stamp lives on the tray, not the cell.
     - `four_tasks_week_mode_design_notes.md`: status v1.x → v1.0.
-    - `four_tasks_stamp_tier_design_notes.md`: obsolete "nightly cron, tile 1.4" reference.
+    - `four_tasks_stamp_tier_design_notes.md`: obsolete "nightly cron, tile 1.4" reference; ADD grey 0-task tier to the table + pool shape (`disappointment:` key) + size target + tone target; KILL the "0-task day gets no stamp / cell sits empty" line (superseded by accounted_for, session 22).
     - `four_tasks_onboarding_design_notes.md`: name confirmation modal displays typed value EXACTLY as typed (case-sensitive per session 10).
-    - Privacy policy: align with honest threat model from pair-key Section 9.
-    - `pickle_moon_repo_index.md` + privacy policy: schema gained `users.created_at` (session 14) — symmetric with `pairs.created_at`, drives calendar floor.
+    - `four_tasks_system_map.md`: §5.3 claim contract widened (app-open accounting); §10.5 + walkback `< local_date` invariant.
 
 [ ] Promo codes design doc. Schema landed in session 12 against ad-hoc decisions. Formalise as `four_tasks_promo_codes_design_notes.md` before subreddit outreach. Captures: single-code-per-user enforcement, code shape (FIFOFOUNDER20-style), founders_rate permanent once granted, redemption_attempts logs all attempts including failures.
 
@@ -270,8 +283,6 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] Rate limiting — Cloudflare Workers Rate Limiting API, per-IP at platform edge. Generous limits (real users hitting bugs may legitimately file three reports in five minutes). Applies to all write endpoints + APPtrioc. Own design conversation after a few more endpoints exist. Not blocking 1.3.
 
-[ ] Client local-date offset fix (LAUNCH). `State.install_iso()`/`today_iso()`/`yesterday_iso()` hardcode `+ 8 * 3600` (AWST, no DST). v1.0 fix: use the OS offset `Time.get_time_zone_from_system().bias` — DST-correct for now, no library. Verify the bias sign on a real Android device. This is the only timezone launch blocker. See `four_tasks_timezone_and_sealing_design_notes.md` V1.0 SCOPE.
-
 [ ] IANA timezone-name capture (v1.x, NOT launch). Godot 4 has no tz database; capturing the real IANA name vs a raw offset needs a native plugin. Deferred to v1.x — `users.timezone` has no live v1.0 consumer until then. Reframed from the old 'must resolve before launch' framing: only the offset fix above is the launch item.
 
 [ ] DevKit mockable clock. Force `today_iso()`/`install_iso()` to a chosen date/time so gap-day and midnight-rollover bugs are reproducible without real IANA support. Unblocks date-boundary testing for the MOTD subtitle + morning sequence (4.6).
@@ -288,11 +299,11 @@ PARKED — known, not blocking
 
 [ ] Wrangler D1 token-refresh quirk. D1 import can fail with "Authentication error [code: 10000]" despite valid `wrangler whoami`. Fix: `npx wrangler logout` + `npx wrangler login`.
 
-[ ] Coin economy balance pass (Phase 4 work). All numbers PLACEHOLDER. Specifically: per-task coin range (currently 900-1400, obfuscated by design), partner 1.5x multiplier behaviour, subscription bonus rate (+15-20% target), rest day cost per tier, pack cost curve (300→400→500→600 cap), streak multiplier interactions.
-    Principles to respect: one week sub can't buy entire catalogue; free pair gets rest days ~4/month; subscription is "tip not class divide"; no per-sticker stacking bonuses.
-    Belongs after 4.6 + basic picker. Dedicated sub-session with spreadsheet.
+[ ] ECONOMY REDESIGN — dedicated doc owed (`four_tasks_economy_redesign_notes.md`) before any number or the multiplier build. Opened session 22, banked verbally only, NOTHING locked. Must resolve, at minimum: (1) per-user vs per-pair subscription [banked lean: per-pair — one subscriber lifts both, coin bonus + unlocked partner library]; (2) additive vs multiplicative sub bonus; (3) does the sub bonus STACK on the partner multiplier or sit beside it [banked intent: stack]; (4) solo PHANTOM-1.5 — subbed solo user gets partner-completion treated as 4 (no rendering, no bot), solo-subscriber-ONLY [SUPERSEDES locked solo-mode "multiplier never fires solo"]; (5) second-sub exponential coin boost mechanism; (6) real sticker/UI pricing as the anchor [intent ~10-100k, NOT the doc's 300-600]; (7) sticker model curated-packs → possible weekly drip (volume pressure). THREE live contradictions vs locked docs — do not code from the banked intents. Absorbs/extends the old coin-balance pass below.
 
-[ ] Subscription infrastructure plumbing — Phase 5 prep. RevenueCat SDK + webhook endpoint, `users.subscription_active` (server-set only, already in v1.0 schema), library access entitlement check, coin bonus application in claim, lapse notification flow, paywall UI.
+[ ] Coin economy balance pass (Phase 4 work — now folded under ECONOMY REDESIGN above). All numbers PLACEHOLDER. Specifically: per-task coin range (currently 900-1400, obfuscated by design), partner 1.5x multiplier behaviour, subscription bonus rate, rest day cost per tier, pack cost curve, streak multiplier interactions. Principles to respect: one week sub can't buy entire catalogue; free pair gets rest days ~4/month; subscription is "tip not class divide". Belongs after 4.6 + basic picker. Dedicated sub-session with spreadsheet.
+
+[ ] Subscription infrastructure plumbing — Phase 5 prep. RevenueCat SDK + webhook endpoint, `users.subscription_active` (server-set only, already in v1.0 schema), library access entitlement check, coin bonus application in claim, lapse notification flow, paywall UI. Note: claim-time bonus application + lapse-vs-immutable-past interaction is ECONOMY REDESIGN material — a sealed day's recorded payout does not change when a sub lapses (coins already paid); state that rule in the doc.
 
 [ ] Founders cutoff date locks (before Phase 5). Founders FLAG cutoff: "first TestFlight / internal Play track deployment." Hardcoded list ~20-30 people. Founders RATE expiry: "31 December year 2." Launch users eligible first 6-12 months.
 
@@ -300,7 +311,7 @@ PARKED — known, not blocking
 
 [ ] Referral revenue-share (buddyware) design pass — attribution mechanism, payout mechanism + cadence + tax/ledger consequences (sole trader), fraud/self-referral defence, qualifying-sub definition, 1-year window start/stop, interaction with founders rate + promo trials. Moves real money — needs its own design note (`four_tasks_referral_design_notes.md`) before build. Phase 5 commercial.
 
-[ ] Pack drop content buffer — Phase 4 art prep. 3-4 packs queued before launch (half subscriber-only, half free-thank-you). First subscriber-only ~2 weeks post-launch, first free-thank-you ~4 weeks. Maintenance: 1-2 packs/fortnight. Honest skip-this-fortnight communication acceptable if buffer hits zero.
+[ ] Pack drop content buffer — Phase 4 art prep. 3-4 packs queued before launch (half subscriber-only, half free-thank-you). First subscriber-only ~2 weeks post-launch, first free-thank-you ~4 weeks. Maintenance: 1-2 packs/fortnight. Honest skip-this-fortnight communication acceptable if buffer hits zero. NOTE: cadence/model under review in ECONOMY REDESIGN (possible curated-packs → weekly drip shift).
 
 [ ] Content drops pipeline — schema + read endpoint + in-app popup rendering pre-launch; authoring tool post-launch. See `four_tasks_content_authoring_tool_design_notes.md`. Blocked on morning sequence beat collision resolution.
 
@@ -310,7 +321,7 @@ PARKED — known, not blocking
 
 [ ] Same-person multi-device pairing. Distinct from group expansion. Architecture allows doppelgänger pair. Not currently a problem. Design needed if multi-device sync becomes v1.x.
 
-[ ] Stamp messages real authoring. 5-10 per tier red/orange/yellow, 40+ green, 20 purple. Currently stubs in `stamp_messages.ts`. Content work, not v1.0-blocker.
+[ ] Stamp messages real authoring. Grey 0-task disappointment (dry tone), 5-10 per tier red/orange/yellow, 40+ green, 20 purple. Currently stubs in `stamp_messages.ts`. Content work, not v1.0-blocker.
 
 [ ] Achievement framework — speculative. `four_tasks_achievements_brainstorm.md` (session 7). May never ship.
 
@@ -332,3 +343,4 @@ COMPLETED LEDGER
 See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with hours, commit hashes, and design rationale.
 
 Running project total at session 17 close: ~88.75h.
+Running project total at session 22 close: ~102.75h.

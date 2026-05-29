@@ -1658,3 +1658,65 @@ Session 21 time: ~4h.
 Running total: ~100.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+━━━ SESSION 22 (30 May 2026, laptop) — Pair-key separator shipped + three design gates. Time: ~2h. ━━━
+
+Item one of the laptop code batch shipped; the rest of the batch is unblocked by
+three design gates settled this session. No accounted_for code yet — index.ts
+staged, not pushed.
+
+CODE SHIPPED:
+  - Pair-key inter-user separator __→|| in the server hash; all four __-value bans
+    removed (| stays banned everywhere — option A). Deployed to four-tasks-api-dev.
+    Verified: frog__cat accepted (200), frog|cat rejected (400), join↔resolve
+    round-trip returned matching pair_id. Rotation covered-by-inspection (unchanged
+    path). Dev D1 cleaned back to the two seed fixtures.
+
+DESIGN GATES SETTLED (feed item two + tile 4.6/4.7):
+  - GATE 1 — 0-task disappointment stamp: colour = GREY (outside the heat ramp, like
+    purple is — grey = null/seen-but-empty, purple = sacred/rest). Cell tappable,
+    standard tray render (grey stamp + message, MOTD, four red-crossed task rows —
+    the tray is the receipt for a day you turned up to and skipped). Pool = stub
+    ["[disappointment stamp message]"]; real authoring deferred with the other tiers.
+    SUPERSEDES stamp-tier doc's "0 tasks → no stamp, cell sits empty" (pre-accounted_for).
+  - GATE 2 — app-open-as-a-write folds into the existing claim call. The claim
+    transaction additionally upserts today's row accounted_for=1, atomic with the
+    walkback+seal. Endpoint NOT renamed (shipped as POST /claim, wired into boot);
+    contract widened to "user opened the app on local_date" → two effects (account
+    today, seal the most recent sealable day behind it). Two bound writes in one
+    transaction = strictly more robust than a separate touch endpoint (can't half-fail).
+    INVARIANT (now load-bearing): walkback filters strictly < local_date. Folding
+    app-open accounting into claim is what promotes this from incidental to
+    safety-critical — a <= filter would seal today the instant it's opened and then
+    409 all further task edits. Verify index.ts reads < at item two; document as an
+    invariant, never relax to <=.
+  - GATE 3 — partner coin multiplier stays ×1.0 STUB; real derivation deferred. The
+    deferral is now stronger than the original lean: the multiplier is mid-redesign
+    (see below), so building the locked 1.0–1.5 spec now would mean ripping it out.
+    accounted_for does not depend on the multiplier; item two ships without touching it.
+
+ECONOMY REDESIGN — OPENED, BANKED VERBALLY, NOT LOCKED:
+  - Captured in conversation only; four_tasks_economy_redesign_notes.md owed before
+    any number or the multiplier build. Surfaced THREE live contradictions against
+    locked docs (do not treat any of this as decided): (1) solo-mode doc says
+    multiplier never fires solo / no fake partner — new intent is a PHANTOM-1.5 for
+    solo SUBSCRIBERS (no rendering, no bot; the partner-completion input is treated
+    as 4 for a subbed solo user); (2) earlier recorded rec was additive, no-stack —
+    new intent stacks a sub multiplier ON the partner multiplier; (3) sticker pricing
+    300–600 (monetisation doc) vs ~10–100k (current intent). Banked intents: sub bonus
+    is PER-PAIR (one subscriber lifts both — coin bonus + unlocked partner library);
+    second sub (both paying) exponentially boosts coin income; phantom-1.5 is
+    solo-subscriber-ONLY; per-user-vs-per-pair is a separate paired-only question.
+    Sticker model possibly shifting curated-packs → weekly drip (volume pressure).
+    All values undiscussed. Doc resolves it; do not code from this.
+
+NEXT SESSION:
+  - Item two: accounted_for column (schema.sql) + walkback rewrite + grey 0-task tier
+    (index.ts), device-tested not blind. Confirm walkback < local_date. Then State.gd
+    OS-offset (verify bias sign on Android), then _dict_equal deep compare. Riders:
+    Bonus.gd yesterday_iso→today_iso, index.ts duplicate-comment tidy. Capture file
+    stays alive until the batch lands. Doc-sync owed: stamp-tier doc grey tier + kill
+    "no stamp" line; system map §5.3/§10.5 claim-widening + < invariant.
+
+Session 22 time: ~2h.
+Running total: ~102.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
