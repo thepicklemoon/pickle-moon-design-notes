@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-05-30 AWST
-Last updated: session 22 — pair-key __→|| shipped (dev); three design gates settled (grey 0-task tier, app-open folds into claim, multiplier stays ×1.0 stub). accounted_for code batch added to ACTIVE. Economy redesign opened (banked verbally, doc owed). Last code: session 22 (pair-key separator). Morning sequence collision still flagged as content-drop blocker.
+Last edit: 2026-05-31 AWST
+Last updated: session 23 — accounted_for batch shipped + tested (dev); State.gd offset device-verified (both sign directions, no negate); _dict_equal struck (not a bug); Bonus.gd today_iso; index.ts tidy. Android toolchain stood up (one-time). DevKit button added to onboarding (fresh-install reachable). DevKit "default" bounce still OPEN. Rest days now same-day-only (scope cut). Last code: session 23.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -82,7 +82,7 @@ PHASE 2 — Visible app skeleton
 [x] 2.4 [CODE] Task list. `task_list.tscn` + `task_row.tscn`. Reads State. Tap toggles via State.toggle_task (no in-flight guard, no rollback). Past days render as post-payout (done = green ✓, undone = red ✕). Rest days = all rows purple ✓. Partner tray read-only. Session 15. ~2h.
 [x] 2.5 [CODE] Tasks tray. `tasks_tray.tscn` per panel. Slide-down on day-cell tap, slide-up on close ✕ or tap-same-day. Day-swap = close + open new. Cross-panel day-carry on swipe. Session 15. ~1.5h.
 [x] 2.6 [CODE] Streak bar — self panel. Flame + current_streak + coin pill in single rounded bar. Merged with 2.7 (same visual unit). Session 16. ~2h combined.
-[x] 2.7 [CODE] Bonus pill — partner panel. Purple capsule showing partner-yesterday-derived multiplier. Bonus.gd autoload computes; client-side rule mirrors the future server payout rule. Session 16. ~2h combined.
+[x] 2.7 [CODE] Bonus pill — partner panel. Purple capsule showing partner-derived multiplier (reads partner's TODAY as of session 23). Bonus.gd autoload computes; client-side rule mirrors the future server payout rule. Session 16 (today_iso fix session 23). ~2h combined.
 [x] 2.8 [CODE] Partner panel polling. 30s foreground / paused background / 10s deferred focus-in. Backend.poll_user() + State selective-merge (in-flight write preservation). Verified end-to-end via curl. Session 16. ~1.5h.
 [x] 2.9 [CODE] DevKit. Scenario menu overlaid on live app, separate dev worker + D1, build-flag-gated (editor OR custom feature). Three live scenarios (default / fresh_install / recovery_flow); ~15 more stubbed. See `four_tasks_devkit_design_notes.md`. Session 18. ~1h.
 [x] 2.A [CODE] Panel heading + project-wide font. Per-panel `{display}'s four tasks` title (tap to flip name/username, lowercase username at render) + MOTD subtitle (today fallback to yesterday). Local per-device prefs via new `Prefs.gd` autoload. Departure Mono set as project font (Project Settings → GUI → Theme); JetBrains Mono explicit on MOTD subtitle. New `Fonts.gd` autoload exposes both. Session 18. ~2h.
@@ -94,6 +94,8 @@ PHASE 3 — Onboarding + identity flow
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Reference: `four_tasks_onboarding_design_notes.md`. Solo-as-default, 8-screen flow, pairing post-onboarding via "Add my partner" button on partner panel. Single /join_by_values endpoint.
+
+NOTE: onboarding.tscn currently the placeholder stub + an instanced flag-gated devkit_button (added session 23 so DevKit is reachable on a fresh install). Phase 3 replaces the scene wholesale; keep a devkit entry point reachable pre-App.
 
 PENDING:
   - Four-tasks entry screen placement (copy locked, slot TBD between 6+7 or 7+8).
@@ -130,8 +132,8 @@ Fork between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork, Four Task
 [ ] 4.4 [CODE] Slot machine — real wheels. Four spinners. Sticker wheel reads Lever 1 pool. FIX: true independent randomisation per slot (prototype alternates visibly).
 [ ] 4.5 [CODE] MOTD reroll cost. First free during sequence; subsequent flat 90-110 coins, no escalation. Reroll is VENT not sink. Lock button + confirm popup.
 [ ] 4.6 [CODE] Morning sequence — full coordinator. All 12 beats. Claim endpoint fires at beat 3. Reference: `four_tasks_morning_sequence_design_notes.md`. Required reading before this tile.
-[ ] 4.7 [CODE] Stamp slap animation. Tier colours grey(0)/red(1)/orange(2)/yellow(3)/green(4)/purple(rest). Grey 0-task disappointment tier locked session 22 (cell tappable, standard tray, four red-crossed rows; stub pool ["[disappointment stamp message]"]). Authoring 10-20 messages per tier (stubs in stamp_messages.ts currently).
-[ ] 4.8 [CODE] Rest day system. Long-press future cell, confirm, refund. Same morning sequence with content swaps. Author rest-day task label pool (~15-30).
+[ ] 4.7 [CODE] Stamp slap animation. Tier colours grey(0)/red(1)/orange(2)/yellow(3)/green(4)/purple(rest). Grey 0-task disappointment tier locked session 22, server-shipped session 23 (cell tappable, standard tray, four red-crossed rows; stub pool ["[disappointment stamp message]"]). Authoring 10-20 messages per tier (stubs in stamp_messages.ts currently).
+[ ] 4.8 [CODE] Rest day system. SAME-DAY-ONLY (session 23 scope cut — no pre-placing future rest days; lands on today's already-accounted row). Long-press today's cell, confirm, refund. Same morning sequence with content swaps. Author rest-day task label pool (~15-30). See also: morning-sequence rest-purchase escape hatch (PARKED).
 [ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days.
 [ ] 4.10 [CODE] Month stamp + month stats popup.
 [ ] 4.11 [CODE] Help menu — two-tier. Six subjects, [g]glitch[/g] markup.
@@ -139,6 +141,7 @@ Fork between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork, Four Task
 [ ] 4.13a [CODE] Leaderboard endpoint — GET /leaderboard. DEFERRED (`four-tasks/deferred/`). Possibly not shipping.
 [ ] 4.13 [CODE] Leaderboard UI. Depends on 4.13a revival.
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (conversion pull for APPtrioc).
+[ ] 4.14c [CODE] Future cells non-tappable (enforces same-day-only rest, session 23). day_cell.gd / calendar_grid.gd — DEAD_FUTURE cells must not open a tray or accept long-press rest designation. Small client change; pairs with 4.8. Server future-rest guard judged overkill (forged future rest only stamps the forger's own calendar) — skipped, noted.
 [ ] 4.D2 [CODE] Week mode. Per-weekday opt-in toggle (off by default). Divergence on first task edit, not on toggle. Cal-icon stays universal standard-four editor with warning on week-mode days. Today-only edit rule. Personal not shared. Schema: `week_mode_weekdays` bitmask + `user_weekday_overrides` table (already in v1.0 schema). Reference: `four_tasks_week_mode_design_notes.md`.
 
 ━━━ PRE-FORK ART TILES ━━━
@@ -179,9 +182,9 @@ PHASE 5 — Ship Four Tasks to stores
 (Mac decision deferred from tile 0.8. Options: M4/M5 mini, MacInCloud, borrow. Needed before tile 5.5.)
 
 [ ] 5.1 [CONFIG] Production Worker deployment. Real domain (`api.fourtasks.thepicklemoon.com`). Builds point to production; dev/test to staging.
-[ ] 5.2 [CONFIG] DevKit excluded from release exports — verify "devkit" custom feature is absent from store export presets (Project → Export → preset → Resources → Custom Features). Build-flag plumbing already done in tile 2.9; this tile is the audit at Phase 5 gate.
+[ ] 5.2 [CONFIG] DevKit excluded from release exports — verify "devkit" custom feature is absent from store export presets (Project → Export → preset → Resources → Custom Features). Build-flag plumbing already done in tile 2.9; this tile is the audit at Phase 5 gate. NOTE session 23: the onboarding devkit_button + the App devkit button both gate on the flag, so both vanish in a release build — confirm visually after the release export.
 [ ] 5.3 [CODE] Production logging + error reporting.
-[ ] 5.4 [CONFIG] Android build — release signing, keystore, signed `.aab`, verify on Pixel.
+[ ] 5.4 [CONFIG] Android build — release signing, keystore, signed `.aab`, verify on Pixel. (Debug Android toolchain already set up session 23: export templates 4.6.3, JDK 17, Android Studio SDK, Godot paths, ETC2 toggle. Release adds a real upload keystore + .aab format.)
 [ ] 5.5 [CONFIG] iOS build — Xcode export, signing, archive, TestFlight, install on iOS device.
 [ ] 5.6 [ART] App icon master 512×512.
 [ ] 5.7 [ART] Store screenshots. 4-6 portraits per store.
@@ -220,19 +223,19 @@ GATE: APPtrioc live, video dropped, Reddit post up. Both products in market.
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[x] Pair-key inter-user separator __→|| + remove all four __-value bans (option A, only `|` banned). Server hash + dev D1 re-seed. Deployed to dev, round-trip verified. Session 22. ~2h (incl. the three design gates below).
+[x] Pair-key inter-user separator __→|| + remove all four __-value bans (option A, only `|` banned). Server hash + dev D1 re-seed. Deployed to dev, round-trip verified. Session 22. ~2h (incl. the three design gates).
 
-[ ] accounted_for code batch (LAUNCH, item two). Schema column `days.accounted_for` (write-once boolean) + walkback rewrite + grey 0-task disappointment tier. schema.sql + index.ts. FLAGGED don't-apply-blind. Gates settled session 22:
-    - App-open folds into the existing POST /claim (no new endpoint, no rename): claim transaction also upserts today's row accounted_for=1, atomic with walkback+seal. Contract widened to "user opened the app on local_date".
-    - INVARIANT (load-bearing): walkback filters strictly `< local_date`. A `<=` would seal today on open and 409 all further edits. Verify index.ts reads `<`; document as invariant, never relax.
-    - 0-task tier = grey, tappable, standard tray, stub pool. SUPERSEDES stamp-tier doc "no stamp" line.
-    Device-tested not blind. Then State.gd offset, then _dict_equal. See devlog session 22.
+[x] accounted_for code batch (item two). Schema column `days.accounted_for` (write-once boolean) + walkback rewrite (now `accounted_for = 1`, dropped string-match) + app-open writes today's row + grey 0-task disappointment tier. schema.sql + index.ts + stamp_messages.ts (grey pool). Deployed to dev, ALTER applied to dev DB, 4 tests passed (today doesn't self-seal, normal seal, grey seal, idempotent double-claim). Walkback `< local_date` invariant verified on real data. Session 23.
 
-[ ] Client local-date offset fix (LAUNCH). `State.install_iso()`/`today_iso()`/`yesterday_iso()` hardcode `+ 8 * 3600` (AWST, no DST). v1.0 fix: use the OS offset `Time.get_time_zone_from_system().bias` — DST-correct for now, no library. Verify the bias sign on a real Android device. See `four_tasks_timezone_and_sealing_design_notes.md` V1.0 SCOPE.
+[x] Client local-date offset fix. State.gd today/yesterday/install_iso now read the live OS offset via `_local_offset_seconds()` (bias min × 60), replacing `+ 8*3600`. DEVICE-VERIFIED session 23: WA bias +480 / today correct; Honolulu bias -600 / date correct. Both sign directions confirmed, no negate needed. Session 23.
 
-[ ] `_dict_equal` order-independent deep compare (LAUNCH). Currently JSON.stringify equality = key-ORDER-sensitive → spurious day_changed re-renders on locally-shaped rows. Dormant in Phase 2 (flat cells); visible once cells carry art. Apply + device-test before Phase 4. FLAGGED don't-apply-blind. Capture Item 8.
+[x] `_dict_equal` — investigated, NOT A BUG. JSON.stringify sort_keys defaults true (confirmed vs engine source + 7-case sweep) → already order-independent. Capture Item 8 premise was wrong. Comment added in State.gd; no code change. Session 23.
 
-[ ] Riders (cosmetic, fold into next index.ts/Bonus.gd touch): Bonus.gd `yesterday_iso`→`today_iso` (verify partner-today live refresh); index.ts duplicate-comment tidy (~L167-173, capture Item 10).
+[x] Riders. Bonus.gd `yesterday_iso`→`today_iso` (live partner-today pill). index.ts duplicate POST /users comment block removed. Session 23.
+
+[ ] DevKit "default" scenario bounces to onboarding on a fresh device (OPEN). Seeds server state but writes no local identity.cfg, so Loader (checks local file, not server) routes to onboarding. Fix written in DevKit.gd (default writes Identity.save(TestUser id) post-seed, then reboots) but STILL bounced on device — root cause likely upstream in Backend seed/signal wiring (devkit_scenario_ran may not fire). UNVERIFIED. Next: adb logcat -s godot on a Default tap, confirm whether "[DevKit] scenario complete, rebooting" prints; bring Backend.gd. adb at C:\Users\steez\AppData\Local\Android\Sdk\platform-tools.
+
+[ ] Revert offset-test scaffold before committing. onboarding.tscn restored to plain placeholder + devkit button (DONE this session); DELETE the orphaned onboarding.gd (offset readout, diagnostic-only).
 
 [     ] Theme cell-overlay buckets vs runtime cell states. Overlay file naming uses unmarked/completed/partial/rest (4 buckets); runtime has 9 states incl. the red/orange/yellow/green tier ramp. Decide whether one cell_overlay_completed.png covers the whole done ramp or "completed" = 4/4 only with "partial" = 1-3. Renderer lookup must match painter expectation. Resolve at 4.14b. See theme doc cell-treatment section.
 
@@ -242,15 +245,19 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] Seal-day hero beat. When a day seals (last task ticked off, or rest-day claim), the cell flies up + enlarges to fill most of the screen, sticker pops while the cell zooms back into position, and a popup frames the coin payout as arriving tomorrow morning rather than same instant. Decouples seal from payout — creates a "come back tomorrow" hook. Reshapes morning sequence beat ordering and disclosure timing for first occurrence. Design pass against `four_tasks_morning_sequence_design_notes.md` — touches same surface as the collision item above; resolve together.
 
+[ ] Morning-sequence rest-purchase escape hatch (design doc, PARKED — own conversation). Lets the user buy a rest day during the morning sequence to mask a 0-task disappointment day before it stamps grey. Same reactive same-moment mechanic as same-day rest, pointed one step into the past. Open questions: does it rewrite an already-engaged day's tier; bailout-premium cost vs normal rest; can it be abused daily to never face grey. Architectural shadow — write the design before building. Surfaced session 23.
+
 [ ] Username display normalisation consistency vs pair-key recovery. `panel_heading.gd` lowercases usernames at render time (DB stores as typed). Pair-key recovery six-tuple hashes against stored values, so user typing "MoR91rY" stores MoR91rY and recovers as MoR91rY — but they SEE "mor91ry" everywhere in the app, including the title flip toggle. Verify this doesn't trip new users at recovery. Either propagate the lowercase to server-side normalisation, or accept the display-vs-storage divergence as expected behaviour. Pre-Phase-3 audit. See `four_tasks_pair_key_design_notes.md` Section 12.
 
 [ ] Max display length for headings. Long names/usernames overflow the 60pt title at 1080 panel width — a 40-char lowercase username plus "'s four tasks" doesn't fit. Soft cap, ellipsis, or auto-shrink. Probably ellipsis since the user knows their own name and partial render is acceptable. Pre-Phase-5 polish, not blocking.
 
-[ ] On-touch jitter tuning pass. Mouse testing makes the 8px DRAG_DEADZONE hard to evaluate. Tap-with-finger-jitter behaviour needs phone test. Constants `DRAG_DEADZONE` (App.gd) and `TAP_DRAG_THRESHOLD` (Layout.gd, used by TaskRow + DayCell) may need separate values for touch. Defer until first Android run.
+[ ] On-touch jitter tuning pass. Mouse testing makes the 8px DRAG_DEADZONE hard to evaluate. Tap-with-finger-jitter behaviour needs phone test. Constants `DRAG_DEADZONE` (App.gd) and `TAP_DRAG_THRESHOLD` (Layout.gd, used by TaskRow + DayCell) may need separate values for touch. Now that a debug APK installs on-device (session 23), this is testable.
 
 [ ] Group / triple expansion design conversation. NOT v1.0, NOT v1.x, possibly never. Open: star vs full mesh, pair_key extension for groups, UX (swipe breaks at three calendars), monetisation hook. See pair-key Section 17.
 
-[ ] Doc sync pass (session 12 + 14 batch):
+[ ] Godot UID stability across machines. `.gitignore` ignores `.godot/` AND `*.import`, so fresh clones regenerate UIDs and throw resolution errors on first open (hit on the steez clone session 23 — fixed locally by deleting `.godot/`, resaving scenes, re-pointing the project font in Project Settings). Decide whether to track `*.import` + `*.uid` (remove from `.gitignore`), committed FROM THE ORIGINAL/CANONICAL machine (not a fresh clone, or you publish the clone's regenerated UIDs). Repo-hygiene item, do deliberately. NEVER delete project.godot — only the `.godot/` cache folder.
+
+[ ] Doc sync pass (session 12 + 14 + 22 + 23 batch):
     - Partner reactions design doc → MOVE to `four-tasks/deferred/`.
     - `pickle_moon_repo_index.md`: partner reactions out of Locked → into deferred; promo codes new entry pending design doc; schema.sql migration-files-deleted note; write_rules doc moved Locked → Background/Superseded.
     - Project system prompt: drop "first feature with field-level write rules" reference.
@@ -259,9 +266,9 @@ ACTIVE — ad-hoc items found during the port
     - `four_tasks_morning_sequence_design_notes.md`: MOTD framing (MOTD in onboarding per session 9). "Migration window" → "rotation window" terminology.
     - `four_tasks_theme_design_notes.md`: `<id>_<role>.png` naming convention update; trigger-gated picker hint replacing day-7 scheduled. Z-order pipeline layer 3 says "stamp art (when claimed)" — actually means STICKER, not stamp. Cell stack is: bg → date/pips → sticker → theme overlay → (no stamp layer). Stamp lives on the tray, not the cell.
     - `four_tasks_week_mode_design_notes.md`: status v1.x → v1.0.
-    - `four_tasks_stamp_tier_design_notes.md`: obsolete "nightly cron, tile 1.4" reference; ADD grey 0-task tier to the table + pool shape (`disappointment:` key) + size target + tone target; KILL the "0-task day gets no stamp / cell sits empty" line (superseded by accounted_for, session 22).
+    - `four_tasks_stamp_tier_design_notes.md`: obsolete "nightly cron, tile 1.4" reference; ADD grey 0-task tier to the table + pool shape (`grey:` key) + size target + dry tone target; KILL the "0-task day gets no stamp / cell sits empty" line (superseded by accounted_for, server-shipped session 23).
     - `four_tasks_onboarding_design_notes.md`: name confirmation modal displays typed value EXACTLY as typed (case-sensitive per session 10).
-    - `four_tasks_system_map.md`: §5.3 claim contract widened (app-open accounting); §10.5 + walkback `< local_date` invariant.
+    - `four_tasks_system_map.md`: §5.3 claim contract widened (app-open accounting); §10.5 + walkback `< local_date` invariant (now load-bearing); rest = same-day-only.
 
 [ ] Promo codes design doc. Schema landed in session 12 against ad-hoc decisions. Formalise as `four_tasks_promo_codes_design_notes.md` before subreddit outreach. Captures: single-code-per-user enforcement, code shape (FIFOFOUNDER20-style), founders_rate permanent once granted, redemption_attempts logs all attempts including failures.
 
@@ -283,7 +290,7 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] Rate limiting — Cloudflare Workers Rate Limiting API, per-IP at platform edge. Generous limits (real users hitting bugs may legitimately file three reports in five minutes). Applies to all write endpoints + APPtrioc. Own design conversation after a few more endpoints exist. Not blocking 1.3.
 
-[ ] IANA timezone-name capture (v1.x, NOT launch). Godot 4 has no tz database; capturing the real IANA name vs a raw offset needs a native plugin. Deferred to v1.x — `users.timezone` has no live v1.0 consumer until then. Reframed from the old 'must resolve before launch' framing: only the offset fix above is the launch item.
+[ ] IANA timezone-name capture (v1.x, NOT launch). Godot 4 has no tz database; capturing the real IANA name vs a raw offset needs a native plugin. Deferred to v1.x — `users.timezone` has no live v1.0 consumer until then. Reframed from the old 'must resolve before launch' framing: only the offset fix (now device-verified, session 23) was the launch item.
 
 [ ] DevKit mockable clock. Force `today_iso()`/`install_iso()` to a chosen date/time so gap-day and midnight-rollover bugs are reproducible without real IANA support. Unblocks date-boundary testing for the MOTD subtitle + morning sequence (4.6).
 
@@ -298,6 +305,8 @@ PARKED — known, not blocking
 [ ] `wrangler dev` drift to remote mode. Workaround: `npx wrangler dev --local` (explicit flag). Adopted as convention.
 
 [ ] Wrangler D1 token-refresh quirk. D1 import can fail with "Authentication error [code: 10000]" despite valid `wrangler whoami`. Fix: `npx wrangler logout` + `npx wrangler login`.
+
+[ ] DevKit seed lacks a disappointment-day scenario. To test the grey tier on-device you currently hand-insert an unsealed accounted_for=1 zero-task row. Add a scenario that seeds one. DevKit-only, not blocking.
 
 [ ] ECONOMY REDESIGN — dedicated doc owed (`four_tasks_economy_redesign_notes.md`) before any number or the multiplier build. Opened session 22, banked verbally only, NOTHING locked. Must resolve, at minimum: (1) per-user vs per-pair subscription [banked lean: per-pair — one subscriber lifts both, coin bonus + unlocked partner library]; (2) additive vs multiplicative sub bonus; (3) does the sub bonus STACK on the partner multiplier or sit beside it [banked intent: stack]; (4) solo PHANTOM-1.5 — subbed solo user gets partner-completion treated as 4 (no rendering, no bot), solo-subscriber-ONLY [SUPERSEDES locked solo-mode "multiplier never fires solo"]; (5) second-sub exponential coin boost mechanism; (6) real sticker/UI pricing as the anchor [intent ~10-100k, NOT the doc's 300-600]; (7) sticker model curated-packs → possible weekly drip (volume pressure). THREE live contradictions vs locked docs — do not code from the banked intents. Absorbs/extends the old coin-balance pass below.
 
@@ -343,4 +352,4 @@ COMPLETED LEDGER
 See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with hours, commit hashes, and design rationale.
 
 Running project total at session 17 close: ~88.75h.
-Running project total at session 22 close: ~102.75h.
+Running project total at session 23 close: ~106.75h.

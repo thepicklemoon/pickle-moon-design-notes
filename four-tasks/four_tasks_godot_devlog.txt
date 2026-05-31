@@ -1720,3 +1720,110 @@ NEXT SESSION:
 Session 22 time: ~2h.
 Running total: ~102.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━ SESSION 23 (31 May 2026, laptop + device) — Item two shipped + offset device-verified + Android toolchain. Time: ~4h. ━━━
+
+The accounted_for batch landed and tested on the dev DB; the State.gd
+offset is verified on a real Android device (both sign directions). Android
+export toolchain stood up from zero. One real boot-flow gap found and
+half-fixed. Session-22 code batch now complete bar the DevKit-default bounce.
+
+CODE SHIPPED (deployed to four-tasks-api-dev, tested):
+  - index.ts: walkback predicate rewritten to `accounted_for = 1` (dropped
+    the fragile tasks_done != '[false,false,false,false]' string-match);
+    claim transaction now upserts today's row accounted_for=1 on every open
+    (app-open-as-a-write, sole writer); the old 0-task 500 branch is now the
+    legitimate grey "disappointment" tier; duplicate POST /users comment
+    block removed. Walkback INVARIANT verified on real data: filters strictly
+    `< local_date` (line confirmed), today does not self-seal.
+  - schema.sql: days.accounted_for INTEGER NOT NULL DEFAULT 0 (write-once,
+    monotonic). ALTERed into the existing dev DB (CREATE IF NOT EXISTS won't
+    touch an existing table — the ALTER is the real apply); seed insertDaySql
+    carries accounted_for=1.
+  - stamp_messages.ts: grey tier added (StampTier derives from the object, so
+    "grey" is now a valid tier); stub pool ["[disappointment stamp message]"].
+  - State.gd: the three date fns (today/yesterday/install_iso) now read the
+    live OS offset via new _local_offset_seconds() (bias minutes × 60),
+    replacing the hardcoded +8*3600. _dict_equal left as-is with a comment
+    (see below).
+  - Bonus.gd: partner multiplier reads partner's TODAY (was yesterday). Pill
+    is a live forecast of today's earning rate, applied at tomorrow's seal.
+    Server multiplier still ×1.0 stub (gate 3) — pill/payout mismatch in
+    testing is the stub, not a bug.
+
+VERIFIED:
+  - accounted_for batch — 4 tests on dev DB: (1) today doesn't self-seal,
+    app-open writes accounted_for=1 on today; (2) normal multi-tier seal;
+    (3) GREY seals on a 0-task accounted day (was a 500); (4) double-claim
+    idempotent, no double-pay. (PowerShell gotcha: Invoke-RestMethod hides
+    nested objects in its summary view — pipe claims to ConvertTo-Json -Depth 5
+    or results read as blank.)
+  - State.gd OFFSET — verified on a real Android device via an on-screen
+    readout (temporary onboarding script): WA showed today=2026-05-31,
+    bias=+480 (8h); phone set to Honolulu showed bias=-600 (-10h), date
+    correct for the zone. Both sign directions correct. NO negate needed.
+    The "verify bias sign" launch item is CLOSED.
+
+_dict_equal (capture Item 8) — STRUCK, NOT A BUG:
+  - JSON.stringify's sort_keys defaults TRUE (confirmed vs engine source +
+    a 7-case sweep), so the compare is already order-independent. The capture
+    premise (order-sensitive → spurious re-renders) was wrong. Comment added
+    in State.gd recording why; do not "fix" it. No code change.
+
+DESIGN DECISIONS (item-two design, settled before code):
+  - 0-task tier = grey, code literal "grey" (colour-named like the other five).
+  - accounted_for SOLE writer = app-open. Tick/motd/motd can't precede app-open
+    (it fires on boot), so no redundant sets. Rest was the one exception that
+    would have needed a second writer — KILLED by the scope cut below.
+  - SCOPE CUT: rest days are now SAME-DAY-ONLY (can't pre-place a future rest
+    day). This removes future-dated writes entirely, so the walkback stays a
+    clean single `accounted_for = 1` (no OR rest_day), and rest lands on
+    today's already-accounted row. Trade-off named: loses advance rest
+    planning (notable for a FIFO roster), buys a much simpler seal model.
+    ENFORCED CLIENT-SIDE by making future cells non-tappable (new todo).
+    Server future-rest guard judged overkill (a forged future rest only
+    grants the forger a cosmetic stamp on their own calendar) — noted, skipped.
+
+ANDROID TOOLCHAIN (one-time, now done on the steez laptop):
+  - Export templates 4.6.3, Temurin JDK 17 (17.0.19), Android Studio SDK
+    (platform-tools + build-tools), Godot Editor Settings pointed at both,
+    ETC2/ASTC import toggle on. Debug APK exports clean (no manual keystore
+    needed — Godot auto-uses the debug keystore). Future APKs are just
+    "Export Project". Test/debug APKs need "devkit" in the export preset's
+    Custom features (tile 5.2 audits this OUT for release).
+
+BOOT-FLOW GAP FOUND:
+  - On a fresh device (no identity.cfg) the only DevKit entry point was a
+    button inside the App scene — unreachable, because you can't reach App
+    without an identity. The whole boot-from-nothing path had never run
+    (editor always had a leftover identity.cfg). FIX: instanced the existing
+    flag-gated devkit_button into onboarding.tscn — reachable from a fresh
+    install, hidden in store builds by its own _ready check. KEPT.
+
+STILL OPEN:
+  - DevKit "default" scenario BOUNCES back to onboarding on a fresh device:
+    it seeds server state but writes no local identity.cfg, so Loader (which
+    checks the local file, not the server) routes to onboarding. Wrote the
+    fix in DevKit.gd (default writes Identity.save(TestUser id) post-seed,
+    then reboots) but it STILL bounced on device — root cause likely upstream
+    in Backend seed/signal wiring (devkit_scenario_ran may not be firing).
+    UNVERIFIED. Needs adb logcat + Backend.gd to diagnose. Routed around for
+    the offset test by reading the date off an on-screen onboarding readout
+    instead, so this did NOT block verification.
+  - Offset test scaffold (onboarding.gd + enlarged label) is diagnostic-only
+    — REVERT before committing (onboarding.tscn restored to plain placeholder
+    + devkit button; delete onboarding.gd).
+
+NEXT SESSION:
+  - Diagnose the DevKit-default bounce: adb logcat -s godot on a Default tap,
+    confirm whether "[DevKit] scenario complete, rebooting" prints; bring
+    Backend.gd. (adb at ...AppData\Local\Android\Sdk\platform-tools.)
+  - Doc-sync still owed: stamp-tier doc grey tier + kill "no stamp" line;
+    system map §5.3 claim-widening + §10.5 `< local_date` invariant.
+  - Capture file (four_tasks_session_19_capture.md) — Item 8 struck, code
+    batch landed, offset verified. DELETABLE now (nothing load-bearing left).
+  - Economy redesign doc still owed before any coin number / multiplier build.
+
+Session 23 time: ~4h.
+Running total: ~106.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
