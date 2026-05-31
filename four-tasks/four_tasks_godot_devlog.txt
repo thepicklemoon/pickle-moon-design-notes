@@ -1827,3 +1827,59 @@ NEXT SESSION:
 Session 23 time: ~4h.
 Running total: ~106.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━ SESSION 23 continued (31 May 2026, laptop + device) — DevKit bounce closed on-device. Time: ~2h. ━━━
+
+Picked up the one open thread from the batch: the DevKit "default" scenario
+bouncing to onboarding on a fresh device. Root-caused via adb logcat to a
+STACK of three issues masking each other, all now fixed and verified on the
+phone. The DevKit identity-write logic written earlier was correct the whole
+time — it just never got to run.
+
+ROOT CAUSE (three layers, peeled in order):
+  1. Filename case. The autoload file was on disk as devkit.gd (lowercase)
+     while project.godot registers the autoload as res://scripts/DevKit.gd
+     (PascalCase). Windows' case-INSENSITIVE filesystem hid this in the
+     editor (always loaded fine); the case-SENSITIVE Android export PCK
+     failed "Can't open script res://scripts/DevKit.gd" → autoload Nil →
+     devkit_menu's run_scenario call crashed on Nil. Fixed by renaming the
+     file to DevKit.gd (two-step rename to force the case change on Windows).
+  2. Missing INTERNET permission. Once DevKit loaded, the seed POST failed
+     with HTTPRequest result code 3 (CANT_CONNECT) — the APK shipped without
+     the INTERNET Android permission (Godot did NOT auto-grant it; the export
+     preset's permission list was all-off). Browser on the same phone reached
+     /health fine (system network), but the app couldn't open a socket.
+     _on_scenario_failed correctly fired and skipped the identity write, so
+     no reboot → looked like a "bounce." Fixed by ticking Internet in the
+     Android export preset → Permissions.
+  3. The identity-write fix itself (DevKit.gd default → Identity.save(
+     TestUser) post-seed) was correct; layers 1 and 2 just prevented it
+     running. Confirmed working on-device once both cleared.
+
+VERIFIED ON DEVICE (adb install -r over cable, not email):
+  [DevKit] flag on → running scenario: default → scenario complete,
+  rebooting through Loader → [Loader] editor=false devkit=true → lands on
+  the seeded calendar, swipeable. The bounce is CLOSED, device-verified.
+
+NEW GOTCHAS:
+  - Autoload filename CASE must exactly match the autoload registration in
+    project.godot. Mismatch loads fine in the Windows editor but fails
+    "Can't open" in the case-sensitive Android export. Applies to every
+    PascalCase autoload.
+  - Android export needs INTERNET permission EXPLICITLY ticked (export
+    preset → Permissions → Internet). Godot does not reliably auto-grant it.
+    Symptom: HTTPRequest result code 3 (CANT_CONNECT) on every request while
+    a browser on the same device reaches the URL fine.
+  - Test on-device via `adb install -r <path>` over USB, not email/download —
+    removes all ambiguity about which build actually landed (chased a
+    phantom "stale build" for a while because email/download obscured it).
+
+KNOWN COSMETIC (deferred):
+  - The [DEV] button renders top-left on the onboarding scene (centre-bottom
+    in App). The instanced devkit_button carries absolute offsets tuned for
+    app.tscn's tree; under the onboarding Control root they resolve elsewhere.
+    One-line anchor fix on the instance whenever onboarding is next touched.
+
+Session 23 continued time: ~2h.
+Running total: ~108.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-05-31 AWST
-Last updated: session 23 — accounted_for batch shipped + tested (dev); State.gd offset device-verified (both sign directions, no negate); _dict_equal struck (not a bug); Bonus.gd today_iso; index.ts tidy. Android toolchain stood up (one-time). DevKit button added to onboarding (fresh-install reachable). DevKit "default" bounce still OPEN. Rest days now same-day-only (scope cut). Last code: session 23.
+Last updated: session 23 — accounted_for batch shipped + tested (dev); State.gd offset device-verified; _dict_equal struck; Bonus.gd today_iso; index.ts tidy. Android toolchain stood up (one-time). DevKit button added to onboarding. DevKit "default" bounce CLOSED + device-verified (was filename-case + missing INTERNET permission, not the identity logic). Rest days now same-day-only (scope cut). Last code: session 23.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -233,9 +233,11 @@ ACTIVE — ad-hoc items found during the port
 
 [x] Riders. Bonus.gd `yesterday_iso`→`today_iso` (live partner-today pill). index.ts duplicate POST /users comment block removed. Session 23.
 
-[ ] DevKit "default" scenario bounces to onboarding on a fresh device (OPEN). Seeds server state but writes no local identity.cfg, so Loader (checks local file, not server) routes to onboarding. Fix written in DevKit.gd (default writes Identity.save(TestUser id) post-seed, then reboots) but STILL bounced on device — root cause likely upstream in Backend seed/signal wiring (devkit_scenario_ran may not fire). UNVERIFIED. Next: adb logcat -s godot on a Default tap, confirm whether "[DevKit] scenario complete, rebooting" prints; bring Backend.gd. adb at C:\Users\steez\AppData\Local\Android\Sdk\platform-tools.
+[x] DevKit "default" scenario bounce — CLOSED + device-verified (session 23). Was NOT the identity logic; a stack of three: (1) autoload filename case — file was devkit.gd, registration is res://scripts/DevKit.gd; Windows editor hid it, case-sensitive Android export failed "Can't open" → autoload Nil → menu crash; fixed by renaming to DevKit.gd. (2) missing INTERNET permission in the Android export preset → seed POST got HTTPRequest result code 3 (CANT_CONNECT); fixed by ticking Permissions → Internet. (3) the DevKit.gd default→Identity.save(TestUser) post-seed write was correct all along. Verified via adb install -r: [DEV] → Default lands on the seeded calendar on-device.
 
-[ ] Revert offset-test scaffold before committing. onboarding.tscn restored to plain placeholder + devkit button (DONE this session); DELETE the orphaned onboarding.gd (offset readout, diagnostic-only).
+[ ] [DEV] button anchor on onboarding (cosmetic, deferred). The instanced devkit_button renders top-left on onboarding (centre-bottom in App) — its absolute offsets are tuned for app.tscn's tree and resolve elsewhere under the onboarding Control root. One-line anchor fix on the instance whenever onboarding is next touched. Not blocking.
+
+[x] Reverted offset-test scaffold before committing. onboarding.tscn restored to plain placeholder + instanced devkit_button; orphaned onboarding.gd deleted. Session 23.
 
 [     ] Theme cell-overlay buckets vs runtime cell states. Overlay file naming uses unmarked/completed/partial/rest (4 buckets); runtime has 9 states incl. the red/orange/yellow/green tier ramp. Decide whether one cell_overlay_completed.png covers the whole done ramp or "completed" = 4/4 only with "partial" = 1-3. Renderer lookup must match painter expectation. Resolve at 4.14b. See theme doc cell-treatment section.
 
@@ -306,6 +308,12 @@ PARKED — known, not blocking
 
 [ ] Wrangler D1 token-refresh quirk. D1 import can fail with "Authentication error [code: 10000]" despite valid `wrangler whoami`. Fix: `npx wrangler logout` + `npx wrangler login`.
 
+[ ] GOTCHA (session 23): autoload filename CASE must exactly match the autoload registration in project.godot (e.g. DevKit.gd, not devkit.gd). Mismatch loads fine in the Windows editor (case-insensitive FS) but fails "Can't open script" in the case-sensitive Android export PCK → autoload Nil → dependent scripts crash. Applies to every PascalCase autoload.
+
+[ ] GOTCHA (session 23): Android export needs INTERNET permission EXPLICITLY ticked (export preset → Permissions → Internet). Godot does not reliably auto-grant it; export_presets.cfg carries the setting (keep it tracked). Symptom: HTTPRequest result code 3 (CANT_CONNECT) on every request while a browser on the same device reaches the URL fine.
+
+[ ] GOTCHA (session 23): test on-device via `adb install -r <path>` over USB, not email/download — removes ambiguity about which build actually landed (chased a phantom "stale build" because download/email obscured the real file). adb at C:\Users\steez\AppData\Local\Android\Sdk\platform-tools. USB debugging on the phone: Settings → About → tap Build number ×7, then Developer options → USB debugging.
+
 [ ] DevKit seed lacks a disappointment-day scenario. To test the grey tier on-device you currently hand-insert an unsealed accounted_for=1 zero-task row. Add a scenario that seeds one. DevKit-only, not blocking.
 
 [ ] ECONOMY REDESIGN — dedicated doc owed (`four_tasks_economy_redesign_notes.md`) before any number or the multiplier build. Opened session 22, banked verbally only, NOTHING locked. Must resolve, at minimum: (1) per-user vs per-pair subscription [banked lean: per-pair — one subscriber lifts both, coin bonus + unlocked partner library]; (2) additive vs multiplicative sub bonus; (3) does the sub bonus STACK on the partner multiplier or sit beside it [banked intent: stack]; (4) solo PHANTOM-1.5 — subbed solo user gets partner-completion treated as 4 (no rendering, no bot), solo-subscriber-ONLY [SUPERSEDES locked solo-mode "multiplier never fires solo"]; (5) second-sub exponential coin boost mechanism; (6) real sticker/UI pricing as the anchor [intent ~10-100k, NOT the doc's 300-600]; (7) sticker model curated-packs → possible weekly drip (volume pressure). THREE live contradictions vs locked docs — do not code from the banked intents. Absorbs/extends the old coin-balance pass below.
@@ -352,4 +360,4 @@ COMPLETED LEDGER
 See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with hours, commit hashes, and design rationale.
 
 Running project total at session 17 close: ~88.75h.
-Running project total at session 23 close: ~106.75h.
+Running project total at session 23 close: ~108.75h.
