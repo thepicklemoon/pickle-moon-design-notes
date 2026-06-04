@@ -1883,3 +1883,69 @@ KNOWN COSMETIC (deferred):
 Session 23 continued time: ~2h.
 Running total: ~108.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━ SESSION 24 (4 June 2026, home PC + device) — Phase 3 pairing + prod prep. Time: ~6h. ━━━
+
+Pairing built and proven on dev; prod cleaned and readied for real accounts.
+The full join_by_values flow now works client-side, completing the path to a
+usable paired build.
+
+PAIRING (tile 3.10 part A — join, NOT recovery):
+  - pair_dialog (scene + script): "Add my partner" popup. Name + username text
+    inputs (identity policy: non-empty, no '|', length caps) + a real sticker
+    PICKER (not text) reusing the starter subset, so active_leader can't be
+    typo'd. Calls Backend.join_by_values; handles partner_not_found /
+    ambiguous_match / already_paired / pair_key_collision / network with locked
+    copy. Emits paired(pair_id) upward.
+  - partner_empty_state (scene + script): solo recruitment surface over the
+    partner panel — copy + persistent "Add my partner" button. Shown when
+    State.is_paired() is false, removed on pair.
+  - App.gd: instances/removes the empty state on partner_changed; opens the
+    dialog; on success reloads via Backend.load_user → partner_changed →
+    partner panel rebinds. Modal suppresses swipe while open.
+  - Backend + server (join_by_values, resolve_pair, signals) already existed —
+    this session was purely the missing UI.
+
+BUGS FIXED (found on device):
+  - Swipe locked on the solo partner panel — empty-state overlay ate input.
+    Root set to mouse_filter PASS (button still catches), drags fall through.
+  - Sticker selection didn't persist (weak flat-toggle). Replaced with
+    modulate-dim: selected full bright, others 35%. Applied to BOTH the pair
+    dialog and onboarding_avatar so the pickers match.
+
+VERIFIED ON DEV: two real accounts paired in-app; partner calendar binds after
+  pair; symmetric link confirmed by curl (both users → same pair_id, partner
+  resolves both directions). partner_not_found path confirmed. is_paired
+  removes the empty state.
+
+PROD PREP:
+  - Both dev + prod D1 wiped to zero (FK-safe order: leaf tables → null
+    users.pair_id → pairs → users; the circular users↔pairs FK is why a naive
+    delete failed). Prod had 2 stale test rows (incl. an old emoji-leader
+    'Pip') — gone. Dev had the pairing test accounts — gone.
+  - Prod schema confirmed current (8 tables match dev); prod worker redeployed
+    (wrangler deploy --env production; needed a logout/login for the D1
+    token-refresh quirk). Health OK.
+  - App icon: the_pickle_moon 128² had no alpha; produced a 512² transparent
+    nearest-neighbour upscale (edge-connected black flood-filled out). Wired to
+    Launcher Icons → Main. Package name set com.thepicklemoon.fourlittlethings
+    (immutable at store launch — see blocker below); display name
+    "Four Little Things". Internal naming stays "Four Tasks" until a name locks.
+  - First real prod build: devkit stripped from Custom Features → hits prod, no
+    DEV button. Onboarded a real account against prod (= prod smoke test).
+
+NEW BLOCKER (launch):
+  - Recovery (tile 3.10 part B) is now a HARD pre-store-launch blocker. The
+    store transition forces a client identity break (package-name and/or
+    debug→release keystore change) → both users must recover into the store
+    build. Recovery UI does not yet exist. Sideload patch loop (same package +
+    same key) is unaffected — identity.cfg survives in-place reinstalls.
+
+NOTES / OWED:
+  - Hand-written scene UIDs on the new pairing scenes — watch UID cache on fresh
+    import (delete .godot/ if a panel mis-renders).
+  - Stale doc line: onboarding task-label '__' ban removed session 22 (only '|').
+
+Session 24 time: ~6h.
+Running total: ~114.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

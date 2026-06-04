@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-05-31 AWST
-Last updated: session 23 — accounted_for batch shipped + tested (dev); State.gd offset device-verified; _dict_equal struck; Bonus.gd today_iso; index.ts tidy. Android toolchain stood up (one-time). DevKit button added to onboarding. DevKit "default" bounce CLOSED + device-verified (was filename-case + missing INTERNET permission, not the identity logic). Rest days now same-day-only (scope cut). Last code: session 23.
+Last edit: 2026-06-04 AWST
+Last updated: session 24 — Phase 3 onboarding core (panel-swap rebuild, screens 1–5 + four-tasks entry) + pairing (3.10 part A: join_by_values UI) shipped and dev-verified. Green account-creation path proven; two real accounts paired in-app. Prod DB wiped clean + worker redeployed; app icon + package name (com.thepicklemoon.fourlittlethings) set; first real prod onboard. Recovery (3.10 part B) now a HARD pre-store-launch blocker. Last code: session 24.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -105,16 +105,20 @@ VALIDATION RULES (every name/username/sticker input):
   - No `|`, non-empty. (`__` ban REMOVED session 22 — `||` is now the separator, only `|` is banned. `_`/`__`/`-`/apostrophe/period all allowed. See pair-key doc §12.)
   - UX caps: username ~20 chars (server 40), sticker ID ~shorter (server 50), task labels ~30 (server 49).
 
-[ ] 3.1 [CODE] Onboarding scene state machine + entry routing (fresh install / post-onboarding pair / recovery).
-[ ] 3.2 [CODE] Welcome (1) + first-time/returning fork (1a). Primary [First time here] + smaller "Recover my calendar".
-[ ] 3.3 [CODE] Name (2) + immutable confirmation modal (3). Forward-references username step.
-[ ] 3.4 [CODE] Username (4). Mutable.
-[ ] 3.5 [CODE] Starting avatar (5) + theme assembly theatre + themed companion pool popup (5b). Curated launch starter subset. ~2s theatre (glitch typewriter + bounce-twist staggered spawn). 5b introduces per-day random celebration sticker + 7-day strip.
-[ ] 3.6 [CODE] MOTD (6). Four spinners. Tutorial coins (capped 750, "More coins" arming button below 70-110 reroll threshold). Tutorial coins discarded on transition.
-[ ] 3.7 [CODE] Partner's calendar (7). Swipe-right prompt. Persistent "Add my partner" button. Library sharing soft-plant.
-[ ] 3.8 [CODE] Coins and picker, closing (8). Coin blitz animation (2-3 stickers). [Start the day] button.
-[ ] 3.9 [CODE] Four-tasks entry screen. Copy locked. Placement TBD.
-[ ] 3.10 [CODE] Post-onboarding pairing — "Add my partner" + /join_by_values endpoint integration. Server returns 409 on ambiguous; client surfaces "vary username temporarily" workflow. Recovery flow (six-value entry) lives here too.
+[x] 3.1 [CODE] Onboarding scene state machine + entry routing. Panel-swap architecture: controller owns enum/sequence/history/_data/commit seam, shows one child panel at a time; panels emit advance/back/alt + take enter()/set_back_visible()/set_context(). Generic placeholder stands in for unbuilt steps. Session 24. ~part of onboarding build.
+[x] 3.2 [CODE] Welcome (1) + first-time/recover fork (1a). Real panels, locked copy. Recover routes to off-spine RECOVERY_STUB (resolve NOT called — 3.10B). Session 24.
+[x] 3.3 [CODE] Name (2) + immutable confirm (3). Validated input (non-empty, no '|', ≤49), Continue gated, confirm shows value verbatim, Back restores. set_context added to contract here. Session 24.
+[x] 3.4 [CODE] Username (4). Mutable, no confirm, cap 20 UX / 40 server. Session 24.
+[x] 3.5 [CODE] Starting avatar (5) — LAYOUT ONLY. Static fake-calendar backdrop (dumb ColorRect grid, zero State — deliberate isolation boundary), right-side picker, 4 real stickers from res://assets/icons/<id>/<id>_sticker.png, single-select (modulate-dim), nothing selected on entry. NO retinting / theme theatre / companions — theme preview is a Phase 4 seam, designed separately. THEME_THEATRE + COMPANIONS remain placeholders. Session 24. STARTER_LEADERS = [frog, black_cat, vampire, chilli].
+[x] 3.6 [CODE] MOTD (6) — PLACEHOLDER (economy-fenced). Real spinners/tutorial-coin loop is Phase 4. Walks through.
+[x] 3.7 [CODE] Partner's calendar (7) — PLACEHOLDER in onboarding. Real recruitment surface built in App (see 3.10A). Walks through.
+[x] 3.8 [CODE] Coins/picker, closing (8) — PLACEHOLDER (economy-fenced). "Start the day" button present. Walks through.
+[x] 3.9 [CODE] Four-tasks entry (TASKS) — real. Four validated inputs, gates on all four, ghost-text hints, stashes task_labels. Placed 6→7. Completes the green commit payload. Session 24.
+
+GREEN PATH PROVEN (session 24, device): full walk → POST /users → Identity.save → boot into App on a real named calendar. Onboarding spine functionally complete; theatre/companions/MOTD/coins are Phase-4 dressing.
+
+[x] 3.10A [CODE] Pairing — "Add my partner" join flow. pair_dialog (name+username text + sticker PICKER) → Backend.join_by_values; handles partner_not_found / ambiguous_match / already_paired / pair_key_collision / network. partner_empty_state recruitment surface on solo partner panel. App.gd instances/removes empty state on partner_changed, opens dialog, reloads on success. Dev-verified: two accounts paired, partner calendar binds, symmetric link confirmed by curl. Session 24. ~part of pairing build.
+[ ] 3.10B [CODE] Recovery flow — six-value entry → POST /resolve → restore identity.cfg → boot. Lives in onboarding's RECOVERY_STUB (currently dead). HARD PRE-STORE-LAUNCH BLOCKER: the store transition (package-name and/or debug→release keystore change) forces a client identity break, so both users must recover into the store build. Sideload patch loop (same package + key) is unaffected. Also covers ambiguous-match resolution UX. Reference: pair-key doc + onboarding notes §Recovery.
 
 GATE: Fresh install walks welcome → first day. Solo user on App scene with own data. Pairing works for ambiguous + unambiguous matches.
 
@@ -235,7 +239,7 @@ ACTIVE — ad-hoc items found during the port
 
 [x] DevKit "default" scenario bounce — CLOSED + device-verified (session 23). Was NOT the identity logic; a stack of three: (1) autoload filename case — file was devkit.gd, registration is res://scripts/DevKit.gd; Windows editor hid it, case-sensitive Android export failed "Can't open" → autoload Nil → menu crash; fixed by renaming to DevKit.gd. (2) missing INTERNET permission in the Android export preset → seed POST got HTTPRequest result code 3 (CANT_CONNECT); fixed by ticking Permissions → Internet. (3) the DevKit.gd default→Identity.save(TestUser) post-seed write was correct all along. Verified via adb install -r: [DEV] → Default lands on the seeded calendar on-device.
 
-[ ] [DEV] button anchor on onboarding (cosmetic, deferred). The instanced devkit_button renders top-left on onboarding (centre-bottom in App) — its absolute offsets are tuned for app.tscn's tree and resolve elsewhere under the onboarding Control root. One-line anchor fix on the instance whenever onboarding is next touched. Not blocking.
+[x] [DEV] button anchor on onboarding — addressed in the session-24 panel-swap rebuild; the instanced devkit_button is anchored bottom-centre (preset 7) in the new onboarding.tscn, matching App. Session 24.
 
 [x] Reverted offset-test scaffold before committing. onboarding.tscn restored to plain placeholder + instanced devkit_button; orphaned onboarding.gd deleted. Session 23.
 
@@ -361,3 +365,4 @@ See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with h
 
 Running project total at session 17 close: ~88.75h.
 Running project total at session 23 close: ~108.75h.
+Running project total at session 24 close: ~114.75h.
