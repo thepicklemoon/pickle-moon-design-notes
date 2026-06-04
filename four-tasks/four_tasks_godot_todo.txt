@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-06-04 AWST
-Last updated: session 24 — Phase 3 onboarding core (panel-swap rebuild, screens 1–5 + four-tasks entry) + pairing (3.10 part A: join_by_values UI) shipped and dev-verified. Green account-creation path proven; two real accounts paired in-app. Prod DB wiped clean + worker redeployed; app icon + package name (com.thepicklemoon.fourlittlethings) set; first real prod onboard. Recovery (3.10 part B) now a HARD pre-store-launch blocker. Last code: session 24.
+Last updated: session 25 — Recovery (3.10B) shipped + prod-verified end-to-end; PHASE 3 CLOSED. Then Phase 4 skeleton work: glitch typewriter (4.1 done), MOTD spinner WIDGET built + proven standalone over 4 passes (4.4 ~in progress, trigger-wiring remains), companions screen (5b shell) shipped + wired, active_stickers server bug fixed. Server: /resolve_solo, /motd/pool, /motd/roll, active_stickers persistence — all deployed dev+prod. Phase 4 RE-SPLIT: Phase 4 = all-code skeleton (build now, stub art), Phase 4b = painting only (4.A–4.F). Last code: session 25.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -118,52 +118,58 @@ VALIDATION RULES (every name/username/sticker input):
 GREEN PATH PROVEN (session 24, device): full walk → POST /users → Identity.save → boot into App on a real named calendar. Onboarding spine functionally complete; theatre/companions/MOTD/coins are Phase-4 dressing.
 
 [x] 3.10A [CODE] Pairing — "Add my partner" join flow. pair_dialog (name+username text + sticker PICKER) → Backend.join_by_values; handles partner_not_found / ambiguous_match / already_paired / pair_key_collision / network. partner_empty_state recruitment surface on solo partner panel. App.gd instances/removes empty state on partner_changed, opens dialog, reloads on success. Dev-verified: two accounts paired, partner calendar binds, symmetric link confirmed by curl. Session 24. ~part of pairing build.
-[ ] 3.10B [CODE] Recovery flow — six-value entry → POST /resolve → restore identity.cfg → boot. Lives in onboarding's RECOVERY_STUB (currently dead). HARD PRE-STORE-LAUNCH BLOCKER: the store transition (package-name and/or debug→release keystore change) forces a client identity break, so both users must recover into the store build. Sideload patch loop (same package + key) is unaffected. Also covers ambiguous-match resolution UX. Reference: pair-key doc + onboarding notes §Recovery.
+[x] 3.10B [CODE] Recovery flow. Time: ~4h. Two-tier, separate routes. SERVER: POST /resolve_solo added (one self-triple → users WHERE pair_id IS NULL → user_id; 200/404 user_not_found/409 ambiguous_match, mirroring join_by_values). Paired /resolve unchanged. CLIENT: onboarding_recovery.tscn+.gd behind RECOVERY_STUB (was dead). Both triples on one screen; partner placeholder "leave blank if solo"; blank partner → resolve_solo, filled → resolve_pair, partial → blocked. BOTH pickers toggleable (retap unselects — makes partner-blank reachable after mis-tap). Success → Identity.save + reboot via Loader. Backend.resolve_solo() + solo_resolved/solo_resolve_failed signals added. PROD-VERIFIED on-device: solo success (own calendar), solo wrong-value 404, paired success BOTH directions (pair_key reconstructs pair without the other user re-running join), paired-tried-solo correctly refused both ways. Prod wiped to zero post-test. Design: `four_tasks_recovery_design_notes.md`. Session 25.
 
-GATE: Fresh install walks welcome → first day. Solo user on App scene with own data. Pairing works for ambiguous + unambiguous matches.
+GATE: CLOSED (session 25). Fresh install walks welcome → first day. Solo user on App scene with own data. Pairing works for ambiguous + unambiguous matches. Recovery proven both tiers, both directions, on prod.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 4 — Look, feel, hero moments
+PHASE 4 — Skeleton (ALL CODE, build now)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Fork between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork, Four Tasks exclusive).
+Re-split from the old "Look, feel, hero moments" (session 25). Phase 4 is now
+EVERY code tile — the daily loop made fully usable. Art is NOT a dependency:
+stub/placeholder/throwaway art is valid everywhere here, real painting slots in
+later. Phase 4b (below) is the painting, done separately at the easel.
+
+Rule for this phase: if it's code, it's here, and it builds against stub art.
+Tiles that READ art (pickers, theme manager) are built to accept placeholder
+PNGs so the machinery is felt on-device before any real painting hours.
+
+Fork still sits between 4.14a (pre-fork, APPtrioc inherits) and 4.14b
+(post-fork, Four Tasks exclusive) — see FORK POINT marker. The fork is a CODE
+boundary, unaffected by the art re-split.
 
 ━━━ PRE-FORK CODE TILES (APPtrioc inherits) ━━━
 
-[ ] 4.1 [CODE] Glitch typewriter utility (typewriter + glitch_all_marked).
+[x] 4.1 [CODE] Glitch typewriter utility. Time: ~1h. GlitchType.gd (autoload, thin factory) + glitch_reveal.gd (worker, one per reveal). Freeze-on-lock left→right sweep, faster churn, spaces preserved, wide alphabet, drives any Label. Built fresh (not ported) but reviewed vs prototype — inherited the better impl (pre-scrambled frame one). Tested standalone. Lock cadence tunable; final feel deferred to in-context. Consumed by 4.6 + 4.11. Session 25. (glitch_all_marked / onboarding-popup wiring = 4.2, deferred — polish.)
 [ ] 4.2 [CODE] Wire glitch-word reveals into onboarding popups. 24 marked words from web build.
-[ ] 4.3 [CODE] CoinFX utility — fly, count-up, blitz, flash, particle.
-[ ] 4.4 [CODE] Slot machine — real wheels. Four spinners. Sticker wheel reads Lever 1 pool. FIX: true independent randomisation per slot (prototype alternates visibly).
-[ ] 4.5 [CODE] MOTD reroll cost. First free during sequence; subsequent flat 90-110 coins, no escalation. Reroll is VENT not sink. Lock button + confirm popup.
-[ ] 4.6 [CODE] Morning sequence — full coordinator. All 12 beats. Claim endpoint fires at beat 3. Reference: `four_tasks_morning_sequence_design_notes.md`. Required reading before this tile.
-[ ] 4.7 [CODE] Stamp slap animation. Tier colours grey(0)/red(1)/orange(2)/yellow(3)/green(4)/purple(rest). Grey 0-task disappointment tier locked session 22, server-shipped session 23 (cell tappable, standard tray, four red-crossed rows; stub pool ["[disappointment stamp message]"]). Authoring 10-20 messages per tier (stubs in stamp_messages.ts currently).
-[ ] 4.8 [CODE] Rest day system. SAME-DAY-ONLY (session 23 scope cut — no pre-placing future rest days; lands on today's already-accounted row). Long-press today's cell, confirm, refund. Same morning sequence with content swaps. Author rest-day task label pool (~15-30). See also: morning-sequence rest-purchase escape hatch (PARKED).
+[ ] 4.3 [CODE] CoinFX utility — fly, count-up, blitz, flash, particle. Stub coin art OK.
+[~] 4.4 [CODE] MOTD spinner — WIDGET built + proven standalone (session 25); trigger-context WIRING remains. Time: ~4h so far.
+    DONE: msg_wheel.tscn+.gd (reusable reel: static strip / blast+settle spin / drag+flick+infinite-wrap+snap). msg_picker.tscn+.gd (4 reels, staggered spin, composes "adverb verb noun emoji", emoji reel reads active_stickers, signals reels_ready/spun, does NOT write State — caller commits). Server: GET /motd/pool (full lists) + GET /motd/roll (kept, unused by picker). motd_words.ts = prototype's real pools verbatim (98/107/93). Backend fetch_motd_pool() session-caches the pool. Independent-per-slot roll fixes the prototype alternation. Deployed dev+prod. Verified standalone on-device.
+    REMAINS (next session): wire the widget into the THREE triggers — (1) onboarding screen 6 (Step.MOTD, still placeholder) for day-1 MOTD; (2) new-day generation (minimal roll-on-new-day-open ahead of full 4.6); (3) anytime long-press (4.5 cost). Plus TUNING: column widths (noun/long-adverb clip), font size, doubled selector band, and EMOJI REEL renders IDs as TEXT not sticker art (wheel is Label-based — needs optional TextureRect for emoji column).
+[ ] 4.5 [CODE] MOTD reroll cost. First free during sequence; subsequent flat 90-110 coins, no escalation. Reroll is VENT not sink. Lock button + confirm popup. NUMBERS placeholder pending ECONOMY REDESIGN.
+[ ] 4.6 [CODE] Morning sequence — full coordinator. All 12 beats. Claim endpoint fires at beat 3 (server claim/seal/payout already shipped tile 1.3 — this is the CLIENT coordinator). Build beats on plain text first; glitch (4.1) and CoinFX (4.3) layer in. Reference: `four_tasks_morning_sequence_design_notes.md`. Required reading.
+    FOLD-IN (was ACTIVE): tray MOTD subtitle — each day's tray carries its own MOTD as a subtitle under the day label; Godot tray currently renders task rows only (system map §7.5). tasks_tray.tscn change. Build with 4.6, don't let it fall through the gap.
+    DEPENDS: beat collision resolution + seal-day hero beat (see ACTIVE — both are design passes against the morning sequence doc that must resolve before/with this tile).
+[ ] 4.7 [CODE] Stamp slap animation. Tier colours grey(0)/red(1)/orange(2)/yellow(3)/green(4)/purple(rest). Grey 0-task tier server-shipped session 23. Stub stamp art OK; real stamps are 4.C. Message authoring is content (PARKED: stamp messages real authoring).
+[ ] 4.8 [CODE] Rest day system. SAME-DAY-ONLY (session 23 scope cut). Long-press today's cell, confirm, refund. Same morning sequence with content swaps. Rest-day label pool authoring is content. See also: rest-purchase escape hatch (PARKED).
 [ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days.
 [ ] 4.10 [CODE] Month stamp + month stats popup.
-[ ] 4.11 [CODE] Help menu — two-tier. Six subjects, [g]glitch[/g] markup.
-[ ] 4.12 [CODE] Bug catcher — popup, submit, confetti, thanks.
+[ ] 4.11 [CODE] Help menu — two-tier. Six subjects, [g]glitch[/g] markup (consumes 4.1).
+[ ] 4.12 [CODE] Bug catcher — popup, submit, confetti, thanks. Server bug_report endpoint already exists (tile 1.3).
 [ ] 4.13a [CODE] Leaderboard endpoint — GET /leaderboard. DEFERRED (`four-tasks/deferred/`). Possibly not shipping.
 [ ] 4.13 [CODE] Leaderboard UI. Depends on 4.13a revival.
-[ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (conversion pull for APPtrioc).
-[ ] 4.14c [CODE] Future cells non-tappable (enforces same-day-only rest, session 23). day_cell.gd / calendar_grid.gd — DEAD_FUTURE cells must not open a tray or accept long-press rest designation. Small client change; pairs with 4.8. Server future-rest guard judged overkill (forged future rest only stamps the forger's own calendar) — skipped, noted.
+[ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (conversion pull for APPtrioc). READS sticker art — build against the 4 existing stickers + stub PNGs for the rest; sparse is valid.
+[ ] 4.14c [CODE] Future cells non-tappable (enforces same-day-only rest, session 23). day_cell.gd / calendar_grid.gd — DEAD_FUTURE cells must not open a tray or accept long-press rest designation. Small client change; pairs with 4.8. Server future-rest guard skipped (forged future rest only stamps the forger's own calendar).
 [ ] 4.D2 [CODE] Week mode. Per-weekday opt-in toggle (off by default). Divergence on first task edit, not on toggle. Cal-icon stays universal standard-four editor with warning on week-mode days. Today-only edit rule. Personal not shared. Schema: `week_mode_weekdays` bitmask + `user_weekday_overrides` table (already in v1.0 schema). Reference: `four_tasks_week_mode_design_notes.md`.
+    DEPENDS: streak semantics under week mode (PARKED — resolve before this tile).
 
-━━━ PRE-FORK ART TILES ━━━
-
-[ ] 4.A [ART] Coin sprite.
-[ ] 4.B [ART] Frog mascot.
-[ ] 4.C [ART] Stamp set. Five+ stamps with variants. (Now six tiers: grey/red/orange/yellow/green/purple — grey 0-task added session 22.)
-[ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png` naming. Palette derived from sticker.png pixel-frequency (≤3 non-grey colours). 32×32 RGBA. Sticker.png is the EXCEPTION to palette-agnostic art rule (real colours; all else in canonical reference values, retinted at runtime). First frog painted (session 8, ongoing in `pickle-moon-assets`). Painting continues at FIFO/laptop time. Reference: `four_tasks_theme_design_notes.md`.
-[ ] 4.E [ART] UI chrome (buttons, popups, dividers, util bar). Themed surfaces in reference palette; sacred-semantic in final colours.
-[ ] 4.F [ART] Onboarding example calendar screenshots. Real Godot build screenshots once theming in.
-
-━━━ FORK POINT ━━━ APPtrioc launches from snapshot. See PHASE 5b. ━━━
+━━━ FORK POINT ━━━ APPtrioc launches from snapshot after 4.14a. See PHASE 5b. ━━━
 
 ━━━ POST-FORK CODE TILES (Four Tasks exclusive) ━━━
 
 [ ] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration) on picker. Unlocked sticker menu: per-slot icons, tap = instant application + APPLY ALL. Locked sticker menu: PREVIEW button (temporary, ~30s revert). Pair-key rotation fires on `active_leader` change ONLY.
-    BLOCKERS: theme implementation prep items (see PARKED). Reference: `four_tasks_theme_design_notes.md`.
-    ART SCOPE (deferred to this tile): build the picker to accept placeholder/throwaway art so the minimum sticker count that reads as 'alive' can be felt on-device before committing real painting hours. Do not size launch art earlier — sparse stickers are valid (a one-element sticker is complete), so '40-50 stickers' is not '100+ elements', and not all are launch scope.
+    ART-BLOCKED (code, but gated): needs theme implementation prep decisions (cell render sizes, retint mechanism, the line ~289 pile) before the renderer can be wired. Build the picker machinery against placeholder/throwaway art so the minimum 'alive' sticker count is felt on-device before committing painting hours. Reference: `four_tasks_theme_design_notes.md`.
 [ ] 4.15 [CODE] Username + icon edit. Settings → triggers rotation. "Changes may take a minute" dismissible popup.
 [ ] 4.16 [CODE] Partner reactions. DEFERRED to v1.x. Doc moved to `four-tasks/deferred/`.
 [ ] 4.17 [CODE] Coin name generator (server-side). DEFERRED.
@@ -171,12 +177,30 @@ Fork between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork, Four Task
 [ ] 4.19 [CODE] TutorialCoordinator autoload + reveal content. v1.x scope. Reads `users.tutorial_progress`, computes day-of-use, fires one reveal per session boot. Day-2 long-press philosophy reveal uses gesture-dismissal (no "Got it" button). Reference: `four_tasks_staggered_disclosure_design_notes.md`.
 [ ] 4.20 [CODE] Palette derivation devtool. Loads sticker.png, displays derived palette swatches with RGB + pixel counts. Read-only. Grey-exclusion rule MUST match runtime renderer (shared function). Lands as a DevKit scenario / sub-screen rather than a separate scene.
 [ ] 4.21 [CODE] Un-pair flow — symmetric break + change-username follow-up + dismissable banner. Time: ~3-4h.
-    Server: POST /users/:user_id/unpair already implemented (tile 1.3). Dismiss endpoint already implemented.
+    Server: POST /users/:user_id/unpair already implemented (tile 1.3). Dismiss endpoint already implemented. NOTE session 25: no client trigger exists yet — this tile is the entire client UI.
     Client A (initiator): long-press partner panel header → menu → `Un-pair`. Popup: title `Un-pair?`, no body, Cancel/Un-pair (mild red tint). On 200, change-username follow-up popup: `Change your username?`, pre-filled input, Skip/Save.
     Client B (recipient): sees banner `[username] un-paired.` with × dismiss. Position TBD at implementation. One-shot, server-tracked.
     Post-un-pair state = post-onboarding-solo state. Banner is only delta on B's side. No cooldown. Re-pair via standard `Add my partner`. UI always says "un-pair". Reference: `four_tasks_pair_key_design_notes.md` Section 17.
 
-GATE: App looks like Four Tasks. Theming changes via picker context menu. Onboarding feels right. Fork point passed — APPtrioc shipped (Phase 5b), Four Tasks continued through post-fork depth.
+GATE: The daily loop is fully usable on stub art. Tick tasks → day seals → morning sequence fires → payout lands → stamp slaps. MOTD spins. Rest days work. Picker toggles the pool. Week mode works. Un-pair works. Everything functions; nothing is painted yet. APPtrioc fork point passed (after 4.14a).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PHASE 4b — Art & feel (PAINTING ONLY, at the easel)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Everything that needs a brush. Replaces the stub art the Phase 4 skeleton was
+built against. Done at home-office Aseprite time, art-volume-bottlenecked (the
+stated #1 post-launch risk). The skeleton already works without any of this —
+this phase makes it beautiful, not functional.
+
+[ ] 4.A [ART] Coin sprite.
+[ ] 4.B [ART] Frog mascot.
+[ ] 4.C [ART] Stamp set. Six tiers: grey/red/orange/yellow/green/purple (grey 0-task added session 22). Replaces stub stamp art from 4.7.
+[ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png` naming. Palette derived from sticker.png pixel-frequency (≤3 non-grey colours). 32×32 RGBA. Sticker.png is the EXCEPTION to palette-agnostic art rule (real colours; all else in canonical reference values, retinted at runtime). First frog painted (session 8, ongoing in `pickle-moon-assets`). Replaces the stub PNGs the 4.14a/4.14b pickers were built against. Reference: `four_tasks_theme_design_notes.md`.
+[ ] 4.E [ART] UI chrome (buttons, popups, dividers, util bar). Themed surfaces in reference palette; sacred-semantic in final colours.
+[ ] 4.F [ART] Onboarding example calendar screenshots. Real Godot build screenshots once theming in.
+
+GATE: App looks like Four Tasks. Hand-painted craft (the locked go-to-market differentiator) is in. Skeleton + art = shippable build.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE 5 — Ship Four Tasks to stores
@@ -245,15 +269,15 @@ ACTIVE — ad-hoc items found during the port
 
 [     ] Theme cell-overlay buckets vs runtime cell states. Overlay file naming uses unmarked/completed/partial/rest (4 buckets); runtime has 9 states incl. the red/orange/yellow/green tier ramp. Decide whether one cell_overlay_completed.png covers the whole done ramp or "completed" = 4/4 only with "partial" = 1-3. Renderer lookup must match painter expectation. Resolve at 4.14b. See theme doc cell-treatment section.
 
-[     ] Tray MOTD subtitle — not built in port. Prototype shows each day's tray carrying its own MOTD as a subtitle under the day label; Godot tray currently renders task rows only (system map §7.5). Really a tasks_tray.tscn change. Currently implied inside tile 4.6 — give it its own line/sub-bullet so it doesn't fall through the gap. See morning sequence doc MOTD section.
+(Tray MOTD subtitle item folded into tile 4.6, session 25.)
 
-[ ] Morning sequence beat collision resolution. Priority hierarchy across payout / staggered disclosure / content drops / urgent comms / single-fire comms; per-morning popup cap; per-user per-beat "shown" tracking. Update `four_tasks_morning_sequence_design_notes.md`. Blocks content drops shipping in production.
+[ ] Morning sequence beat collision resolution. Priority hierarchy across payout / staggered disclosure / content drops / urgent comms / single-fire comms; per-morning popup cap; per-user per-beat "shown" tracking. Update `four_tasks_morning_sequence_design_notes.md`. Blocks content drops shipping in production AND tile 4.6 (design before build).
 
 [ ] Seal-day hero beat. When a day seals (last task ticked off, or rest-day claim), the cell flies up + enlarges to fill most of the screen, sticker pops while the cell zooms back into position, and a popup frames the coin payout as arriving tomorrow morning rather than same instant. Decouples seal from payout — creates a "come back tomorrow" hook. Reshapes morning sequence beat ordering and disclosure timing for first occurrence. Design pass against `four_tasks_morning_sequence_design_notes.md` — touches same surface as the collision item above; resolve together.
 
 [ ] Morning-sequence rest-purchase escape hatch (design doc, PARKED — own conversation). Lets the user buy a rest day during the morning sequence to mask a 0-task disappointment day before it stamps grey. Same reactive same-moment mechanic as same-day rest, pointed one step into the past. Open questions: does it rewrite an already-engaged day's tier; bailout-premium cost vs normal rest; can it be abused daily to never face grey. Architectural shadow — write the design before building. Surfaced session 23.
 
-[ ] Username display normalisation consistency vs pair-key recovery. `panel_heading.gd` lowercases usernames at render time (DB stores as typed). Pair-key recovery six-tuple hashes against stored values, so user typing "MoR91rY" stores MoR91rY and recovers as MoR91rY — but they SEE "mor91ry" everywhere in the app, including the title flip toggle. Verify this doesn't trip new users at recovery. Either propagate the lowercase to server-side normalisation, or accept the display-vs-storage divergence as expected behaviour. Pre-Phase-3 audit. See `four_tasks_pair_key_design_notes.md` Section 12.
+[ ] Username display normalisation consistency vs recovery — NOW LIVE (recovery shipped session 25). `panel_heading.gd` lowercases usernames at render (DB stores as typed). Recovery matches against STORED values (server NFC+trim+collapse, NO casefold), so a user who typed "MoR91rY" must type "MoR91rY" at recovery — but they've only ever SEEN "mor91ry" in the app. They will type what they saw, get user_not_found, and have no idea why. This is a real footgun in the screen just built. Resolve: either (a) propagate lowercase into server normalisation so display == match key, or (b) accept divergence + add recovery-screen copy "enter exactly as you first typed it, capitals matter". Audit now, while recovery is fresh. See `four_tasks_pair_key_design_notes.md` §12.
 
 [ ] Max display length for headings. Long names/usernames overflow the 60pt title at 1080 panel width — a 40-char lowercase username plus "'s four tasks" doesn't fit. Soft cap, ellipsis, or auto-shrink. Probably ellipsis since the user knows their own name and partial render is acceptable. Pre-Phase-5 polish, not blocking.
 
@@ -366,3 +390,4 @@ See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with h
 Running project total at session 17 close: ~88.75h.
 Running project total at session 23 close: ~108.75h.
 Running project total at session 24 close: ~114.75h.
+Running project total at session 25 close: ~121.75h.

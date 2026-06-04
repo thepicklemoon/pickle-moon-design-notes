@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v2)
 ==============================
-Last edit: 2026-05-28 AWST
-Last updated: 2026-05-28 (session 20 close — drift audit + alignment interview; 14-item capture file pending propagation)
+Last edit: 2026-06-04 AWST
+Last updated: 2026-06-04 (session 25 close — Recovery 3.10B shipped + prod-verified, PHASE 3 CLOSED; MOTD spinner built (4 passes) + glitch typewriter + companions screen; active_stickers server bug fixed; Phase 4 re-split)
 Engine: Godot 4.x
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1948,4 +1948,124 @@ NOTES / OWED:
 
 Session 24 time: ~6h.
 Running total: ~114.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━ SESSION 25 (4 June 2026, home PC + device) — Recovery shipped + PHASE 3 CLOSED; MOTD spinner built. Time: ~7h. ━━━
+
+Big session. Recovery (3.10B) shipped and prod-verified end-to-end, closing
+Phase 3. Then a clean run at Phase 4's MOTD loop: server endpoints, the
+companions onboarding screen, a server bug fix, the glitch typewriter, and the
+four-wheel spinner built in four checkpointed passes.
+
+RECOVERY (tile 3.10B — CLOSED, prod-verified):
+  - Two-tier, separate routes. SERVER: POST /resolve_solo (one self-triple →
+    users WHERE pair_id IS NULL → user_id; 200 / 404 user_not_found / 409
+    ambiguous_match, mirroring join_by_values). Paired /resolve unchanged. The
+    pair_id-IS-NULL population is the SAME set the partner-finder uses — no new
+    flag, no schema change.
+  - CLIENT: onboarding_recovery.tscn + .gd behind the (previously dead)
+    RECOVERY_STUB. Both triples on one screen; partner placeholder "leave blank
+    if solo"; blank partner → resolve_solo, filled → resolve_pair, partial →
+    blocked with a nudge. BOTH pickers toggleable (retap unselects) so
+    partner-blank stays reachable after a mis-tap. Success → Identity.save +
+    reboot via Loader (same pattern as COMMIT). Logged-out-only guard.
+  - Backend: resolve_solo() + solo_resolved / solo_resolve_failed.
+  - VERIFIED on-device against prod: solo success (own calendar), solo
+    wrong-value 404, paired success BOTH directions (pair_key reconstructs the
+    pair without the other user re-running join), paired-tried-solo correctly
+    refused both ways. The two-person-recovery model is proven: either partner
+    rebuilds the pair from the six values alone.
+  - Design: four_tasks_recovery_design_notes.md (NEW).
+  - Self-healing handoff locked: a user is solo-recoverable (weak, single-triple)
+    until they pair, then pair-recoverable (robust, six-value) — the transition
+    is automatic on pair_id going non-null, no special-casing.
+
+PHASE 3 CLOSED. Gate met: fresh install → first day; solo user on own data;
+pairing works ambiguous + unambiguous; recovery proven both tiers, both
+directions, on prod.
+
+MOTD SPINNER (tile 4.4 — widget built + proven standalone):
+  Built in four checkpointed passes per project convention.
+  - SERVER: GET /motd/pool (full adverb/verb/noun lists) + GET /motd/roll (3
+    words; kept but unused by the picker — client picks locally from the cached
+    pool). Pools in motd_words.ts (NEW) — the prototype's REAL pools ported
+    verbatim (98 adverbs / 107 verbs / 93 nouns). Server-authored so content
+    edits ship via wrangler deploy, no client release.
+  - DECISION (architecture): word source is server-pool, fetched ONCE per
+    session and cached on Backend (fetch_motd_pool + _motd_pool_cache). Opening/
+    closing the picker is then free. Client never holds the master list; a
+    content change reaches users on their next session. Supersedes the never-
+    written question of how the reel gets words.
+  - msg_wheel.tscn + .gd (NEW): one reusable reel. Pass 1 static clipped strip;
+    pass 2 auto-spin (blast LINEAR + settle CUBIC ease-out, slowed to 0.65/1.80s
+    on-device feel, lands in the middle copy = home, no rebase); pass 3 drag +
+    flick (delta-time velocity) + INFINITE WRAP (5 copies, rebase within ±half-
+    list) + snap-to-nearest. Wrap chosen over hard ends — the daily-randomise
+    toggle handles "keep my message", so the wheel never locks.
+  - msg_picker.tscn + .gd (NEW): four reels (adverb/verb/noun/emoji). Emoji reel
+    reads active_stickers. Staggered L→R spin, composes "adverb verb noun emoji"
+    (space-joined, emoji last — matches prototype buildStatusText). Does NOT
+    write State — caller commits, so the one widget serves all three triggers.
+    signal reels_ready / spun.
+  - VERIFIED standalone on-device: four reels populate from the real pool + the
+    user's sticker pool, stagger-spin, compose correctly, drag/flick works.
+
+GLITCH TYPEWRITER (tile 4.1 — built + proven):
+  - GlitchType.gd (NEW autoload, thin factory) + glitch_reveal.gd (NEW worker).
+    One worker per reveal, isolated; freeze-on-lock left→right sweep, faster
+    churn, spaces preserved, wide churn alphabet. Drives any Label. Reviewed
+    against the prototype — inherited the better of its two implementations
+    (pre-scrambled frame one, no underscore flash). Lock cadence tunable; final
+    feel deferred to in-context tuning.
+
+COMPANIONS SCREEN (5b — real layout + selection shipped):
+  - onboarding_companions.tscn + .gd (NEW), wired into onboarding (placeholder
+    swapped, load_steps bumped). Leader centred (auto-included, not pickable);
+    "best match" row = starter subset minus leader; full catalogue grid below,
+    scrollable; tap-to-toggle, hard cap exactly 5, "remaining" counter, Continue
+    gated at 5. Commits [leader] + 5 = 6 to active_stickers. Catalogue is a
+    hardcoded CATALOGUE id array (11 real sticker folders), missing-art tolerant.
+  - Full curated-by-association + budget system deferred; this is the shell that
+    populates active_stickers for real, which unblocked the spinner's emoji reel.
+
+SERVER BUG FIXED (pre-existing, caught via companions test):
+  - POST /users never persisted active_stickers — the INSERT omitted the column,
+    so every account fell to the schema default '[]' (TestUser/TestPartner too).
+    Client was sending the pool correctly; server dropped it. Fixed: read +
+    sanitise (strings, normalised, non-empty, cap 64) + add to INSERT. Verified:
+    a fresh onboard now commits ["chilli", +5] = 6.
+
+PROD/DEV STATE:
+  - Prod wiped to zero after recovery testing (FK-safe teardown). Re-onboard
+    fresh when needed (recovery makes that reversible).
+  - Dev carries test cruft (TestUser/TestPartner + stale Morgan rows) — not
+    cleaned, not blocking.
+  - /resolve_solo, /motd/roll, /motd/pool, and the active_stickers fix deployed
+    to BOTH dev and prod.
+
+TODO RESTRUCTURE:
+  - Phase 4 re-split: Phase 4 = ALL code skeleton (build now, stub art), Phase 4b
+    = painting only (4.A–4.F). Glitch typewriter topmost. Rationale: build the
+    usable daily loop without art blocking; paint later. Username-display-vs-
+    recovery normalisation audit promoted to live (it's now a real recovery
+    footgun — users see lowercased usernames but must type them case-exact at
+    recovery).
+
+NOTES / OWED (carried + new):
+  - Hand-written scene UIDs on the new scenes (recovery, companions, msg_wheel,
+    msg_picker) — delete .godot/ if a panel mis-renders on fresh import.
+  - msg_wheel.gd: integer-division warnings (CENTER_ROW, COPIES/2 — intended
+    floor, noisy) + dead `_selector` var. Cosmetic cleanup owed.
+  - SPINNER TUNING (deferred to in-context): column widths (noun + long adverbs
+    clip), font size, the doubled selector band (per-wheel line + picker band),
+    and the EMOJI REEL renders sticker IDs as TEXT not art (wheel is Label-based;
+    needs optional TextureRect rendering for the emoji column).
+  - COMPANIONS TUNING: catalogue tiles to shrink (subordinate to curated row);
+    scroll untestable until more stickers imported.
+  - Recovery design doc supersedes the prototype's MOTD lifecycle (allDone-freeze,
+    depth-1 display) — the doc's sealed_at-freeze + walk-back model is what the
+    server implements; nothing to port from the proto except pools + format.
+
+Session 25 time: ~7h.
+Running total: ~121.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
