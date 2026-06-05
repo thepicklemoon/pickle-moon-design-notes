@@ -180,6 +180,30 @@ If the user backgrounds mid-sequence, the claim-at-beat-3 timing makes it collap
 
 In practice the claim fires ~1s after open, so the "background before claim" window is tiny. Degradation: network/500 failure on claim → nothing sealed → replay on next open. Background during the pre-claim partial animation → cancel-and-replay or queue-and-finish (implementation choice, 4.6).
 
+No replay on a *completed* sequence. The morning sequence is a **daily** event — if the user backgrounds after the claim commits and misses the ceremony, that is a small, acceptable loss. We do not preserve or resume it. (Replay/preservation effort is reserved for rarer, higher-stakes moments — monthly/yearly keepsakes — not a thing that recurs every morning.)
+
+---
+
+## Post-sequence presentation queue ("beat collision")
+
+The morning sequence is not the only thing that wants the screen on app-open. Content drops, patch notes, event popups, milestone popups (4.9), and staggered-disclosure reveals all compete for the user's attention at boot. "Beat collision" is the risk that these stack on top of, or interrupt, the ceremony. The resolution is **strict temporal separation**, not arbitration *within* the sequence:
+
+**The morning sequence is sovereign and always first.** It owns the screen from boot, uninterruptible, until it cedes control. It is NOT a member of the queue — it is the gate everything else waits behind. Nothing is allowed into its window. (This is why there is no collision to arbitrate: nothing else is ever on screen at the same time as the sequence.)
+
+**The queue runs only after the sequence cedes control.** That post-control margin — calendar flat, ceremony done — is the single place non-sequence presentations are allowed to appear.
+
+**The trigger is "control settled to the user," fired once per app-open.** Two entry points feed it:
+- After a morning sequence completes and hands control back (the normal daily first-open).
+- Immediately after onboarding boots into the app (no sequence runs on the onboarding open — day-0 has no prior day to seal; see Multi-day walkback + day-0 seed).
+
+There is no third "opened but nothing sealed" case in normal use: opening *is* the engagement that accounts the day, so a daily first-open always has the previous accounted day to seal and always runs the sequence. The only no-sequence re-open is a **same-day second open** (already claimed → walkback finds nothing, idempotent). The queue has already drained earlier that day and its items are one-shot, so nothing re-shows. The queue trigger therefore does NOT depend on seal outcome — it fires when control settles, and the seal outcome is deterministic from open type.
+
+**Queue items are simple pops, not animated.** Unlike the sequence (a choreographed ceremony), a queued item just appears, holds for a short parse delay, then arms its Continue button so the user can dismiss once they've had a beat to read it. No flight, no glitch, no choreography — these are informational surfaces, not moments.
+
+**Ordering is a simple index.** Items present in priority order, one at a time, each dismissed before the next. If more than one is ever queued on the same open, they are designed to handle each other at that point — per-item rules authored when the items themselves exist. Not designed speculatively now; the queue is the frame, the items fill it later.
+
+**Why this unblocks content drops.** The content-drops pipeline tile was blocked on "beat collision resolution." It is resolved: content drops are queue items, they appear *after* the sequence in the post-control margin, they never touch the ceremony's window. The pipeline can build against this contract.
+
 ---
 
 ## Rotation window property
@@ -215,7 +239,10 @@ Deferred to tile 4.6 implementation:
 - Stamp message pools (red/orange/yellow/green/purple, ~10-20 each). Content authoring.
 - Rest-day task label pool (~15-30) and rest-day stamp pool. Content authoring.
 - MOTD reroll price range tuning + whether it scales with multiplier (Q8 open).
-- Background-mid-sequence handling (cancel+restart vs queue+finish).
+
+Resolved (no longer open):
+- Beat collision — resolved by the Post-sequence presentation queue (sovereign sequence first, queued pops after control returns). Unblocks the content-drops pipeline.
+- Background-mid-sequence handling — no replay on a completed sequence; it is a daily event and a missed ceremony is an accepted small loss. Pre-claim background still replays on next open (nothing sealed).
 
 ---
 

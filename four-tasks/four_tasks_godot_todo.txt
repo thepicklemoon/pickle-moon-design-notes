@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-06-04 AWST
-Last updated: session 25 — Recovery (3.10B) shipped + prod-verified end-to-end; PHASE 3 CLOSED. Then Phase 4 skeleton work: glitch typewriter (4.1 done), MOTD spinner WIDGET built + proven standalone over 4 passes (4.4 ~in progress, trigger-wiring remains), companions screen (5b shell) shipped + wired, active_stickers server bug fixed. Server: /resolve_solo, /motd/pool, /motd/roll, active_stickers persistence — all deployed dev+prod. Phase 4 RE-SPLIT: Phase 4 = all-code skeleton (build now, stub art), Phase 4b = painting only (4.A–4.F). Last code: session 25.
+Last updated: session 26 — 4.4 MOTD spinner CLOSED (onboarding wiring + day-0 seed). Beat-collision design LOCKED. 4.6 morning sequence coordinator built: spine + DevKit harness + beats 3/4/5/7/8/9/10/11/12 REAL, device-verified; State A2 claim split; full-screen input lockout; data-driven persistent stamp (4.7 folded in). ONLY beat 6 (coin payout) stubbed = next, builds 4.3 CoinFX into it. Eager-sealing considered + rejected (lazy sufficient). Devlog split to v3. Last code: session 26.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -143,15 +143,13 @@ boundary, unaffected by the art re-split.
 
 [x] 4.1 [CODE] Glitch typewriter utility. Time: ~1h. GlitchType.gd (autoload, thin factory) + glitch_reveal.gd (worker, one per reveal). Freeze-on-lock left→right sweep, faster churn, spaces preserved, wide alphabet, drives any Label. Built fresh (not ported) but reviewed vs prototype — inherited the better impl (pre-scrambled frame one). Tested standalone. Lock cadence tunable; final feel deferred to in-context. Consumed by 4.6 + 4.11. Session 25. (glitch_all_marked / onboarding-popup wiring = 4.2, deferred — polish.)
 [ ] 4.2 [CODE] Wire glitch-word reveals into onboarding popups. 24 marked words from web build.
-[ ] 4.3 [CODE] CoinFX utility — fly, count-up, blitz, flash, particle. Stub coin art OK.
-[~] 4.4 [CODE] MOTD spinner — WIDGET built + proven standalone (session 25); trigger-context WIRING remains. Time: ~4h so far.
-    DONE: msg_wheel.tscn+.gd (reusable reel: static strip / blast+settle spin / drag+flick+infinite-wrap+snap). msg_picker.tscn+.gd (4 reels, staggered spin, composes "adverb verb noun emoji", emoji reel reads active_stickers, signals reels_ready/spun, does NOT write State — caller commits). Server: GET /motd/pool (full lists) + GET /motd/roll (kept, unused by picker). motd_words.ts = prototype's real pools verbatim (98/107/93). Backend fetch_motd_pool() session-caches the pool. Independent-per-slot roll fixes the prototype alternation. Deployed dev+prod. Verified standalone on-device.
-    REMAINS (next session): wire the widget into the THREE triggers — (1) onboarding screen 6 (Step.MOTD, still placeholder) for day-1 MOTD; (2) new-day generation (minimal roll-on-new-day-open ahead of full 4.6); (3) anytime long-press (4.5 cost). Plus TUNING: column widths (noun/long-adverb clip), font size, doubled selector band, and EMOJI REEL renders IDs as TEXT not sticker art (wheel is Label-based — needs optional TextureRect for emoji column).
+[ ] 4.3 [CODE] CoinFX utility — fly, count-up, blitz, flash, particle. Stub coin art OK. ← NEXT. Home is 4.6 beat 6 (per-row jiggle 700ms stagger + coin fly + count-up worked / purple strike rest/missed). Coordinator stub _beat_tasks_payout() awaits it.
+[x] 4.4 [CODE] MOTD spinner — CLOSED session 26. Time: ~6h total. Widget (msg_wheel/msg_picker, session 25) + trigger wiring: onboarding_motd.gd/.tscn screen-6 panel (auto-spin, reroll, Continue→composed_message), create_user sends today+motd, server writes users+day-0 rows in one batch. Triggers (2)/(3) subsumed by 4.6/4.5. TUNING deferred: column widths, font, doubled selector band, EMOJI REEL renders IDs as TEXT not art (wheel Label-based — needs TextureRect column).
 [ ] 4.5 [CODE] MOTD reroll cost. First free during sequence; subsequent flat 90-110 coins, no escalation. Reroll is VENT not sink. Lock button + confirm popup. NUMBERS placeholder pending ECONOMY REDESIGN.
-[ ] 4.6 [CODE] Morning sequence — full coordinator. All 12 beats. Claim endpoint fires at beat 3 (server claim/seal/payout already shipped tile 1.3 — this is the CLIENT coordinator). Build beats on plain text first; glitch (4.1) and CoinFX (4.3) layer in. Reference: `four_tasks_morning_sequence_design_notes.md`. Required reading.
-    FOLD-IN (was ACTIVE): tray MOTD subtitle — each day's tray carries its own MOTD as a subtitle under the day label; Godot tray currently renders task rows only (system map §7.5). tasks_tray.tscn change. Build with 4.6, don't let it fall through the gap.
-    DEPENDS: beat collision resolution + seal-day hero beat (see ACTIVE — both are design passes against the morning sequence doc that must resolve before/with this tile).
-[ ] 4.7 [CODE] Stamp slap animation. Tier colours grey(0)/red(1)/orange(2)/yellow(3)/green(4)/purple(rest). Grey 0-task tier server-shipped session 23. Stub stamp art OK; real stamps are 4.C. Message authoring is content (PARKED: stamp messages real authoring).
+[~] 4.6 [CODE] Morning sequence — coordinator. Session 26: spine + 11/12 beats REAL + DevKit harness, device-verified. Time: ~5h so far. morning_sequence.gd (driver Node, App-owned, started/finished, idempotent cleanup, abort). State A2 split (silent user+seal merge, morning_claimed signal, refresh_after_morning at beat 12 — reveal not spoiled). App input blocker (z200 STOP, all input dead). tasks_tray lift/return + wobble + DATA-DRIVEN stamp (one render path, persists, partner-visible). Harness: morning_payout/morning_rest scenarios. Ref: morning_sequence doc.
+    LEFT: beat 6 coin payout (= build 4.3 CoinFX into it). Then in-context tuning (wobble dir, lift fade).
+    OWED: cross-month seal nav (calendar must nav to a prev-month sealed day before beat 3 — same-month works); tray-MOTD subtitle (system map §7.5 — needs subtitle Label on TasksTray + claim/row to carry day motd; stubbed at zero hold).
+[x] 4.7 [CODE] Stamp slap — DONE session 26 (folded into 4.6 beat 7). Data-driven: stored on day row (stamp+sealed_at), tier DERIVED from tasks_done count (shared w/ cell), rendered on every tray open (persists + partner-visible), slap_stamp() = render+animate (slam overshoot). Placeholder art (tinted panel+message); real stamps = 4.C. Message authoring is content (PARKED).
 [ ] 4.8 [CODE] Rest day system. SAME-DAY-ONLY (session 23 scope cut). Long-press today's cell, confirm, refund. Same morning sequence with content swaps. Rest-day label pool authoring is content. See also: rest-purchase escape hatch (PARKED).
 [ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days.
 [ ] 4.10 [CODE] Month stamp + month stats popup.
@@ -271,7 +269,7 @@ ACTIVE — ad-hoc items found during the port
 
 (Tray MOTD subtitle item folded into tile 4.6, session 25.)
 
-[ ] Morning sequence beat collision resolution. Priority hierarchy across payout / staggered disclosure / content drops / urgent comms / single-fire comms; per-morning popup cap; per-user per-beat "shown" tracking. Update `four_tasks_morning_sequence_design_notes.md`. Blocks content drops shipping in production AND tile 4.6 (design before build).
+[x] Morning sequence beat collision resolution — RESOLVED session 26, folded into `four_tasks_morning_sequence_design_notes.md` ("Post-sequence presentation queue"). Sequence is sovereign/uninterruptible/first; a simple non-animated queue drains AFTER it cedes control, once per app-open; no replay of a completed sequence. Unblocked 4.6.
 
 [ ] Seal-day hero beat. When a day seals (last task ticked off, or rest-day claim), the cell flies up + enlarges to fill most of the screen, sticker pops while the cell zooms back into position, and a popup frames the coin payout as arriving tomorrow morning rather than same instant. Decouples seal from payout — creates a "come back tomorrow" hook. Reshapes morning sequence beat ordering and disclosure timing for first occurrence. Design pass against `four_tasks_morning_sequence_design_notes.md` — touches same surface as the collision item above; resolve together.
 
@@ -327,6 +325,8 @@ ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PARKED — known, not blocking
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Tasks tray resting size — too big. Currently fills the ~1100px leftover bottom slot (custom_minimum_size 970 + size_flags EXPAND in the Layout VBox). Want a smaller, more-square card with margin around it, not a full-width slab. Layout/scene change to tasks_tray.tscn + its dock placement. Independent of the morning-sequence lift (4.6) — the lift measures the tray rect at runtime so resizing later won't break it. Decide: square dimensions, dock position, how it centres in the leftover space, how slide-in changes. Own checkpoint with before/after test.
 
 [ ] Bump wrangler `compatibility_date` forward on next `npm update wrangler` (currently pinned 2026-01-01). Natural at Phase 5 prep.
 
