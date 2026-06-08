@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-05 AWST
-Last updated: 2026-06-05 (session 26 — 4.4 MOTD spinner CLOSED; beat-collision design locked; 4.6 morning sequence coordinator built — spine + DevKit harness + lift/wobble/stamp beats real, beat 6 coin payout the only stub left)
+Last edit: 2026-06-08 AWST
+Last updated: 2026-06-08 (session 27 — 4.3 CoinFX + 4.6 morning sequence CLOSED; economy redesign doc LOCKED; ceremony-gate refactor; bug audit pass)
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -196,4 +196,82 @@ OWED (new):
 
 Session 26 time: ~9h.
 Running total: ~130.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 27 — 2026-06-08
+4.3 + 4.6 CLOSED · economy LOCKED · ceremony-gate refactor
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ECONOMY REDESIGN — LOCKED. New doc four_tasks_economy_redesign_notes.md
+is now AUTHORITY; supersedes the monetisation doc's coin-tuning +
+pair-pricing + pair-shared-coins prose (those described the prototype,
+not the shipped per-user schema). Locked:
+  - Per-user everything: coins, streak, library all individual. Only
+    library ACCESS crosses the pair (tier-1 sub unlock). No shared
+    wallet / pack list / co-ownership.
+  - Per-task 900-1400 base. Partner multiplier 1.2/1.3/1.4/1.5 at 1-4
+    partner tasks. Streak bonus +1%/day perpetual, TWO-SUB-ONLY.
+  - Sub tiers: tier-1 (either) = library only, zero economy. tier-2
+    (both) = streak bonus + x1.5 partner bonus (2.25x cap).
+  - Solo subbed = phantom 1.5x, no streak (can't reach two-sub).
+  - Rest 50,000. Stickers 20k-100k by UI volume (300-600 killed).
+  - Cadence: free == one-sub (~7d); only two-sub accelerates. Doc's
+    old cadence table DEAD.
+  - OPEN TENSION logged: perpetual streak vs fixed sink (contained to
+    two-sub cohort + self-limits on streak reset). Cap option noted,
+    not applied.
+  - Claim handler currently naive (per-task sum only) — doc is the
+    TARGET; multiplier/sub/streak application owed in the handler.
+
+4.3 CoinFX — CLOSED. New CoinFX.gd autoload (REGISTER as autoload;
+filename PascalCase for the Android case-sensitive PCK). fly_coins
+(rect->target, staggered, shrink+fade), count_up (display-only, never
+touches State), wiggle (taskWiggle port), coins_for_row (4-7). Stub
+coin art = yellow Label; real sprite is 4.A (swap _make_coin only).
+
+4.6 MORNING SEQUENCE — CLOSED. Beat 6 real (last stub gone):
+  - Per-row cascade (700ms): done -> wiggle + coin fly + count-up tick;
+    undone -> wiggle + reveal MISSED; rest -> wiggle + reveal purple.
+    coins_earned split evenly across done rows (cosmetic; total real).
+  - Count-up architecture: claim merges final total into State BEFORE
+    the ceremony, so beat 6 rewinds the display to (total - earned) and
+    climbs back. Display-only via streak_bar.set_coin_display + CoinFX.
+  - Cross-month nav (beat 3) real: calendar.show_month() before the tray
+    opens if the sealed day is a prior month; beat 11 navs back to today.
+  - Picker-invisible bug FIXED: open() never set visible; beat 9 now
+    shows the picker before spin, hides after settle.
+  - tasks_tray: list forwarders set_task_pre_payout / task_rows /
+    reveal_task_row. task_list: pre-payout render mode + reveal_row +
+    get_rows; suppresses its own auto-render while pre-payout.
+  - msg_picker: card + selector band added (was bare reels over the
+    calendar), styled at runtime from Palette (PICKER_* consts) — NOT
+    baked in scene, so the theme system reskins it later. msg_wheel
+    words given a dark font colour (were white-on-white, invisible once
+    the card went in).
+
+CEREMONY-GATE REFACTOR. Collapsed the per-surface mid-ceremony repaint
+guards into ONE State.ceremony_active flag + ceremony_changed signal.
+App flips it on started/finished; reactive surfaces (streak_bar,
+panel_heading) read it in their render guard and settle on release. New
+reactive surface needs zero App change. Two distinct suppression
+mechanisms now documented in State: (1) source-side emit suppression
+(silent seal merge — calendar) for single consumers; (2) this surface-side
+gate for consumers whose trigger must still fire for others (Poll, the
+morning trigger). task_list._pre_payout stays separate (render-MODE,
+finer than the gate). Tray clear_stamp / direct-drive unchanged.
+
+BUGS FIXED (audit pass): streak_bar coin-flash spoiler (claim self_changed
+repainted final total before the count-up); panel_heading subtitle vs
+beat-10 glitch clobber; streak_bar was reading current_streak (always 0)
+— now streak; coordinator nav + GlitchType-null hardening; msg_wheel
+white-on-white text on the new card.
+
+OWED (carried): claim handler economy application (multiplier/sub/streak);
+tray-MOTD diary subtitle (still zero-hold stub); in-context tuning (wobble
+dir, coin size band, picker card width [full-viewport now], picker entrance
+anim, MOTD font); cross-month verified-on-a-real-1st only.
+
+Session 27 time: ~8h.
+Running total: ~138.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
