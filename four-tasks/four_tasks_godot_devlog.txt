@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-08 AWST
-Last updated: 2026-06-08 (session 27 — 4.3 CoinFX + 4.6 morning sequence CLOSED; economy redesign doc LOCKED; ceremony-gate refactor; bug audit pass)
+Last edit: 2026-06-09 AWST
+Last updated: 2026-06-09 (session 28 — claim handler economy LIVE (multiplier/sub/streak); partner-rest ×1.5 fix; claim returns multiplier+motd; tray subtitle slot repurposed; morning-sequence bonus-line (5a) + diary-MOTD (7) beats; 4.8 same-day rest system (server + client, wire-tested, content+device-test deferred); both carried OWED items closed)
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -274,4 +274,124 @@ anim, MOTD font); cross-month verified-on-a-real-1st only.
 
 Session 27 time: ~8h.
 Running total: ~138.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 28 — 2026-06-09
+claim economy LIVE · partner-rest fix · bonus-line + diary-MOTD beats
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CLAIM HANDLER ECONOMY — LIVE (index.ts). Was naive per-task sum; now
+applies the economy doc in full at seal:
+  - base (per-task 900-1400 sum) × partner multiplier (1.2/1.3/1.4/1.5
+    by partner's task count ON THE SEALED DATE; explicit lookup table,
+    not 1.1+n*0.1 float-drift). ×1.5 again if two-sub (2.25 cap).
+  - Two-sub-only streak bonus: round(base*mult * streak*0.01), PRE-claim
+    streak (the day being sealed doesn't bump its own bonus).
+  - Solo: 1.0, or phantom 1.5 if subscribed-solo. No streak (can't reach
+    two-sub).
+  - Partner/sub reads gated behind base>0 — rest/grey skip them (0 base,
+    mult moot). Partner row via the existing pair_id pattern; partner's
+    sealed-date day read for completion; both subs read for two-sub.
+  - Baked into coins/lifetime_coins immutably (no recompute on later
+    lapse). Verified on-device: 2-task day × partner-did-3 = ×1.4, deltas
+    ~3210/3259 (correct against the ~3220 midpoint).
+
+PARTNER-REST → ×1.5 FIX. First cut read rest as 0 tasks → ×1.0,
+contradicting the LOCKED rule (morning_seq doc line 154) AND the client
+pill (Bonus.gd REST_DAY_MULTIPLIER). Corrected: partner query reads
+rest_day; partnerRested forces 1.5; partnerContributed (rest OR ≥1 task)
+gates the two-sub boost so rest behaves exactly as a 4-task day (2.25
+under two-sub). Pill was right all along; server was wrong.
+
+CLAIM RESPONSE gains sealed_day.multiplier (applied factor, for the
+ceremony bonus line) + sealed_day.motd (the sealed day's own MOTD, for
+the diary glitch). targetRow already SELECTed motd; just surfaced.
+
+TRAY SUBTITLE SLOT REPURPOSED (tasks_tray.gd, NO scene change). The
+existing LabelLabel ("TASKS FOR" eyebrow) is now state-driven on open:
+sealed day with a MOTD → that day's frozen MOTD; else → "TASKS FOR".
+_pre_payout flag (mirrors task-list pre-payout) keeps it neutral during
+the ceremony so the coordinator fills it. subtitle_label() exposed for
+the coordinator to glitch into (same pattern as the header at beat 10).
+One slot, three registers distinguished by casing (all-caps eyebrow /
+Title-case bonus / natural-case MOTD) — one style. Sealed-day reopen now
+shows that day's MOTD in perpetuity (immutable, frozen by sealed_at).
+
+MORNING SEQUENCE BEATS (morning_sequence.gd) — last stubs gone:
+  - Beat 5a (NEW, after lift): glitches "Coin Bonus = ×1.4" (from the
+    claim's multiplier — authoritative, NOT the live pill which reads the
+    wrong day at morning-open) / "Rest Day" on a rest claim. Holds through
+    the payout.
+  - Beat 7 (_beat_tray_motd_subtitle, was zero-hold stub): the sealed
+    day's own MOTD glitches into the SAME slot as the stamp lands,
+    overwriting the 5a line (GlitchType auto-cancels the prior reveal on
+    the same label — clean overwrite, no glitch-out pass).
+  - Beat order: lift → 5a → payout → stamp+MOTD → return/close → picker →
+    header MOTD → today's tray → refresh. The new MOTD spun at beat 9
+    (header, beat 10) is distinct from the diary MOTD at beat 7 (tray) —
+    two strings, two surfaces.
+
+DEVKIT SEED FIX. morning_payout/morning_rest seeded the claimable day
+with an empty motd → beat 7 had nothing to render (the "MOTD isn't
+showing" symptom — code was correct, seed was bare). Now seeds
+"showed up anyway" (worked) / "took it easy" (rest), standing in for the
+MOTD that day's own sequence would have set.
+
+DESIGN DOC. four_tasks_morning_sequence_design_notes.md updated (beats
+5a/7, the bonus-line rationale, partner-rest → 1.5 as a server
+obligation, claim response multiplier+motd fields, the subtitle dual-use,
+rest-day 5a shows "Rest Day"). Signed off before build.
+
+VERIFIED on-device: worked ceremony (bonus line → coins → MOTD
+overwrite), rest ceremony ("Rest Day" → MOTD overwrite), perpetuity
+(reopened sealed day shows its MOTD). Partner-rest payout ×1.5 confirmed.
+
+4.8 SAME-DAY REST SYSTEM — mechanism complete (content + device test
+deferred). Long-press today's own cell to toggle a rest day.
+  - Server: POST /users/:id/days/:date/rest. Body {rest_day, local_date}.
+    Same-day only (path date must == local_date, else 400 not_same_day;
+    past days are the parked escape hatch). ON debits REST_COST (50,000;
+    409 insufficient_coins below it) + sets rest_day=1 + accounted_for=1.
+    OFF refunds + rest_day=0 (accounted_for stays — monotonic). Idempotent
+    (re-toggle same state = no coin move). Debit+flag in one D1 batch
+    (transactional). Returns {user, day}. Charge lives at DESIGNATION, not
+    claim — claim handler untouched, economy-doc "paid at designation"
+    stays accurate. WIRE-TESTED 5/5 (on/off/idempotent/insufficient/
+    not-same-day).
+  - Client: rest_confirm.gd (new, code-built modal — scrim + centred
+    card, "Take the day off?" copy, yes/no; below 50k shows shortfall
+    copy + disables yes). App connects cell_long_pressed (SELF calendar
+    only), gates to today, opens dialog on toggle-on / silent-refund on
+    toggle-off. Backend.set_rest_day + rest_day_set/_failed signals.
+    State.toggle_rest_day rewired to the cost endpoint: optimistic flag
+    flip, snapshot rollback, coins taken from server response (never
+    guessed). Cell + tray rows repaint to rest-purple FOR FREE via the
+    existing day_changed plumbing (calendar_grid + task_list already
+    classify rest_day → purple/locked; is_toggleable already excludes
+    rest) — no calendar/tray/cell changes needed.
+  - Coin tick: streak_bar.animate_coin_display(from,to) — self-contained
+    number tween (no CoinFX, no flying coins), direction-agnostic (down
+    on spend, up on refund). App drives it via a self_changed one-shot
+    capturing pre/post balance.
+  - Dialog centering bug fixed mid-build: mixing anchor PRESET + manual
+    position pinned it top-left; now explicit anchors + offsets throughout.
+
+CLOSED (both carried from S27 OWED): claim handler economy application;
+tray-MOTD diary subtitle.
+
+OWED (carried): in-context tuning (wobble dir, coin size band, picker
+card width, picker entrance anim, MOTD font, beat-5a hold 0.45s,
+rest-coin-tick 0.45s); cross-month verified-on-a-real-1st only;
+RevenueCat sub plumbing sets subscription_active (Phase 5 — the economy
+reads it, nothing writes it yet).
+
+OWED (4.8 rest, before tile close): device-test the full long-press loop
+(finger feel, dialog at phone size, tick); rest-day task-label content
+swap (~15-30 phrases drawn 4/rest-day — rows still show real task labels
+on a rest day; DEFERRED, felt cheesy). No rest-day design doc (spec
+scattered across economy/morning-seq/system-map, deemed adequate).
+
+Session 28 time: ~4h.
+Running total: ~142.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
