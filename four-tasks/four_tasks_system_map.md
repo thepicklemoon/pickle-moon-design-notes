@@ -1,6 +1,8 @@
 # Four Tasks — System Map
 
-Observational. Describes the system **as it currently exists at the head of the four-tasks repo** (Godot port, end of session 18, Phase 2 closed, Phase 3 not started). Drift between this doc and the code is a defect in this doc — fix it here as soon as the code changes, in the same commit that changes the code.
+Observational. Describes the system **as it currently exists at the head of the four-tasks repo**. Drift between this doc and the code is a defect in this doc — fix it here as soon as the code changes, in the same commit that changes the code.
+
+**Currency note (2026-06-11, session 30):** §1.5 (core invariants) added; §5.x + §9.2 + §10.x refreshed to as-built at session 30 (streak rule amended, streak rescue gate + resolve endpoint, gap continuity, hero beat, devkit grey/gap scenarios; server wire-verified W11-W17, client device-pending D12-D15). The client component inventory (§6-§7) still UNDER-describes sessions 24-30 (onboarding suite, recovery, morning-sequence coordinator, CoinFX, GlitchType, rest/rescue dialogs, hero beat, ceremony gate) beyond the s30 additions noted inline — full refresh still owed; what it does describe remains accurate.
 
 Design intent and rationale live elsewhere (the design docs in `pickle-moon-design-notes/four-tasks/`). This map only describes what's wired up, what talks to what, and what invariants the running system holds.
 
@@ -18,6 +20,25 @@ There are two server deployments behind two URLs, sharing one bundle of TypeScri
 The client picks dev vs prod URL per-request at runtime via `Backend._base_url()`, which checks `OS.has_feature("editor") or OS.has_feature("devkit")`. Editor runs always hit dev. Exported store builds always hit prod unless the custom `devkit` feature is set in the export preset.
 
 ---
+
+## 1.5 The invariants to hold in your head
+
+The whole system reduces to four sentences. If a bug contradicts one of
+these, that contradiction is the bug — start there. (Formal versions: §10.)
+
+1. **A day's life:** opened → accounted → written → sealed at the next
+   morning's claim — possibly pausing once at the streak rescue gate. Sealed
+   is forever.
+2. **Money:** every coin write is RELATIVE ("add N"), never absolute, so
+   concurrent writers can't erase each other; `lifetime_coins` counts earns
+   only — spends never touch it.
+3. **Time:** the client owns the clock. Everything daily keys off the LOCAL
+   DATE (per-day triggers re-checked on focus), never off process lifetime.
+4. **Re-derive, never remember:** the server holds no conversational state
+   between requests. Rotations re-derive keys; resolve re-derives the
+   walkback and the rescue offer; a crashed flow heals because nothing
+   half-happened. If a design wants the server to "remember an offer," the
+   design is wrong.
 
 ## 2. Repository layout
 
@@ -131,7 +152,8 @@ The router is order-dependent and prefix-matched — each branch tests that the 
 | POST | `/users/:user_id/dismiss_unpair_notice` | `{}` | `null` (idempotent) | 400 · 404 |
 | POST | `/users/:user_id/unpair` | `{}` | `null` (idempotent on solo) | 400 · 404 · 500 |
 | POST | `/users/:user_id/join_by_values` | `{partner:{name,username,active_leader}}` | `{pair_id}` | 400 bad_input · 404 partner_not_found · 409 already_paired/ambiguous_match/pair_key_collision · 500 |
-| POST | `/users/:user_id/claim` | `{local_date:"YYYY-MM-DD"}` | `{sealed_day, user}` (sealed_day null if nothing owed) | 400 bad_input/bad_date · 404 user_not_found · 500 |
+| POST | `/users/:user_id/claim` | `{local_date:"YYYY-MM-DD"}` | `{sealed_day, user}` (sealed_day null if nothing owed) — OR `{sealed_day:null, pending_rescue, user}` when the streak rescue gate fires (s30, §5.3) | 400 bad_input/bad_date · 404 user_not_found · 500 |
+| POST | `/users/:user_id/claim/resolve` | `{accept:bool, local_date}` | claim-shaped `{sealed_day, user}` (s30, §5.3) | 400 bad_input/bad_date · 404 user_not_found · 409 insufficient_coins · 500 |
 | PUT | `/users/:user_id/days/:date` | partial `{tasks_done[4]?, motd?, rest_day?}` | full day row | 400 bad_user_id/bad_date/bad_input · 404 user_not_found · 409 day_sealed · 500 |
 
 ### 5.2 Dev-only endpoints (gated by `env.IS_DEV === "true"`)
@@ -141,6 +163,10 @@ The router is order-dependent and prefix-matched — each branch tests that the 
 | POST | `/devkit/scenario/default` | Wipe both test users + pair; reseed canonical spread (~14 days install age, ~6 days of day rows per user covering every cell state) |
 | POST | `/devkit/scenario/fresh_install` | Server-side teardown only; client wipes `identity.cfg` independently |
 | POST | `/devkit/scenario/recovery_flow` | Same server-side teardown; client behaviour differs (recovery UI not yet built) |
+| POST | `/devkit/scenario/morning_payout` | Default spread but TestUser's yesterday is an unsealed 2-task worked day → next open seals orange + runs the worked ceremony (s26) |
+| POST | `/devkit/scenario/morning_rest` | Yesterday an unsealed REST day → seals purple, rest ceremony variant (s28) |
+| POST | `/devkit/scenario/morning_grey` | Yesterday an unsealed accounted ZERO-task day (streak 3 at stake, no gap) → next claim returns pending_rescue kind=grey (s30) |
+| POST | `/devkit/scenario/morning_gap` | Yesterday an unsealed 2-task day with the day-before OMITTED (last sealed = -3) → next claim returns pending_rescue kind=gap (s30) |
 
 Stable DevKit identifiers (hardcoded; never rotate):
 
@@ -153,9 +179,9 @@ Stable DevKit identifiers (hardcoded; never rotate):
 
 **`POST /users/:user_id/claim`** — the most complex endpoint by far.
 
-Walkback query (as built): most recent past day (`date < local_date`) for this user where `sealed_at IS NULL AND (rest_day = 1 OR tasks_done != '[false,false,false,false]')`. App-open semantics mean at most one such row exists.
+Before the walkback, the claim **upserts today's row with `accounted_for = 1`** (app-open IS engagement, session 23) — write-once-to-1, touches no owner-writable field.
 
-*Locked design, not yet built:* this predicate becomes `sealed_at IS NULL AND accounted_for = 1` — a write-once engagement boolean (new `days.accounted_for` column) that retires the fragile JSON string-match and lets a genuinely-engaged 0-task day seal as a disappointment instead of being skipped. See the morning-sequence doc and the day-state taxonomy (§10.5); tracked in §11.
+Walkback query (as built, session 23): most recent past day (`date < local_date`) for this user where `sealed_at IS NULL AND accounted_for = 1`. The old JSON string-match predicate is retired. `accounted_for` is set by every documented engagement trigger: the claim's app-open upsert, `writeDay`'s upsert (task tick / MOTD save — gap closed session 29), the rest endpoint, and createUser's day-0 row. In normal use at most one eligible row exists; the invariant is soft (see the morning-sequence doc's walkback section) — multiple stranded rows drain most-recent-first, one per claim.
 
 Stamp tier from `(tasks_completed_count, rest_day)`:
 - `rest_day=1` → purple, regardless of count
@@ -163,22 +189,70 @@ Stamp tier from `(tasks_completed_count, rest_day)`:
 - count=3 → yellow
 - count=2 → orange
 - count=1 → red
-- count=0 + not rest → *as built:* walkback excludes it, no claim possible. *Locked design:* an `accounted_for` 0-task day seals with a new **disappointment** tier (colour/pool TBD) — judgement can't be dodged for a day you showed up to. Not yet built.
+- count=0 + not rest → **grey** (built session 23): an accounted 0-task day seals as a **disappointment** — judgement can't be dodged for a day you showed up to.
 
-Coin payout: 0 on rest days; otherwise per completed task roll `Math.floor(Math.random() * 501) + 900` (so each task ∈ [900, 1400]) and sum. Server-side randomness — client cannot predict.
+Coin payout (economy LIVE as of session 28, per the economy redesign doc — AUTHORITY): 0 base on rest/grey days; otherwise per completed task roll `Math.floor(Math.random() * 501) + 900` (each task ∈ [900, 1400]), summed, then:
+- × partner multiplier — explicit lookup table `[1.0, 1.2, 1.3, 1.4, 1.5]` by the partner's task count **on the sealed row's own date** (never a hardcoded today/yesterday); partner rest day = full 1.5. Table, not arithmetic — float drift.
+- × 1.5 again if BOTH users `subscription_active` (two-sub boost; 2.25 effective cap). Solo-but-subscribed = phantom ×1.5.
+- + two-sub-only streak bonus: `round(base*mult * streak * 0.01)` using the PRE-claim streak.
+Partner/sub reads are gated behind `base > 0` (rest/grey skip them). Payout is baked immutably at seal — no recompute on later sub lapse. The claim response carries `multiplier` and the sealed day's `motd`. The client preview pill (§6.6 `Bonus.gd`) reads the partner's *current* day and mirrors the table (incl. partner-rest = 1.5) but does NOT show the two-sub boost (Phase-5 note).
 
-*Partner multiplier (specced, not built — currently ×1.0):* when built, the summed payout is multiplied by the partner's engagement on the **same date as the sealed row** (graduated 1.0–1.5; partner rest = 1.5), read against the sealed row's own date — never a hardcoded today/yesterday. The client preview pill (§6.6 `Bonus.gd`) reads the partner's *current* day; the server applies the final factor at seal against the sealed date. See the morning-sequence doc.
+**Coin writes are RELATIVE** (`coins = coins + ?`, session 29) — same as the rest endpoint, so the two coin writers commute and a concurrent rest debit can't be swallowed by a stale read. Streak/longest stay absolute (no concurrent writer).
 
-Streak update:
-- green → `streak + 1`
-- purple → unchanged
-- anything else → reset to 0
+Streak update (AMENDED session 30 — economy doc is authority):
+- FIRST, the continuity check: if the day being sealed is not date-adjacent
+  to the most recent previously-sealed day (`lastSealedDateBefore`, derived —
+  no column), the streak zeroes BEFORE this day counts, and the streak BONUS
+  above reads the zeroed value (no bonus across a broken streak). As
+  originally shipped, no-show gaps never broke streaks at all (unsealed days
+  never ran streak math) — this check closed that hole.
+- then: ≥1 task → `streak + 1` (the bare minimum keeps the chain alive)
+- purple (rest) → unchanged (holds; a rescued day is rest, so holds through)
+- grey (0 tasks) → reset to 0
 
-`longest_streak = max(longest_streak, new_streak)`.
+`longest_streak = max(longest_streak, new_streak)`. SUPERSEDED rule (s12-s29):
+green-only advance, reset on partials.
+
+**Streak rescue gate (session 30).** Before sealing, the claim evaluates
+whether this seal would break a streak ≥ 1 in a way ONE rest purchase saves:
+the target itself sealing grey with no gap (kind=grey), or the target
+maintaining but exactly one never-opened day sitting behind it (kind=gap).
+If so the claim returns `{sealed_day:null, pending_rescue:{target_date,
+target_tier, kind, rescue_date, streak_at_stake, cost}, user}` and seals
+NOTHING. Anything unrescuable by one purchase (2+ day gaps; grey-behind-a-gap)
+gets no offer — the seal proceeds with the break applied.
+
+**`POST /users/:user_id/claim/resolve`** carries the answer
+(`{accept, local_date}`) and is fully RE-ENTRANT: it re-runs the walkback +
+rescue evaluation from current DB state, never trusting the client's memory
+of the offer. Decline (or stale offer) → seal as-is via the same path.
+Accept → 409 `insufficient_coins` below `RESCUE_COST` (= REST_COST = 50,000,
+own constant, shipped as `economy.rescue_cost`); otherwise ONE atomic batch:
+grey case converts the target to rest then seals it purple; gap case INSERTs
+the missing day as an already-sealed purple rest (silent — no ceremony of its
+own; reaches the calendar via poll merge) then seals the target with
+continuity intact. The debit rides the same relative coin write as the payout
+(`coins + (earned - cost)`); `lifetime_coins` gains earns only. The ONE-SHOT
+property is enforced by the seal itself — declining IS sealing, accepting IS
+converting-then-sealing, so there is no offer state to track and an
+unanswered offer (app death) self-heals by re-offering at the next claim.
+
+Both claim and resolve end in the same shared `sealTarget()` — tier, economy,
+streak, batch, response live exactly once (s30 refactor); `deriveTier` /
+`evaluateRescue` / `lastSealedDateBefore` / `isoShiftDays` / `isoDaysBetween`
+are its pure helpers.
 
 Theme snapshot: `users.active_theme` (the string, not parsed) copied into `days.day_theme_state` for the sealed day.
 
-Single atomic batch updates the day row (stamp, sealed_at, day_theme_state) and the user row (coins, lifetime_coins, streak, longest_streak).
+Single atomic batch updates the day row (stamp, sealed_at, day_theme_state) and the user row (coins, lifetime_coins, streak, longest_streak). A post-batch re-read supplies the response, so it reflects any concurrent movement.
+
+**`POST /users/:user_id/days/:date/rest`** (built session 28) — the ONLY rest writer; SAME-DAY-ONLY (`date` must equal the request's `local_date`). Toggle on: debits REST_COST (50,000; relative write), sets `rest_day = 1` + `accounted_for = 1`; 409 `insufficient_coins` if short. Toggle off: refunds (relative), clears the flag (`accounted_for` stays — engagement is monotonic). Idempotent, transactional. `writeDay` REJECTS `rest_day` in its body with 400 (session 29) — a free rest day via the generic day-write was the hole.
+
+**`PUT /users/:user_id/days/:date`** (writeDay) — writes `tasks_done` and/or `motd` only. Sets `accounted_for = 1` on insert AND conflict (session 29). Sealed days 409 `day_sealed`.
+
+**`GET /users/:user_id`** — serves both boot load and the 30s poll. Payload: `{self, partner, pair, days, economy}`. The `economy` container (session 29) ships server-authoritative numbers the client needs pre-request — `{rest_cost, reroll_cost, rescue_cost}` as of s30; the rest/rescue dialogs' afford gates read it via `State.rest_cost()` / `State.rescue_cost()`. Retunes are one server constant.
+
+Identity fields (`name`/`username`/`active_leader`) are length-capped server-side at 49/40/50 post-normalisation (session 29); violations return 400 `value_too_long` naming the field. All write paths covered, including the rotation route.
 
 **`PUT /users/:user_id`** — paired users with `username` or `active_leader` changes trigger a rotation transaction: re-derive `pair_key` from new self + current partner, UNIQUE-check against other pairs, then atomic batch updates `pairs.pair_key` + `users` row. Solo users skip rotation.
 
@@ -201,8 +275,8 @@ Backend → State → Identity → Poll → DevKit → Bonus → Layout → Pale
 ### 6.1 `Backend.gd` — stateless HTTP layer
 The only node that makes network calls. Spawns a fresh `HTTPRequest` child per call, awaits, frees it. Stateless: callers pass `user_id` into every method that needs one.
 
-Public methods, one per endpoint:
-`check_health, create_user, load_user, poll_user, update_user, write_day, claim, submit_bug_report, unpair, dismiss_unpair_notice, join_by_values, resolve_pair, devkit_run_scenario`
+Public methods, one per endpoint (verified against Backend.gd at s30):
+`check_health, create_user, load_user, poll_user, update_user, write_day, set_rest_day, claim, resolve_claim, submit_bug_report, unpair, dismiss_unpair_notice, join_by_values, resolve_pair, resolve_solo, motd_roll, fetch_motd_pool, devkit_run_scenario`
 
 Signals, one success + one failure per endpoint (22 total at last count; verify against `Backend.gd` signal declarations):
 
@@ -212,6 +286,10 @@ Signals, one success + one failure per endpoint (22 total at last count; verify 
 - `user_updated` / `user_update_failed`
 - `day_written` / `day_write_failed`
 - `claim_completed` / `claim_failed`
+- `claim_resolved` / `claim_resolve_failed` (s30 — claim-shaped by contract; State funnels both into the claim handlers)
+- `rest_day_set` / `rest_day_set_failed` (s28)
+- `motd_rolled` / `motd_roll_failed`, `motd_pool_ready` / `motd_pool_failed`, `motd_pool_fetched` / `motd_pool_fetch_failed` (s28-29)
+- `solo_resolved` / `solo_resolve_failed`
 - `bug_reported` / `bug_report_failed`
 - `unpair_completed` / `unpair_failed`
 - `unpair_notice_dismissed` / `unpair_notice_dismiss_failed`
@@ -224,6 +302,8 @@ URL switching: `_base_url()` returns `BASE_URL_DEV` or `BASE_URL_PROD` per reque
 
 ### 6.2 `State.gd` — in-memory mirror
 Source-of-truth invariant: **server is canonical**. State writes optimistically and reconciles on Backend response.
+
+Rescue routing (s30): `_on_claim_completed` detects `pending_rescue` and emits `claim_rescue_pending(pending)` INSTEAD of `morning_claimed` — the ceremony coordinator's parked one-shot stays armed; the resolve's claim-shaped response re-enters the same handler and emits `morning_claimed` as normal, so `morning_sequence.gd` is rescue-blind by design. `resolve_claim(accept)` reuses the claim's remembered `local_date`. Resolve failures route through `_on_claim_failed` (coordinator winds down on `morning_claimed({})`; App re-arms the per-day trigger).
 
 Fields:
 - `self_user: Dictionary` — current self payload
@@ -285,6 +365,10 @@ Failure is silent — next tick retries. Backend.poll_user uses the same `GET /u
 Reads `State.partner_user`'s yesterday day row and returns a float multiplier (1.0 / 1.2 / 1.3 / 1.4 / 1.5). Same six-line rule the server's claim endpoint will apply at payout time when partner-bonus mechanics formally land — currently a display-only computation. Solo users return 1.0.
 
 ### 6.7 `Layout.gd`, `Palette.gd`, `Fonts.gd`, `Prefs.gd` — single sources of truth
+
+Prefs additions (s30): `hero_shown_date` — the local date the seal-day hero
+beat last fired; once per day full stop (untick/retick and restarts don't
+re-fire). Client-only cosmetic state, deliberately not server data.
 - `Layout.gd` — every layout dimension (cell sizes, paddings, font sizes, panel widths). Scenes carry literals; a comment block at the top of each `.tscn` maps the literals back to `Layout.*` names so they can be kept in sync by hand. The `.tscn` cannot reference autoload constants directly.
 - `Palette.gd` — non-sacred colours (panel backgrounds, button states, etc.). **Sacred** colours (cell-tier ramp, task-row state palette) remain hardcoded in `day_cell.gd` and `task_row.gd` because they're theme-locked.
 - `Fonts.gd` — Departure Mono (project default), JetBrains Mono (MOTD subtitle). Set globally via Project Settings → GUI → Theme, plus an explicit override on the subtitle node.
@@ -457,8 +541,12 @@ Loader scene loads (main scene)
 6. Server returns `{ok:true, data: <full day row>}`. Backend emits `day_written(data)`.
 7. `State._on_day_written` merges per policy. If the row was modified server-side (e.g. seal raced — won't happen for unsealed days), the visible state updates.
 
-### 9.2 Day claim (morning)
-Not yet wired to a UI trigger in the current build — claim is implemented server-side at tile 1.3 and reachable via `Backend.claim(user_id, local_date)`, but no client code calls it yet. Phase 4 (morning sequence) will wire the trigger.
+### 9.2 Day claim (morning) — WIRED (sessions 26-30; rescue branch s30: pending_rescue → App's rescue_confirm dialog above the input blocker → State.resolve_claim → claim-shaped response resumes the parked coordinator)
+1. App triggers at most once per **local date** (not per process — session 29): on boot once self loads, and on every application focus-in where `today_iso()` has advanced past the last-ceremonied date. A failed claim re-arms via `Backend.claim_failed` and retries on the next focus-in.
+2. `morning_sequence.gd` (coordinator, App-owned) runs the 12-beat ceremony: `State.claim_morning(local_date)` fires at beat 2/3; State merges the banked user silently and seals the day onto `State.days` with NO signal (source-side suppression — the calendar can't spoil the reveal), emitting `morning_claimed(sealed_day)` instead.
+3. Surfaces that must keep receiving their trigger signals (streak bar, panel heading) guard on `State.ceremony_active` + settle on `ceremony_changed(false)` — the second suppression mechanism.
+4. Beat 12 refreshes through `Backend.poll_user` (NOT load_user — the poll's selective merge preserves the in-flight beat-10 MOTD write; session 29).
+5. Interruption: backgrounding freezes the engine loop; the ceremony resumes where it left off. Process kill lands on the crash cases (pre-claim → replay; post-claim → no replay). No abort API (deleted session 29). See the morning-sequence doc.
 
 ### 9.3 Background poll
 1. Every 30s while foreground, or 10s after focus-in:
@@ -472,7 +560,7 @@ Not yet wired to a UI trigger in the current build — claim is implemented serv
 6. `day_changed` emitted per actually-changed day. UI re-renders only the changed cells/rows.
 
 ### 9.4 Un-pair (entry point not yet wired)
-Server endpoint exists (`POST /users/:user_id/unpair`). Symmetric: both users get `pair_id = NULL`, `pending_unpair_notice = <other's username>`, and the `pairs` row is deleted. Idempotent — if caller is already solo, returns `ok(null)`. UI trigger lands in Phase 4 tile 4.21 (long-press partner header → menu → Un-pair).
+Server endpoint exists (`POST /users/:user_id/unpair`). Both users get `pair_id = NULL` and the `pairs` row is deleted; the un-pair NOTICE is **recipient-only** (session 29, per tile 4.21): the partner gets `pending_unpair_notice = <initiator's username>`, the initiator's notice is set NULL (also clearing any stale notice from a prior relationship). Idempotent — if caller is already solo, returns `ok(null)`. UI trigger lands in Phase 4 tile 4.21 (long-press partner header → menu → Un-pair).
 
 ---
 
@@ -488,7 +576,14 @@ These are always true for a healthy system. A violation indicates a bug.
 - Sealed day rows (`sealed_at IS NOT NULL`) never have their owner-writable fields (`tasks_done`, `motd`, `rest_day`) modified. `writeDay` returns 409 `day_sealed` for these.
 - `lifetime_coins >= coins` is NOT enforced (a future grant could plausibly add to `coins` without `lifetime_coins`); but `lifetime_coins` is monotonically non-decreasing per the claim endpoint.
 - `longest_streak >= streak` is enforced by `Math.max(currentLongest, newStreak)` in claim.
-- `subscription_active`, `founders_flag`, `founders_rate_eligible`, `trial_extension_days`, `redeemed_code` are never client-set. (Currently no endpoint writes them — they remain at schema defaults.)
+- Streak continuity (s30): a sealed day not date-adjacent to the previously-sealed day zeroes the streak before counting, and zeroes that payout's streak bonus. The continuity anchor is DERIVED (max sealed date before target), never stored.
+- Rescue one-shot (s30): there is NO stored offer state anywhere. Decline = seal grey now; accept = convert/create rest + seal now; `sealed_at` is the enforcement. Resolve is re-entrant and degrades to plain-claim behaviour when nothing is pending.
+- `lifetime_coins` gains EARNS only — the rescue debit (and any spend) rides the relative `coins` write and never reduces or touches lifetime.
+- `subscription_active`, `founders_flag`, `founders_rate_eligible`, `trial_extension_days`, `redeemed_code` are never client-set. (Currently no endpoint writes them — they remain at schema defaults. The claim READS `subscription_active` for the two-sub boost as of session 28.)
+- `days.accounted_for` is monotonic write-once-to-1; writers: claim app-open upsert, writeDay upsert, rest endpoint, createUser day-0. Nothing clears it.
+- Both `coins` writers (claim payout, rest debit/refund) use RELATIVE SQL arithmetic — they commute under concurrency (session 29).
+- Identity fields are length-capped (49/40/50 post-normalisation) on every write path; violations are 400 `value_too_long` (session 29).
+- `rest_day` is writable ONLY via the rest endpoint; writeDay 400s it (session 29).
 
 ### 10.2 Client-side
 - `State.self_user.user_id == Identity.user_id` after boot completes successfully.
@@ -501,41 +596,37 @@ These are always true for a healthy system. A violation indicates a bug.
 
 ### 10.4 Day row existence
 
-A row in `days` exists if and only if at least one write has happened against that `(user_id, date)` pair. Writes mean: a `tasks_done` toggle, a `motd` set, or a `rest_day` toggle. Opening the app on a date is NOT a write — there is no "viewed" tracking.
+A row in `days` exists if and only if at least one write has happened against that `(user_id, date)` pair. Writes mean: a `tasks_done` toggle, a `motd` set, a rest designation, or — since session 23 — **opening the app on that date** (the claim's app-open upsert creates today's row with `accounted_for = 1`). "Opening is not a write" is DEAD.
 
-Consequences:
+Consequences (as built):
 
-- An empty unsealed past day and a never-opened past day are indistinguishable in the database. Both render as `UNMARKED` in the calendar.
-- Claim's walkback filter `(rest_day = 1 OR tasks_done != '[false,false,false,false]')` (as built) correctly skips both cases — neither has data, neither needs sealing, neither breaks or extends a streak. (The locked `accounted_for` design changes this — see §10.5: a day the user *opened* becomes accounted-for and will seal, distinguishing it from a day never opened.)
-- This means the system handles "user skipped a day entirely" and "user opened the app but ticked nothing" identically. That is the intended behaviour for v1.0 (consistent with `tracking_design_notes` being DEFERRED).
-- Distinguishing these cases needs a new field. That field is now designed — the `accounted_for` column, locked this session, not yet built; until it ships, the distinction does not exist in the database.
-
-The `accounted_for` design clarifies the mechanics: any rest-designation sets `accounted_for` and creates the row, so a marked day seals as rest. Whether the morning flow actively *offers* a retroactive "mark yesterday as rest" remains a tile-4.6 UX decision — resolve against `four_tasks_morning_sequence_design_notes.md`.
+- A never-engaged past day has no row and renders `UNMARKED`; it is invisible to the walkback and neither breaks nor extends anything beyond the streak's natural four-of-four arithmetic.
+- An engaged-but-idle day (opened, or ticked-then-unticked, or MOTD'd) has a row with `accounted_for = 1` and WILL seal — as grey if 0 tasks. "Skipped entirely" and "showed up but did nothing" are now distinct, and judged differently.
+- Retroactive "mark yesterday as rest" = the STREAK RESCUE GATE, designed + BUILT session 30 (server wire-verified): pre-ceremony beat 0, two-phase claim + re-entrant resolve. See §5.3. The "intercept before beat 7" constraint resolved trivially — the gate fires before beat 1.
 
 ### 10.5 Day-state taxonomy
 
 "Empty day" is not one concept — it is per-consumer, and each feature has historically invented its own inline predicate. They are individually correct but undocumented, so every new day-history walker re-derives them and risks drift. This is the canonical list; new walkers reuse a named predicate rather than rolling their own.
 
-States (currently collapsed by the schema; the `accounted_for` design splits state 2):
+States (the `accounted_for` split is LIVE since session 23):
 
 1. **Never touched** — no row in `days`.
-2. **Row exists, not engaged** — row created but all-false tasks, empty motd, not rest, and (under the locked design) `accounted_for = 0`. Indistinguishable from (1) to every current query by design (§10.4).
-3. **Engaged, unsealed** — real activity (or, under the design, any deliberate engagement incl. app-open) pre-seal. What claim hunts.
+2. **Row exists, not engaged** — `accounted_for = 0`. Rare as-built (every current write path accounts), reachable mainly via legacy rows; treated like (1) by the walkback.
+3. **Engaged, unsealed** — `accounted_for = 1`, `sealed_at IS NULL`. What claim hunts.
 4. **Sealed** — immutable history. What the carry-forward subtitle reads.
-5. *(arriving with week mode)* — an opted-out weekday that does not count; interacts with streak. Unresolved; tracked in the week-mode doc + todo.
+5. ~~(arriving with week mode) an opted-out weekday~~ — RESOLVED MOOT 2026-06-10: week mode is label-overrides only; there is no opted-out-day concept, so no fifth state arrives. See the week-mode doc.
 
 Per-consumer predicates (use these; do not re-derive):
 
 | Consumer | Predicate | Hunts |
 |---|---|---|
 | Calendar `_classify` | row empty OR absent → `UNMARKED` | treats 1 + 2 alike |
-| Claim walkback (as built) | `sealed_at IS NULL AND (rest_day=1 OR tasks_done != all-false)` | state 3 |
-| Claim walkback (locked design) | `sealed_at IS NULL AND accounted_for = 1` | state 3, incl. engaged 0-task |
-| Subtitle (locked design) | most recent `motd != ''`, sealed-or-not, ≤ today | 3 or 4 |
+| Claim walkback (as built, s23) | `sealed_at IS NULL AND accounted_for = 1 AND date < local_date` | state 3, incl. engaged 0-task |
+| Header MOTD fallback (as built, s29) | today's `motd`, else most recent prior day with `motd != ''` (full walkback, not yesterday-only) | 3 or 4 |
 
 **Structural guard.** Document the taxonomy; do NOT add structure to model it gratuitously — no `is_empty` column, no `status` enum, no create-rows-on-open-as-a-feature. Those are the premature-structure move the architectural-preference rule refuses. The ONE structural addition that earns its place is `accounted_for`: a single write-once boolean that *retires* a fragile JSON string-match (clarity/robustness, not cleverness — the preferred side of the meta-rule) and is what splits state 2 from state 3 for an opened-but-idle day.
 
-**Consequence (locked this session).** Under this design, app-open sets `accounted_for` on today's row, so opening the app on a date becomes a write (it creates/touches that row) — a deliberate change from §10.4's current "opening is not a write". Confirmed effect: an opened-then-idle day seals as a disappointment rather than vanishing as never-touched.
+**Consequence (live since session 23, extended session 29).** App-open sets `accounted_for` on today's row, and as of session 29 so does any writeDay (task tick / MOTD save) — every documented engagement trigger is implemented. Confirmed effect: an opened-then-idle day seals as a disappointment rather than vanishing as never-touched, and a day worked entirely inside a long-lived app session (no fresh open on that date) is still sealable.
 
 ### 10.3 Cross-system
 - Every `Backend.<x>_completed` signal has a corresponding `<x>_failed` and exactly one of the two fires per call. (Network errors → failure signal.)

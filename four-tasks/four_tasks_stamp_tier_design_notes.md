@@ -47,20 +47,31 @@ The tier is derived from the day's completion state:
 
 | Tier   | Trigger                              | Visual colour |
 |--------|--------------------------------------|---------------|
+| Grey   | 0 tasks completed (accounted day)    | Grey          |
 | Red    | 1 task completed                     | Red           |
 | Orange | 2 tasks completed                    | Orange        |
 | Yellow | 3 tasks completed                    | Yellow        |
 | Green  | 4 tasks completed                    | Green         |
 | Purple | Day marked as a rest day             | Purple        |
 
-A 0-task day does not get a stamp — no message, no colour, the cell
-sits visually empty on the calendar. The morning sequence still
-plays (see Q2 in morning sequence doc) but no stamp lands.
+The grey tier (added session 22, server-shipped session 23) is the
+**disappointment stamp**: a day the user engaged with (`accounted_for`
+— opened the app, or as of session 29 ticked-then-unticked a task or
+saved a MOTD) but completed nothing on still seals and still gets
+judged. Tone target: dry, not cruel — the absence of celebration IS
+the message. Pool size target: 5-10, same band as red/orange/yellow.
+(The earlier rule — "a 0-task day gets no stamp, the cell sits
+empty" — is DEAD, superseded by `accounted_for`: you can't dodge
+judgement for a day you turned up to; the only way to keep a day off
+the ledger is to never engage with it at all.)
 
 The stamp message is a short string (typically 1-4 words) drawn from
 the tier's pool. It appears in the morning sequence as the stamp
-"slaps down," and persists on the calendar cell as part of the day's
-permanent fingerprint.
+"slaps down" onto the day's TRAY, and persists there as part of the
+day's permanent fingerprint — reopening a sealed day's tray (yours
+or your partner's) re-renders it from data. The stamp does NOT live
+on the calendar cell: the cell shows the sticker + tier colour; the
+stamp is a tray artefact (sticker-vs-stamp terminology, locked).
 
 ---
 
@@ -75,6 +86,7 @@ Shape:
 
 ```typescript
 export const STAMP_MESSAGES = {
+  grey:   ["...", "...", ...],   // 5-10 entries (dry disappointment)
   red:    ["...", "...", ...],   // 5-10 entries
   orange: ["...", "...", ...],   // 5-10 entries
   yellow: ["...", "...", ...],   // 5-10 entries

@@ -831,6 +831,34 @@ shoulder-surf for tens of seconds of a calendar app is a vanishingly
 rare scenario, and the harm is bounded (vandalism, not exfiltration
 of valuable data).
 
+### 9.1a Intra-pair trust — the partner holds your write credential
+
+Recorded as a deliberate decision (session 29 audit), not an
+accident: the user payload includes the partner's `user_id`, and
+`user_id` is the only write credential in the system (auth model:
+caller named in URL, no tokens). Your partner can therefore read
+AND write as you — forge task history, rename your username
+(triggering rotation), un-pair, designate rest days with your
+coins.
+
+This is unavoidable in the current shape, not merely accepted:
+the client must index the shared `days` payload by `user_id` to
+render the partner calendar, so the identifier crosses the pair
+boundary regardless of what the `partner` object includes.
+Hiding it would be theatre.
+
+It is also consistent with the product: a pair is a mutual-trust
+relationship by definition (you chose each other; the entire
+recovery model already assumes the partner is an ally). The
+defence against a partner who BECOMES hostile is the same as
+9.1's social-attacker lever — un-pair plus the change-username
+follow-up (Section 17), which rotates the credential surface.
+
+If the trust posture ever changes (groups, public pairing,
+anything beyond two chosen people), this decision must be
+revisited — likely alongside a move to real auth tokens, which
+is a v2-scale change.
+
 ### 9.2 Brute-force enumeration
 
 **Attacker setup:** wants to attach to a specific target's pair.
