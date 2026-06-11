@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-10 AWST (second pass — autonomous run)
-Last updated: session 30 — STREAK RESCUE + RULE CHANGE + HERO BEAT (2026-06-11, design locked mobile, built same day). Streak rule AMENDED (economy doc authority): ≥1 task ADVANCES, rest holds, only zero-task days break — sealed grey OR never-opened gap (gap detection closed a real hole: gaps never broke streaks as shipped). STREAK RESCUE GATE: claim returns pending when exactly one purchasable day saves a streak ≥1; new POST /users/:id/claim/resolve (re-entrant; decline = seal grey, accept = convert/create rest + seal, atomic); RESCUE_COST = 50k own constant, economy.rescue_cost shipped; no cap (price-only guard — econ doc open-tension updated, accepted). SERVER WIRE-VERIFIED same day (W11-W17 all pass). CLIENT HALF built UNVERIFIED: rescue_confirm.gd (no scrim-cancel — decline is irreversible), State pending routing (coordinator unchanged — parked one-shot picks up the resolve), App wiring, Backend.resolve_claim. SEAL-DAY HERO BEAT built UNVERIFIED: hero_beat.gd overlay (cell proxy fly + sticker pop + no-amount card), once-per-date Prefs marker, worked + rest variants, 2 DevKit trigger rows. WEEK MODE fork resolved → Model B popup editor (doc rewritten; per-weekday toggle retired, per-slot radios, override table reshape owed at 4.D2). Also: s29 W1-W9 wire-verified 2026-06-11 (+ sweep-chat getEligibleDrops per-drop parse isolation patch). Device ledger D1-D15 pending. Last code: session 30.
+Last edit: 2026-06-11 AWST (session 31)
+Last updated: session 31 — DEVICE LEDGER D1-D15 CLEARED (all pass); s29+s30 code VERIFIED. Five s31 fixes shipped + device-verified same day: ceremony stage normalization (show_for_date toggle deadlock, beat 0b + App snap-home + carry gate), sealed-beats-clock (task_list sealed gate + rest long-press bail), coin-source bound (claim/resolve local_date ±2d of server UTC — W18 owed), devkit FK wipe (devkitWipeStatements shared helper + seed sync), DevKit.gd case rename (Android PCK case-sensitive). Recorded not built: laptop-export emoji rendering, 4.23 date-change watcher, 4.24 sealed-grey cell [DECIDE], 4.5 MOTD-kill recovery note, rapid-tick-under-clock-hop PARKED. Last code: session 31.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -13,105 +13,34 @@ Convention: ticked tiles get `Time: ~Xh` or `~Xmin` on title line.
 Tiers (for items outside phase structure): ACTIVE / PARKED / DEFERRED.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 29+30 TEST LEDGER — burn down BEFORE next code session
+OPEN TESTS + BOOKKEEPING (post-ledger, s31)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Files to replace (s29 set already deployed/landed 2026-06-11; SESSION-30
-outputs supersede where named): index.ts (s30 = s29+sweep-patch+rescue) ·
-App.gd · State.gd · Backend.gd · Prefs.gd · devkit_menu.gd · NEW
-rescue_confirm.gd · NEW hero_beat.gd. No schema change in s30.
-Schema first: `npx wrangler d1 execute four-tasks-dev --remote --file=schema.sql`
-(whole file is safe — IF NOT EXISTS throughout; adds the three content-drop
-tables). Then deploy once: `npx wrangler deploy --env dev` from server/ (also
-proves the new wrangler.toml parses AND registers the Thursday cron; NOTE:
-bare `wrangler deploy` now lands on DEV — prod requires explicit
-`--env production`).
+Device ledger D1-D15 CLEARED session 31; s29+s30 code verified. Remaining:
 
-WIRE (laptop, curl vs dev worker):
-  [x] W1  PUT tasks_done to a fresh date → row has accounted_for = 1 in D1.
-  [x] W2  Sealed-day write still 409 day_sealed.
-  [x] W3  PUT {"rest_day": true} → 400 naming the rest endpoint.
-  [x] W4  Rest endpoint toggle on (debit) / off (refund) round trip clean.
-  [x] W5  41-char username → 400 value_too_long naming the field; normal length 200.
-  [x] W6  Unpair → initiator pending_unpair_notice NULL, recipient carries initiator's username.
-  [x] W7  GET /users payload: economy.rest_cost = 50000 AND economy.reroll_cost = 100.
-  [x] W8  POST /users/:id/motd/reroll with coins ≥ 100 → 200, user debited 100,
-          roll has adverb/verb/noun; with coins < 100 → 409 insufficient_coins.
-  [x] W9  Drops round trip: SQL-seed one live drop (uuid, shape='patch',
-          status='live', released_at=now, simple JSON payload) → GET
-          /users/<TestUser>/drops returns it parsed → POST .../delivered → ok
-          → GET again → empty. Then seed one with released_at BEFORE
-          TestUser's created_at → not returned (forward-only).
-  [ ] W10 (optional) Cron: `npx wrangler dev --test-scheduled` then
-          curl "http://localhost:8787/__scheduled?cron=0+0+*+*+4" → a queued
-          drop flips live. (Or let a real Thursday prove it on dev.)
+  [ ] W18 coin-source bound: claim with local_date 10 days out → 400
+      bad_date; real-date claim unaffected (index.ts s31, deployed).
+  [ ] W10 (optional) Thursday cron via `wrangler dev --test-scheduled`,
+      or let a real Thursday prove it on dev.
+  [ ] Fold reusable wire commands into wire_regression_pack.md; delete
+      session_29/30_wire_tests.md.
+  [ ] Emoji glyphs missing on work-laptop Android export (🔥/🟡 streak bar
+      + CoinFX flights invisible; ★ fine). Check Godot version/export
+      parity vs home PC BEFORE any release build from the laptop.
 
-  SESSION 30 wire (commands: session_30_wire_tests.md) — ALL PASSED 2026-06-11:
-  [x] W11 grey rescue: pending → 409 floor (nothing sealed, re-offers) →
-          accept (purple, -50k, lifetime untouched, streak held 3, one-shot).
-  [x] W12 grey rescue: decline (grey seal, streak 0, declining free).
-  [x] W13 gap rescue: accept (missing day created sealed-purple, same
-          sealed_at as target = atomic batch; streak 4; debit + earn).
-  [x] W14 2-day gap: no offer, immediate seal + break (streak 1).
-  [x] W15 streak rule proof: 2-task day ADVANCES 3 → 4 (old rule reset).
-  [x] W16 resolve with nothing pending → plain-claim degradation, no charge.
-  [x] W17 economy payload carries rescue_cost 50000.
-
-DEVICE (phone):
-  [ ] D1  DevKit morning_payout → boot ceremony fires, payout totals correct (#1 regression + #12).
-  [ ] D2  Finish ceremony → home → device date +1 → foreground → ceremony fires WITHOUT restart (#1 kill shot).
-  [ ] D3  Background/foreground same date → nothing fires, no input-lock flash.
-  [ ] D4  Airplane-mode failed claim → network back → bg/fg → ceremony fires (retry).
-  [ ] D5  Home out MID-ceremony → reopen → resumes from freeze point, completes, input dead throughout (#4).
-  [ ] D6  Full ceremony → MOTD stays in header at settle, no vanish (#5).
-  [ ] D7  Airplane mode → rest ON → immediately tap a task → rest fails, flag rolls back; network back, bg/fg → NO phantom coin animation (#7 + #11).
-  [ ] D8  Rest dialog cost copy reads 50,000, afford gate behaves (#10).
-  [ ] D9  Spam-tap a cell ~10× fast → card ends at dock, no upward creep; then DevKit ceremony → lift/return lands correctly (#13).
-  [ ] D10 Mock clock: D2 repeated via DevKit (Mock clock → "Today +1" → status
-          updates → bg/fg → ceremony fires for the mocked day → "Clear mock" →
-          status shows OS clock). Do D2 via Android settings ONCE first — the
-          purest #1 test has no new code in its path.
-  [ ] D11 Bug catcher: DevKit → Dialogs → open → counter live, send disabled
-          when empty → type + send → thanks state → row in dev D1 bug_reports.
-          Cancel path closes clean. Airplane-mode send → failure copy →
-          network back → retry succeeds.
-
-  SESSION 30 device (rescue + hero, all client code UNVERIFIED):
-  [ ] D12 DevKit "Streak rescue — grey day" → reboot → rescue dialog over flat
-          calendar BEFORE any ceremony beat (input works above the blocker);
-          accept → rest-variant ceremony plays for the converted day, coins
-          tick -50k at settle, streak bar holds.
-  [ ] D13 Same scenario, decline → grey-stamp ceremony plays, streak bar 0 at
-          settle. Then DevKit "— 1-day gap" → accept → worked ceremony for
-          yesterday, bought day appears purple in the calendar at beat-12
-          refresh (poll merge).
-  [ ] D14 Rescue with coins < 50k (default seed) → dialog shows shortfall copy,
-          SAVE disabled, LET IT GO seals grey. Kill app mid-dialog (unanswered)
-          → reopen → offer re-presents (self-heal; per-day marker re-armed).
-  [ ] D15 Hero beat: tick 4th task today → cell proxy flies + sticker pops +
-          "FOUR FOR FOUR" card, NO amount, tap dismisses, proxy returns;
-          untick/retick → does NOT re-fire (Prefs once-per-date); rest confirm
-          → rest variant fires ~0.8s after coin tick-down; DevKit Dialogs rows
-          fire both variants from fallback origin.
-
-Regression-only riders (no dedicated step): #6 timeout, #12 relative coins,
-#15 prints, #16/#22 comments+cap, #17 walkback, #19 dim, #21 coalesce.
-
-BOOKKEEPING OWED POST-VERIFY:
-  [ ] Devlog session-29 entry (sweep summary, fixes, parked findings, time).
-  [ ] Devlog session-30 entry — drafted, [FILL AT VERIFY] time + D12-D15 result.
-  [ ] Doc sync: system map §5.3 (claim pending_rescue + resolve endpoint +
-      amended streak rule) and §4.x (rescue_confirm / hero_beat components).
-  [ ] Doc sync: staggered disclosure — week-mode cascade destination is now
-      the popup + one-time intro line (Model B, one line).
-  [ ] Doc sync: morning-seq doc rescue-gate section — implementation nuance:
-      the dialog mounts ABOVE the already-raised blocker (started() precedes
-      the claim), not literally before the lockout; same design intent.
-  [ ] Doc sync: morning-seq doc "App should call abort()" → freeze/resume model (new file header is the source text).
-  [ ] Doc sync: pair-key doc §9 — partner payload carries partner's user_id (= write credential); intra-pair trust posture, record as a decision.
-  [ ] Tick 4.14c if D-pass confirms (see tile).
-  [ ] Resolve "streak semantics under week mode" as MOOT in devlog (label-overrides only; see 4.D2).
-
+BOOKKEEPING OWED (doc syncs):
+  [ ] System map: §4.x/§6-7 component inventory (sessions 24-31 incl.
+      rescue_confirm, hero_beat, bug_catcher, beat-0b normalization,
+      sealed gate); §5.3 already current per s30 currency note.
+  [ ] Staggered disclosure: week-mode cascade destination = popup +
+      one-time intro line (Model B, one line).
+  [ ] Morning-seq doc: beat 0b stage normalization (tray close precedes
+      claim; App snap-home + carry gate); rescue-dialog-mounts-above-
+      blocker nuance; "App should call abort()" → freeze/resume model.
+  [ ] Timezone/sealing doc: sealed-beats-clock client rule + coin-source
+      ±2d server bound (s31).
+  [ ] Pair-key doc §9: partner payload carries partner's user_id (= write
+      credential); intra-pair trust posture, record as decision.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APPTRIOC FORK ARCHITECTURE (locked session 5)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -221,7 +150,7 @@ before code). Realistic store launch: Sept-Oct 2026.
 [ ] 4.2 [CODE] Wire glitch-word reveals into onboarding popups. 24 marked words from web build. (~2-3h)
 [x] 4.3 [CODE] CoinFX utility. Session 27. (Stub coin art; real sprite 4.A — swap _make_coin only.)
 [x] 4.4 [CODE] MOTD spinner. Sessions 25-26. ~6h. TUNING deferred (column widths, font, selector band, emoji reel TextureRect column).
-[~] 4.5 [CODE] MOTD reroll cost — SERVER HALF DONE (s29): POST /users/:id/motd/reroll (relative debit, 409 insufficient_coins, returns user + fresh roll); REROLL_COST=100 placeholder shipped via economy payload; fee-is-vent-not-protection decision recorded at the constant (free /motd/roll remains the first-spin path). CLIENT HALF remains: picker lock button + confirm popup wiring (ceremony-adjacent — with Morgan). (~2h left)
+[~] 4.5 [CODE] MOTD reroll cost — SERVER HALF DONE (s29): POST /users/:id/motd/reroll (relative debit, 409 insufficient_coins, returns user + fresh roll); REROLL_COST=100 placeholder shipped via economy payload; fee-is-vent-not-protection decision recorded at the constant (free /motd/roll remains the first-spin path). CLIENT HALF remains: picker lock button + confirm popup wiring (ceremony-adjacent — with Morgan). MUST sealed-gate the edit surface (sealed-beats-clock, s31) AND serve as the recovery surface for a mid-ceremony kill (today's MOTD pick is lost if beats die before 9 — s31 finding). (~2h left)
 [x] 4.6 [CODE] Morning sequence — coordinator. Sessions 26-28. ~11h + economy. OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold); cross-month verified-on-real-1st only. INTERRUPTION model rewritten session 29: freeze/resume, no abort (doc sync owed).
 [x] 4.7 [CODE] Stamp slap — folded into 4.6 beat 7. Session 26. Placeholder art; real stamps 4.C. Messages = content (PARKED).
 [~] 4.8 [CODE] Rest day system — MECHANISM DONE (s28) + session-29 hardening (free-rest hole closed, per-op rollback, server-shipped cost, anim-leak fix). Time: ~2h. Device test = S29 ledger D7/D8. DEFERRED: rest-day task-label content swap (~15-30 phrases; felt cheesy).
@@ -230,10 +159,12 @@ before code). Realistic store launch: Sept-Oct 2026.
 [ ] 4.11 [CODE] Help menu — two-tier, six subjects, [g]glitch[/g] markup (consumes 4.1). Copy = roster-week content list. (~4-6h)
 [~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: confetti (waits on 4.9's SHARED confetti system — no one-off particles) + real-UI trigger (one line, lands with 4.11's help menu). (~30min left, inside 4.9/4.11)
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h)
-[~] 4.14c [CODE] Future cells non-tappable. SESSION-29 AUDIT: implementation appears ALREADY COMPLETE — day_cell.is_interactive() rejects taps AND long-presses on DEAD_FUTURE. Device-verify (tap + long-press a future cell does nothing) and tick. (~0h)
+[x] 4.14c [CODE] Future cells non-tappable. day_cell.is_interactive() rejects taps + long-presses on DEAD_FUTURE. Device-verified session 31. ~0h.
 [ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready: `week_mode_weekdays` bitmask + `user_weekday_overrides` table (in v1.0 schema; needs its write endpoint).
     OPEN at design sign-off (RESOLVE BEFORE BUILD): interaction model. The LOCKED doc = two silent gestures (long-press day name in TRAY HEADING toggles the weekday; long-press an individual task LABEL to edit; doc explicitly rejected popup flows). Morgan's 2026-06-10 description = single POPUP off the weekday header with four tasks + radio selectors per slot. Different surface + mechanism, same propagation. Pick one, sync the doc, then build.
     Streak-semantics dependency REMOVED — moot (label overrides only; streaks/payout/stamps untouched, week-mode doc line 27). (~8-12h + design)
+[ ] 4.23 [CODE] App local-date-change watcher — on focus-in, if today_iso moved in EITHER direction: repaint both calendars, close any open tray whose date is now future. Backwards clock moves currently leave stale paint (s31); forward already claim-handled. Designed s31. (~1h)
+[ ] 4.24 [DECIDE] Sealed-grey cell colour. A sealed zero-task day renders UNMARKED — indistinguishable from an untouched day. Grey cell tier vs stamp-only grey. (s31)
 
 ━━━ FORK POINT ━━━ APPtrioc launches from snapshot after 4.14a. See PHASE 5b. ━━━
 
@@ -333,9 +264,9 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] On-touch jitter tuning pass. DRAG_DEADZONE / TAP_DRAG_THRESHOLD on real fingers.
 
-[~] DevKit mockable clock — BUILT (s29): State._mock_today_iso (feature-gated setter, cleared by clear(), flows through the claim's local_date so a mocked tomorrow runs the REAL seal path) + shift_iso_days pure-calendar arithmetic + DevKit "Mock clock" section (status / Today +1 / Clear). Test = D10.
+[x] DevKit mockable clock — BUILT (s29), device-verified s31 (D10).
 
-[ ] DevKit disappointment-day scenario (seed an unsealed accounted 0-task row for grey-tier testing). DevKit-only.
+[x] DevKit disappointment-day scenario — superseded by s30 morning_grey scenario (device-verified s31).
 
 [ ] Roster-week content list — mobile-writable work for on-roster weeks (in progress on phone, 2026-06-10): stamp messages (grey dry-tone pool, 5-10 each red/orange/yellow, 40+ green, 20 purple — currently bracket-stubs in PROD, would ship visibly if claimed today), help-menu copy (six subjects), rest-day task-label phrases (~15-30), MOTD pool expansion, sticker/stamp concept lists, promo-codes doc draft.
 
@@ -378,6 +309,8 @@ ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PARKED — known, not blocking
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Rapid-tick untick under mock-clock hopping ONLY (s31; plain rapid ticking clean). s29 #7 residual — shared per-day flight flag/rollback namespace lacks request identity. Fix = per-request write identity in State, only if it ever bites without DevKit clock games.
 
 [ ] Tasks tray resting size — smaller, more-square card. Independent of the lift (measures rect at runtime). Own checkpoint with before/after.
 
@@ -442,4 +375,5 @@ Running project total at session 24 close: ~114.75h.
 Running project total at session 25 close: ~121.75h.
 Running project total at session 27 close: ~138.75h.
 Running project total at session 28 close: ~142.75h.
-Session 29 hours: pending test-ledger burn-down + devlog entry.
+Running project total at session 31 close: ~156.75h
+(s29 ~5h · s30 ~5h · s31 ~4h; s29 figure is an estimate — correct if wrong).

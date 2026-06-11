@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-11 AWST
-Last updated: 2026-06-11 (session 30 — streak rule amended + streak rescue gate designed and built [server WIRE-VERIFIED W11-17, client UNVERIFIED], seal-day hero beat designed and built [UNVERIFIED], week-mode interaction fork resolved → Model B; s29 wire tests W1-W9 passed same day)
+Last edit: 2026-06-11 AWST (session 31)
+Last updated: 2026-06-11 (session 31 — DEVICE LEDGER D1-D15 CLEARED, all s29+s30 code verified; 5 fixes shipped + verified same day: ceremony stage-normalization deadlock, sealed-beats-clock gating, coin-source ±2d bound, devkit FK wipe, DevKit.gd case rename)
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -398,13 +398,10 @@ Running total: ~142.75h.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SESSION 29 — 2026-06-10
-Full-stack bug sweep · 20 fixes (UNVERIFIED) · forecast + todo restructure · doc sync
+Full-stack bug sweep · 20 fixes · forecast + todo restructure · doc sync
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-NOTE: every code fix below is UNVERIFIED — Morgan was on-roster; the
-full wire + device test ledger lives at the top of the todo. Nothing
-here is closed until that ledger burns down. Commit this entry after
-the ledger passes (or annotate failures against it).
+VERIFIED: wire W1-W9 passed 2026-06-11; device D1-D11 passed session 31.
 
 BUG SWEEP — full stack against the locked docs: index.ts (all 16
 routes), schema.sql, wrangler.toml, every autoload + UI script. 27
@@ -579,8 +576,8 @@ nothing design-gated):
   changed unverified file), 4.14a/b (fork point + design-gated),
   4.D2 (interaction fork is Morgan's call), all ceremony surfaces.
 
-Session 29 time: ~[FILL AT VERIFY]h.
-Running total: ~[142.75 + session]h.
+Session 29 time: ~5h.
+Running total: ~147.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
@@ -588,7 +585,7 @@ Running total: ~[142.75 + session]h.
 SESSION 30 — 2026-06-11
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Mobile design session (Morgan on roster) → same-day laptop wire pass.
-CLIENT CODE UNVERIFIED — device ledger D12-D15. Time: ~5h [FILL AT VERIFY].
+Client device-verified session 31 (D12-D15 pass). Time: ~5h.
 
 WEEK MODE FORK RESOLVED → MODEL B (popup editor). Long-press the tray
 heading's day name on ANY open day → popup, four fields + per-slot radios.
@@ -622,7 +619,7 @@ two doors); deriveTier/evaluateRescue/lastSealedDateBefore helpers; devkit
 scenarios morning_grey + morning_gap. WIRE-VERIFIED same day: W11-W17 all
 pass (incl. atomic-batch proof — rescue day + target share one sealed_at).
 
-CLIENT HALF (UNVERIFIED, D12-D14): rescue_confirm.gd — rest_confirm pattern
+CLIENT HALF (device-verified s31, D12-D14): rescue_confirm.gd — rest_confirm pattern
 with two deliberate deviations: scrim does NOT cancel (declining is
 irreversible) and every exit is an answer. State routes pending_rescue to a
 new signal; the ceremony coordinator's parked one-shot morning_claimed picks
@@ -630,7 +627,7 @@ up the resolve's claim-shaped response — morning_sequence.gd UNCHANGED, as
 designed. Dialog mounts above the input blocker (later in tree + z 300).
 Resolve failure re-arms the per-day claim marker (self-heal).
 
-SEAL-DAY HERO BEAT (designed + built, UNVERIFIED, D15). Evening celebration:
+SEAL-DAY HERO BEAT (designed + built, device-verified s31, D15). Evening celebration:
 4th tick (or rest confirm) → cell PROXY flies up + enlarges (real cell never
 reparents), sticker pops (placeholder glyph until 4.D), card frames payout
 as arriving tomorrow. NO AMOUNT — the morning keeps the reveal, which
@@ -642,5 +639,69 @@ policy off day_changed; 2 DevKit Dialogs rows bypass the gates for tuning.
 ALSO: s29 wire tests W1-W9 PASSED (this date, prior chat) + sweep-chat patch
 on getEligibleDrops (per-drop parse isolation) — index.ts s30 build carries
 it. New docs: four_tasks_hero_beat_design_notes.md, session_30_wire_tests.md.
-Amended: economy, morning-sequence, week-mode docs. Sync owed: system map
-§5.3/§4.x, staggered-disclosure cascade line, morning-seq blocker nuance.
+Amended: economy, morning-sequence, week-mode docs. (Sync remainders live in the todo bookkeeping block.)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 31 — 2026-06-11
+DEVICE LEDGER CLEARED (D1-D15 all pass) · 5 fixes shipped + verified same day
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LEDGER: D1-D15 ALL PASS — s29 sweep regressions + s30 rescue/hero closed.
+New W18 (coin bound, below) UNVERIFIED; W10 cron still optional-open.
+
+FIX devkit.gd → DevKit.gd rename. Autoload path case mismatch: Windows
+editor resolves case-insensitively, Android PCK doesn't → autoload Nil on
+device, menu dead. Convention says autoloads are PascalCase; the file was
+the one violation.
+
+FIX ceremony stage normalization (found by D2). show_for_date is a TOGGLE:
+tray already open ON the seal date made beat 3's awaited `opened` never
+fire → coordinator deadlock, input blocker stuck forever. Beat 0b in run():
+close-if-open + await CLOSED before the claim fires (serialized on purpose —
+parallel invites a mid-close race). App: _snap_to(0) on started (ceremony
+played off-screen if backgrounded on partner panel); day-carry's deferred
+re-open gated on _morning_active. Never caught in 5 sessions of device
+testing because DevKit always reboots through Loader = clean stage.
+
+FIX sealed-beats-clock (found via backwards clock travel). task_list gated
+toggleability on the clock alone — a sealed TODAY rendered editable (server
+held throughout; every tap 409'd). is_sealed threaded through _render /
+_resolve_row_state: sealed renders settled + never toggleable regardless of
+date; pre-payout mode explicitly wins (ceremony day is always already
+sealed). App rest long-press bails on sealed. 4.5's MOTD-edit client half
+must carry the same gate (tile noted).
+
+FIX coin-source bound (index.ts). claim + resolve reject local_date outside
+±2 days of server UTC (400 bad_date). Time travel stays legal and
+self-spoiling; farming the ONLY coin source is closed. Sinks + day writes
+deliberately unbounded — rationale recorded at LOCAL_DATE_BOUND_DAYS. W18.
+
+FIX devkit wipe FK failure (found when D11's first real bug_reports row
+broke the Default reseed — the bug proved the test). devkitWipeStatements()
+shared helper: bug_reports / redemption_attempts / content_drop_deliveries
+deleted BEFORE users; all three wipe sites (seedDefaultSpread,
+fresh_install, recovery_flow) route through it. seed_devkit.sql synced.
+Maintenance rule pinned: new users-FK table → add its delete there only.
+
+RECORDED, not built:
+  - Emoji glyphs don't render on work-laptop export (🔥/🟡 invisible incl.
+    CoinFX flights, which fired correctly but invisibly; ★ fine). Suspect
+    Godot 4.6.3 / export parity vs home PC — verify before any release
+    build from this machine.
+  - App local-date-change watcher (repaint + close now-future trays on
+    backwards clock moves; forward already claim-handled) — designed,
+    tiled 4.23.
+  - Mid-ceremony KILL permanently loses today's MOTD pick (beat 9 never
+    runs; no recovery surface until 4.5) — noted on 4.5. Server state
+    stays coherent (claim atomic).
+  - Sealed-grey cell renders UNMARKED, indistinguishable from untouched —
+    [DECIDE] tiled 4.24.
+  - Rapid-tick untick reproducible ONLY under mock-clock hopping (s29 #7
+    residual) — PARKED.
+
+Files: morning_sequence.gd, App.gd, task_list.gd, index.ts, seed_devkit.sql,
+DevKit.gd (rename). Client fixes device-verified within session; index.ts
+deployed at close.
+
+Session 31 time: ~4h.
+Running total: ~156.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
