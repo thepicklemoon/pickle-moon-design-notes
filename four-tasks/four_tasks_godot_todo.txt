@@ -1,6 +1,6 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-11 AWST (session 32, mobile)
+Last edit: 2026-06-12 AWST (session 33 — s32 commit verified on origin/main, bookkeeping block stripped)
 Last updated: session 32 — 4.25 DOC PASS DONE (doc-locked, build owed): economy + morning-seq + system map + timezone docs amended; wire_regression_pack.md created (folds s29/s30 packs, adds W18 commands + the 4.25 W13r/W14r/W19/W20 re-spec). The s31 bookkeeping syncs were found STRANDED — none had reached the repo (and the s30 morning-seq rescue-gate section was never pushed at all); all written fresh this session, folded into the same files. Repo finding: the s31 DevKit.gd case rename never landed in git (Windows core.ignorecase ignores case-only renames — fix below). Project files refreshed (clean slate: todo + devlog + .gd scripts + server zip; all carry the s31 finals). LATER SAME SESSION: ★THEME PREP design conversation RESOLVED — theme doc v2 written (colour system: 4 weighted roles + neutral ramp; v1.0 = 7 slots; pre-bake retint; R2 delivery; cell treatments deferred to v1.x). Tile 4.26 (notifications, crude/local) ADDED for the daily-driver switch. NO CODE this session — at work, doc-only. Last code: session 31.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
@@ -13,7 +13,7 @@ Convention: ticked tiles get `Time: ~Xh` or `~Xmin` on title line.
 Tiers (for items outside phase structure): ACTIVE / PARKED / DEFERRED.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OPEN TESTS + BOOKKEEPING (post-ledger, s31; commit block added s32)
+OPEN TESTS (post-ledger, s31)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Device ledger D1-D15 CLEARED session 31; s29+s30 code verified. Remaining:
@@ -30,20 +30,6 @@ Device ledger D1-D15 CLEARED session 31; s29+s30 code verified. Remaining:
       The s31 rename never registered (core.ignorecase swallows case-only
       renames); the repo still carries lowercase, so any fresh clone or an
       export built from one resurrects the dead-autoload-on-Android bug.
-
-COMMIT CHECKLIST (s32 artifacts → pickle-moon-design-notes):
-  [ ] four_tasks_economy_redesign_notes.md        (4.25 amendment)
-  [ ] four_tasks_morning_sequence_design_notes.md (rescue gate + 0b + 4.25)
-  [ ] four_tasks_system_map.md                    (full refresh + 4.25 notes)
-  [ ] four_tasks_timezone_and_sealing_design_notes.md (clock bounds + 4.25)
-  [ ] four_tasks_staggered_disclosure_design_notes.md (Model B line)
-  [ ] wire_regression_pack.md (NEW) — then DELETE session_29_wire_tests.md
-      + session_30_wire_tests.md
-  [ ] four_tasks_theme_design_notes.md (v2 RESTRUCTURE — supersedes the
-      2026-05-15 edition wholesale; replace the file)
-  [ ] this todo + devlog s32 entry
-  (Pair-key §9 needed nothing — §9.1a was already in the repo, the one s31
-   sync that DID land. Strip this whole bookkeeping block once committed.)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APPTRIOC FORK ARCHITECTURE (locked session 5)
