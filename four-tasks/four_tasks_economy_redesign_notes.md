@@ -4,7 +4,12 @@
 streak rule softened (≥1 task advances; only zero-task days break — sealed grey
 or never-opened alike), gap days now break streaks at the next seal (closing the
 previously-unnoticed no-show hole), and the STREAK RESCUE sink added (the
-morning-sequence escape hatch). This doc is the AUTHORITY for the coin
+morning-sequence escape hatch). AMENDED AGAIN 2026-06-11 (s32, doc-locked ahead
+of build — tile 4.25): WALKBACK SPAN-SEALING — the morning claim adjudicates
+every day between the last seal and the claim date, oldest first; never-opened
+days seal grey at first contact; the rescue offer anchors to the zero-task
+day's own seal and fires only when exactly one such day stands between the
+streak and survival. This doc is the AUTHORITY for the coin
 economy: earn rates, multipliers, subscription tiers, sinks, and the per-user
 ownership model. It SUPERSEDES the conflicting parts of
 `four_tasks_monetisation_position.md` (the COIN ECONOMY TUNING section, the
@@ -24,7 +29,8 @@ Cross-references:
   framing, price structure, founders model (all still authoritative); coin
   tuning + pair-pricing superseded here.
 - `four_tasks_morning_sequence_design_notes.md` — the claim is where payout is
-  computed; beat 6 is where it's animated.
+  computed; beat 6 is where it's animated. The walk mechanics (span-sealing,
+  rescue gate two-phase shape) are specified there; this doc carries the RULES.
 - `four_tasks_theme_design_notes.md` — pack/sticker feature-catalogue model;
   library access mechanic.
 - `four_tasks_pair_key_design_notes.md` — per-user identity; subscription is
@@ -57,6 +63,16 @@ the prototype, not what shipped in the session-12 wholesale rewrite.
 - Rest day earns **0 at claim** (the rest day was paid for at designation, not
   earned at claim).
 - 0-task accounted day (the grey "disappointment" tier): 0 coins.
+- Never-opened day sealed grey by the span walk (s32): 0 coins, no payout
+  of any kind — there is nothing to pay for.
+- **Shadowed accounted task day (s32 edge):** if two consecutive claim
+  failures strand an accounted task day mid-span (rare; needs the daily claim
+  to fail across two separate days while task writes succeeded), span-sealing
+  seals it at its natural tier WITH its natural payout, silently batched into
+  the same claim — the user did the work and keeps the coins. The ceremony
+  still presents only the most recent day; the balance simply arrives a little
+  larger than the presented `coins_earned`. Honest, rare, and better than the
+  s30 behaviour (the day was shadowed forever and its payout silently lost).
 
 ### Partner-completion multiplier
 Reads the **partner's** task completion for that same day (their state, not
@@ -93,41 +109,66 @@ clearance #1.)
   purple (rest days), and **breaks only on zero-task days** — whether that day
   sealed grey (opened, did nothing) or was never opened at all (a no-show gap).
   Rationale: no paternalising in-app; the bare minimum keeps the chain alive.
-  Gap detection happens at the next seal — the day being sealed is checked for
-  date-adjacency against the most recent previously-sealed day (derived, no new
-  column). A gap zeroes the streak BEFORE that day's own contribution counts,
-  and the streak BONUS for that payout reads the post-break value (you are not
-  paid a bonus across a broken streak).
+- **Gap handling (AMENDED s32 — span-sealing, tile 4.25):** the morning claim
+  adjudicates EVERY day between the most recent sealed day and the claim date,
+  oldest first, each ending terminal in walk order — never-opened days seal
+  grey (`accounted_for` stays 0, no payout), accounted days seal at their
+  natural tier. Streak math runs per-day in that same order: a grey seal
+  zeroes the streak AT the day it happened, and later days in the walk build
+  from the post-break value. The streak BONUS on the payout day reads the
+  streak as the walk delivers it — you are never paid a bonus across a break.
+  History becomes **contiguous**: every day between install and the last seal
+  ends terminal, so the streak the user sees is always already adjudicated.
+  - SUPERSEDED s30/s31 mechanism (recorded for history): single-target
+    walkback + date-adjacency check against the most recent previously-sealed
+    day. Correct about WHETHER a gap broke, wrong about WHEN the user learned
+    it — a streak could advance past a hole on day N and retroactively
+    collapse on day N+1, because holes were only checked behind the payout
+    target. Span-sealing kills the wart.
   - SUPERSEDED original rule (session 27, recorded for history): advance on
     green (4-task) only, hold on purple, reset on anything else. Also note: as
     originally IMPLEMENTED, no-show gaps never broke streaks at all (unsealed
-    days never ran the streak math) — a hole found and closed with this
-    amendment.
+    days never ran the streak math) — a hole found and closed with the first
+    2026-06-11 amendment.
 - Reads the **user's own** streak (per-user), not the partner's.
 
-### Streak rescue (the morning escape hatch — ADDED 2026-06-11)
+### Streak rescue (the morning escape hatch — ADDED 2026-06-11, AMENDED s32)
 When the streak (≥1) is about to break and **exactly one purchasable day would
-save it**, the morning claim pauses before sealing and offers ONE chance to buy
-that day as a rest day. Locked decisions (Morgan, 2026-06-11):
-- **Eligible breakers:** zero-task days only — a sealed-grey day, or a single
-  no-show gap day in front of an otherwise streak-maintaining seal. Partial
-  days never need rescue under the amended rule (they maintain the streak
-  themselves, which is the point).
+save it**, the morning claim pauses before sealing anything and offers ONE
+chance to buy that day as a rest day. Locked decisions (Morgan, 2026-06-11):
+- **Eligible breakers:** zero-task days only — sealed-grey or never-opened
+  alike. Partial days never need rescue under the amended rule (they maintain
+  the streak themselves, which is the point).
+- **First-contact anchoring (s32):** the offer fires DURING the span walk, AT
+  the zero-task day, anchored to that day's own seal — decline seals it grey,
+  accept converts/creates it as rest (purple). It no longer matters whether a
+  payout target follows: skip Tuesday, open Wednesday, and Tuesday is
+  adjudicated — offer included — Wednesday morning, possibly on a claim that
+  pays nothing. (Under the superseded s30 mechanism the offer waited for the
+  next payout target, which is exactly what produced the retroactive
+  collapse.)
+- **Exactly one, by pre-scan (s32 — generalises "multi-day gaps are dead"):**
+  before adjudicating, the walk counts the zero-task days in the whole span.
+  Exactly one AND streak ≥1 → offer fires at that day. Two or more —
+  consecutive gap days, or a gap plus a grey day anywhere in the span — and
+  the whole span seals silently with the break: no offer, no chained offers,
+  no two-purchase saves. One purchase saves the streak or nothing is for
+  sale. False hope stays dead.
 - **Price: RESCUE_COST = REST_COST = 50,000.** Same as designation — "not
   gamifying that hard." Shipped as its own server constant inside the economy
   payload (`rescue_cost`) so a future premium is a one-constant change.
 - **No frequency cap.** Price is the only guard; users may rescue as often as
   they can afford. Accepted with eyes open — see OPEN TENSION below.
 - **One-shot per breaker, enforced by the seal itself:** declining seals the
-  day grey immediately; accepting converts it to rest and seals purple. Both
-  paths end sealed, so there is nothing to re-offer and no state to track. An
-  unresolved offer (app died mid-dialog) leaves the day unsealed and the next
-  open re-offers — self-healing, not a loophole.
-- **Multi-day gaps are dead.** Two or more missing days cannot be bridged by
-  one purchase, so no offer is made — the streak breaks honestly rather than
-  selling false hope.
-Mechanism (two-phase claim + `POST /users/:id/claim/resolve`) is specified in
-`four_tasks_morning_sequence_design_notes.md` (STREAK RESCUE GATE).
+  zero-task day grey; accepting converts/creates it as rest and seals purple.
+  While the offer is pending, NOTHING in the span seals — resolve re-walks
+  from current state and seals everything in one atomic batch. Both paths end
+  with the breaker sealed, so there is nothing to re-offer and no state to
+  track. An unresolved offer (app died mid-dialog) leaves the span unsealed
+  and the next open re-offers — self-healing, not a loophole.
+Mechanism (two-phase claim + `POST /users/:id/claim/resolve`, span walk shape)
+is specified in `four_tasks_morning_sequence_design_notes.md` (STREAK RESCUE
+GATE + WALKBACK SPAN-SEALING).
 
 ---
 
@@ -224,8 +265,9 @@ base      = sum of per-task 900–1400 (rest = 0)
 mult      = partner-completion multiplier (1.2–1.5), ×1.5 if two-sub
             (solo: 1.0, or 1.5 if subscribed-solo)
 streakAmt = (two-sub only) base*mult * (streak_days * 0.01)
-            — streak_days is the PRE-claim streak, ZEROED FIRST if a gap broke
-            continuity at this seal (no bonus across a broken streak)
+            — streak_days is the PRE-payout streak as the span walk delivers
+            it (any break earlier in the walk has already zeroed it; no bonus
+            across a broken streak)
 payout    = round(base * mult) + streakAmt
 ```
 
@@ -233,6 +275,13 @@ Subscription state is read per-user at claim time (both users' `subscription_
 active`), per the monetisation doc's pair-pricing resolution. The handler reads
 the partner row already (for pairing); it gains a partner-completion read and a
 two-subscription check.
+
+**SPAN-SEALING STATUS (s32):** the walkback span-sealing amendment
+(first-contact adjudication, pre-scan rescue, contiguous history) is
+DOC-LOCKED, NOT YET SHIPPED. The live handler still runs the s30 single-target
+walkback + adjacency check. Tile 4.25 brings the handler to this doc; until it
+lands, this doc describes the target and the wire behaves per the superseded
+s30 mechanism noted in the streak section.
 
 NOTE: a sealed day's recorded payout is immutable — it never recomputes if a
 subscription later lapses. Coins already paid stay paid. (Monetisation doc,
@@ -263,7 +312,9 @@ It is deliberately LEFT IN. The blast-radius picture, updated 2026-06-11:
    ACCEPTED (Morgan, 2026-06-11, twice): "even at a 400-day streak it's still
    not something you'd want to happen to you, and if someone stays subbed for a
    year they've paid for the app." The advantage remains earn-RATE only; no
-   content or ownership is gated.
+   content or ownership is gated. (Span-sealing does not move this tension
+   either way — the pre-scan makes multi-day absences strictly unrescuable,
+   same as before; single misses remain purchasable without cap.)
 3. **Marketing-positive** — free and long-streak players are loud about their
    progress; that visible progression is word-of-mouth advertising.
 

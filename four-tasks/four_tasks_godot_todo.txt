@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-11 AWST (session 31)
-Last updated: session 31 — DEVICE LEDGER D1-D15 CLEARED (all pass); s29+s30 code VERIFIED. Five s31 fixes shipped + device-verified same day: ceremony stage normalization (show_for_date toggle deadlock, beat 0b + App snap-home + carry gate), sealed-beats-clock (task_list sealed gate + rest long-press bail), coin-source bound (claim/resolve local_date ±2d of server UTC — W18 owed), devkit FK wipe (devkitWipeStatements shared helper + seed sync), DevKit.gd case rename (Android PCK case-sensitive). Recorded not built: laptop-export emoji rendering, 4.23 date-change watcher, 4.24 sealed-grey cell [DECIDE], 4.5 MOTD-kill recovery note, rapid-tick-under-clock-hop PARKED. Last code: session 31.
+Last edit: 2026-06-11 AWST (session 32, mobile)
+Last updated: session 32 — 4.25 DOC PASS DONE (doc-locked, build owed): economy + morning-seq + system map + timezone docs amended; wire_regression_pack.md created (folds s29/s30 packs, adds W18 commands + the 4.25 W13r/W14r/W19/W20 re-spec). The s31 bookkeeping syncs were found STRANDED — none had reached the repo (and the s30 morning-seq rescue-gate section was never pushed at all); all written fresh this session, folded into the same files. Repo finding: the s31 DevKit.gd case rename never landed in git (Windows core.ignorecase ignores case-only renames — fix below). Project files refreshed (clean slate: todo + devlog + .gd scripts + server zip; all carry the s31 finals). LATER SAME SESSION: ★THEME PREP design conversation RESOLVED — theme doc v2 written (colour system: 4 weighted roles + neutral ramp; v1.0 = 7 slots; pre-bake retint; R2 delivery; cell treatments deferred to v1.x). Tile 4.26 (notifications, crude/local) ADDED for the daily-driver switch. NO CODE this session — at work, doc-only. Last code: session 31.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -13,34 +13,38 @@ Convention: ticked tiles get `Time: ~Xh` or `~Xmin` on title line.
 Tiers (for items outside phase structure): ACTIVE / PARKED / DEFERRED.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-OPEN TESTS + BOOKKEEPING (post-ledger, s31)
+OPEN TESTS + BOOKKEEPING (post-ledger, s31; commit block added s32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Device ledger D1-D15 CLEARED session 31; s29+s30 code verified. Remaining:
 
-  [ ] W18 coin-source bound: claim with local_date 10 days out → 400
-      bad_date; real-date claim unaffected (index.ts s31, deployed).
-  [ ] W10 (optional) Thursday cron via `wrangler dev --test-scheduled`,
+  [ ] W18 coin-source bound: far-date claim → 400 bad_date; real date → 200.
+      Commands: wire_regression_pack.md. Also proves the s31 index.ts
+      deploy landed on dev.
+  [ ] W10 (optional) Thursday cron — commands in wire_regression_pack.md,
       or let a real Thursday prove it on dev.
-  [ ] Fold reusable wire commands into wire_regression_pack.md; delete
-      session_29/30_wire_tests.md.
   [ ] Emoji glyphs missing on work-laptop Android export (🔥/🟡 streak bar
       + CoinFX flights invisible; ★ fine). Check Godot version/export
       parity vs home PC BEFORE any release build from the laptop.
+  [ ] git case-rename fix (laptop): `git mv devkit.gd DevKit.gd` + commit.
+      The s31 rename never registered (core.ignorecase swallows case-only
+      renames); the repo still carries lowercase, so any fresh clone or an
+      export built from one resurrects the dead-autoload-on-Android bug.
 
-BOOKKEEPING OWED (doc syncs):
-  [ ] System map: §4.x/§6-7 component inventory (sessions 24-31 incl.
-      rescue_confirm, hero_beat, bug_catcher, beat-0b normalization,
-      sealed gate); §5.3 already current per s30 currency note.
-  [ ] Staggered disclosure: week-mode cascade destination = popup +
-      one-time intro line (Model B, one line).
-  [ ] Morning-seq doc: beat 0b stage normalization (tray close precedes
-      claim; App snap-home + carry gate); rescue-dialog-mounts-above-
-      blocker nuance; "App should call abort()" → freeze/resume model.
-  [ ] Timezone/sealing doc: sealed-beats-clock client rule + coin-source
-      ±2d server bound (s31).
-  [ ] Pair-key doc §9: partner payload carries partner's user_id (= write
-      credential); intra-pair trust posture, record as decision.
+COMMIT CHECKLIST (s32 artifacts → pickle-moon-design-notes):
+  [ ] four_tasks_economy_redesign_notes.md        (4.25 amendment)
+  [ ] four_tasks_morning_sequence_design_notes.md (rescue gate + 0b + 4.25)
+  [ ] four_tasks_system_map.md                    (full refresh + 4.25 notes)
+  [ ] four_tasks_timezone_and_sealing_design_notes.md (clock bounds + 4.25)
+  [ ] four_tasks_staggered_disclosure_design_notes.md (Model B line)
+  [ ] wire_regression_pack.md (NEW) — then DELETE session_29_wire_tests.md
+      + session_30_wire_tests.md
+  [ ] four_tasks_theme_design_notes.md (v2 RESTRUCTURE — supersedes the
+      2026-05-15 edition wholesale; replace the file)
+  [ ] this todo + devlog s32 entry
+  (Pair-key §9 needed nothing — §9.1a was already in the repo, the one s31
+   sync that DID land. Strip this whole bookkeeping block once committed.)
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APPTRIOC FORK ARCHITECTURE (locked session 5)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -151,7 +155,7 @@ before code). Realistic store launch: Sept-Oct 2026.
 [x] 4.3 [CODE] CoinFX utility. Session 27. (Stub coin art; real sprite 4.A — swap _make_coin only.)
 [x] 4.4 [CODE] MOTD spinner. Sessions 25-26. ~6h. TUNING deferred (column widths, font, selector band, emoji reel TextureRect column).
 [~] 4.5 [CODE] MOTD reroll cost — SERVER HALF DONE (s29): POST /users/:id/motd/reroll (relative debit, 409 insufficient_coins, returns user + fresh roll); REROLL_COST=100 placeholder shipped via economy payload; fee-is-vent-not-protection decision recorded at the constant (free /motd/roll remains the first-spin path). CLIENT HALF remains: picker lock button + confirm popup wiring (ceremony-adjacent — with Morgan). MUST sealed-gate the edit surface (sealed-beats-clock, s31) AND serve as the recovery surface for a mid-ceremony kill (today's MOTD pick is lost if beats die before 9 — s31 finding). (~2h left)
-[x] 4.6 [CODE] Morning sequence — coordinator. Sessions 26-28. ~11h + economy. OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold); cross-month verified-on-real-1st only. INTERRUPTION model rewritten session 29: freeze/resume, no abort (doc sync owed).
+[x] 4.6 [CODE] Morning sequence — coordinator. Sessions 26-28. ~11h + economy. OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold); cross-month verified-on-real-1st only. Interruption = freeze/resume (doc synced s32).
 [x] 4.7 [CODE] Stamp slap — folded into 4.6 beat 7. Session 26. Placeholder art; real stamps 4.C. Messages = content (PARKED).
 [~] 4.8 [CODE] Rest day system — MECHANISM DONE (s28) + session-29 hardening (free-rest hole closed, per-op rollback, server-shipped cost, anim-leak fix). Time: ~2h. Device test = S29 ledger D7/D8. DEFERRED: rest-day task-label content swap (~15-30 phrases; felt cheesy).
 [ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days — bonus is a PAYOUT component (server-side, economy doc applies; immutable at grant). UNBLOCKED 2026-06-10: streak-semantics question was moot (week mode is label-overrides only — every day still has four tasks; streaks untouched). (~4-6h)
@@ -160,20 +164,21 @@ before code). Realistic store launch: Sept-Oct 2026.
 [~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: confetti (waits on 4.9's SHARED confetti system — no one-off particles) + real-UI trigger (one line, lands with 4.11's help menu). (~30min left, inside 4.9/4.11)
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h)
 [x] 4.14c [CODE] Future cells non-tappable. day_cell.is_interactive() rejects taps + long-presses on DEAD_FUTURE. Device-verified session 31. ~0h.
-[ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready: `week_mode_weekdays` bitmask + `user_weekday_overrides` table (in v1.0 schema; needs its write endpoint).
-    OPEN at design sign-off (RESOLVE BEFORE BUILD): interaction model. The LOCKED doc = two silent gestures (long-press day name in TRAY HEADING toggles the weekday; long-press an individual task LABEL to edit; doc explicitly rejected popup flows). Morgan's 2026-06-10 description = single POPUP off the weekday header with four tasks + radio selectors per slot. Different surface + mechanism, same propagation. Pick one, sync the doc, then build.
-    Streak-semantics dependency REMOVED — moot (label overrides only; streaks/payout/stamps untouched, week-mode doc line 27). (~8-12h + design)
+[ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready-ish: `user_weekday_overrides` table needs the 4.D2 reshape (per-slot text + active bitmask; explicit drop-and-recreate — IF NOT EXISTS won't restructure) + its write endpoint; `week_mode_weekdays` bitmask RETIRED-UNUSED under Model B.
+    Interaction-model fork RESOLVED: Model B — single POPUP off the weekday header, four task slots with per-slot override controls (Morgan 2026-06-10; staggered-disclosure doc synced s32: day-2 long-press relays into the popup, one-time intro line replaces the tutorial flow). REMAINS BEFORE BUILD: sync the week-mode doc itself to Model B (it still carries the rejected two-silent-gestures model) + popup detail design. (~8-12h + doc sync)
 [ ] 4.23 [CODE] App local-date-change watcher — on focus-in, if today_iso moved in EITHER direction: repaint both calendars, close any open tray whose date is now future. Backwards clock moves currently leave stale paint (s31); forward already claim-handled. Designed s31. (~1h)
-[ ] 4.24 [DECIDE] Sealed-grey cell colour. A sealed zero-task day renders UNMARKED — indistinguishable from an untouched day. Grey cell tier vs stamp-only grey. (s31)
+[ ] 4.24 [DECIDE] Sealed-grey cell colour. A sealed zero-task day renders UNMARKED — indistinguishable from an untouched day. Grey cell tier vs stamp-only grey. (s31; pressure rises with 4.25 — silently-sealed never-opened days become common.)
+[~] 4.25 [CODE] Walkback span-sealing — DOC PASS DONE s32 (direction locked s31). Authority now in the docs: economy (streak/rescue rules incl. exactly-one PRE-SCAN — gap+grey combos are dead, no chained offers; shadowed accounted days pay silently), morning-seq Q5 + STREAK RESCUE GATE (span walk oldest-first; never-opened seal grey accounted_for=0, silent, no ceremony; pending seals NOTHING; pending_rescue.target_date/tier nullable — rescue can fire with no payout target), system map + timezone forward notes, wire pack W13r/W14r/W19/W20 re-spec. REMAINS: BUILD — server span walk + pre-scan in sealTarget path (~3-5h), client deltas (null-target dialog copy; verify resolve→sealed_day:null path), run the re-spec wire rows, device pass. (~3-5h + verify)
+[ ] 4.26 [CODE] Notifications — CRUDE PASS for the daily-driver APK. LOCAL only (no FCM; server push = v1.x, DEFERRED line). DESIGN LOCKED s32, two daily notifications, tap opens app: (1) morning "your coins are waiting"; (2) ~8pm "you haven't ticked your tasks today, want to do that before bed?". Fixed times + fixed copy v1.0; customisation v1.x. Build details: exact times; suppress evening nudge when 4/4 already done IF the plugin does cancel-by-id cheaply, else fire unconditionally (crude is acceptable). Android notification plugin into the export — laptop/home-PC work. (~3-5h incl. plugin wrangling)
 
 ━━━ FORK POINT ━━━ APPtrioc launches from snapshot after 4.14a. See PHASE 5b. ━━━
 
 ━━━ POST-FORK CODE TILES (Four Tasks exclusive) ━━━
 
 [ ] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration). Unlocked menu: per-slot icons, instant application + APPLY ALL. Locked menu: PREVIEW (~30s revert). Rotation fires on active_leader change ONLY.
-    GATED on the THEME PREP design conversation (see ACTIVE) — render sizes, retint mechanism, palettes, schemas, coordinators. Build machinery against placeholder art. Reference: `four_tasks_theme_design_notes.md`. (~10-15h + design)
+    Design authority: theme doc v2 (THEME PREP resolved s32 — colour system, 7-slot catalogue, pre-bake retint, preview/marker rules). Build machinery against placeholder art. Owed at this tile per doc: icon art, marker style, 9-slice centre-mode convention, partner-render asset endpoint shape. (~10-15h)
 [ ] 4.15 [CODE] Username + icon edit. Settings → triggers rotation. "Changes may take a minute" popup. (~3-4h)
-[ ] 4.20 [CODE] Palette derivation devtool — DevKit sub-screen. Loads sticker.png, shows derived swatches + RGB + counts. Grey-exclusion MUST share the runtime renderer's function. DIRECTLY SUPPORTS the endless-sticker production loop — build before the first big 4.D batch. (~2-3h)
+[ ] 4.20 [CODE] Palette derivation devtool — DevKit sub-screen. Loads sticker.png, shows derived swatches (incl. role-accent) + RGB + counts + neutral audit (doc v2). Exclusion rule (R==G==B exact + alpha) MUST share the runtime renderer's function. DIRECTLY SUPPORTS the endless-sticker production loop — build before the first big 4.D batch. (~2-3h)
 [ ] 4.21 [CODE] Un-pair flow — client UI (server endpoints done 1.3; initiator-notice fix s29). Initiator: long-press partner header → menu → Un-pair → confirm → change-username follow-up. Recipient: dismissable banner (one-shot, server-tracked). Reference: pair-key doc §17. (~3-4h)
 [~] 4.22 [CODE] Content-drops delivery pipeline — SERVER RECEIVE-SIDE DONE (s29): schema (content_drops / content_drop_assets / content_drop_deliveries), GET /users/:id/drops (live + forward-only + undelivered; release-day local-time gating is CLIENT-side per client-owns-the-clock; subscriber_only returned not filtered — sub-pack news is conversion pull), POST delivered ack (explicit, idempotent, never implicit on read), Thursday-release cron (wrangler [triggers] + scheduled handler). Tests = W9/W10. CLIENT HALF remains: presentation queue + drop popup (ceremony-adjacent — with Morgan). Publishing = manual SQL at launch; authoring tool post-launch. (~3h left)
 
@@ -193,7 +198,7 @@ PHASE 4b — Art & feel (PAINTING ONLY, at the easel)
 [ ] 4.A [ART] Coin sprite.
 [ ] 4.B [ART] Frog mascot.
 [ ] 4.C [ART] Stamp set. Six tiers: grey/red/orange/yellow/green/purple.
-[ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png`. Palette from sticker.png pixel-frequency (≤3 non-grey). 32×32 RGBA. Launch set + 3-4 pack buffer (see PARKED pack-drop item). Reference: theme doc.
+[ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png`. Palette from sticker.png pixel-frequency (≤4 non-neutral + free neutral ramp — doc v2). 32×32 RGBA. Maximal pack = sticker + background 360×800 + three 48×48 9-slices + 1-4 border corners 96×96. Launch set + 3-4 pack buffer (see PARKED pack-drop item). Reference: theme doc v2.
 [ ] 4.E [ART] UI chrome (buttons, popups, dividers, util bar).
 [ ] 4.F [ART] Onboarding example calendar screenshots (real build, post-theming).
 
@@ -217,7 +222,7 @@ PHASE 5 — Ship Four Tasks to stores
 [ ] 5.6 [ART] App icon master 512×512.
 [ ] 5.7 [ART] Store screenshots. 4-6 portraits per store.
 [ ] 5.8 [ART] Feature graphic Google Play. 1024×500.
-[ ] 5.9 [ADMIN] Privacy policy finalised + hosted. Align with honest threat model (pair-key §9 — incl. the s29 partner-user_id note).
+[ ] 5.9 [ADMIN] Privacy policy finalised + hosted. Align with honest threat model (pair-key §9 — incl. the s29 partner-user_id note, §9.1a).
 [~] 5.9a [ADMIN] Terms of Service — DRAFTED (s29, `terms_of_service_draft.md`): plain-language, ACL carve-out, store-billing refund posture, pair-visibility honesty, 13+ age line. REMAINS: Morgan review (+ consider professional read before paid launch) + host in pickle-moon-public.
 [ ] 5.11 [ADMIN] Apple App Store Connect setup.
 [ ] 5.12 [ADMIN] Google review submission.
@@ -250,13 +255,13 @@ GATE: Both products in market.
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[x] Session 29 full-stack bug sweep + 20 fixes. See TEST LEDGER block (top). Unverified until ledger burns down. Devlog entry owed.
+[x] Session 29 full-stack bug sweep + 20 fixes. Verified s31 (ledger cleared).
 
-[ ] ★ THEME PREP design conversation — CRITICAL PATH (gates 4.14b, shapes 4.D specs + 4.20). First thing next roster break, Aseprite open, doc before code. NOW ALSO INCLUDES (s29): runtime sticker-asset loading — the client fetching/caching R2-hosted PNGs. 4.22's schema records r2_keys but no client can render them; without this design, new-pack ART still requires an app update and the "endlessly paint stickers" loop only delivers announcements. Same art-pipeline surface as the rest of this conversation. The pile: cell sticker render size (~100px), picker grid size (~200px), cell variant source sizes, grid tile size, background slot dims, flourish/label bounding boxes, safe-area rules, retint mechanism (shader/pre-bake/indexed PNG), reference palette RGBs, default theme art, themed-sticker marker style, context-menu icon vocabulary, effects_active/effects_ambient/theme_audio .tres schemas, effects + audio coordinator architecture, locked-vs-unlocked picker rendering, preview timeout, exact "grey" definition. PLUS: cell-overlay buckets vs 9 runtime states (one completed.png for the whole done ramp, or completed=4/4 + partial=1-3? renderer lookup must match painter expectation); theme slot catalogue gaps (popup skin, meta mods).
+[x] ★ THEME PREP design conversation — RESOLVED session 32 (mobile grilling, screenshots + sketch). Theme doc v2 is the authority: colour system (4 weighted roles + role-accent fallback, neutral ramp #000/#5A5A5A/#B4B4B4/#FFF, R==G==B exclusion), v1.0 7-slot catalogue (leader/palette/background/calendar card/tray card/popup skin/border — cells SACRED, treatments deferred v1.x), pre-bake retint LOCKED, meta-mod transform stack (v1.x feature, v1.0 hook), dimension table from Layout.gd, R2 runtime asset delivery incl. partner-render rule, 30s preview. [TUNE AT FIRST ART] items live in the doc's open list. UNBLOCKS 4.14b/4.20/4.D. Time: in s32 total.
 
-[x] ★ Morning-sequence additions design conversation — RESOLVED + BUILT session 30 (2026-06-11, mobile). Time: ~design 1h + build 4h (server verified, client pending).
-    (a) STREAK RESCUE (was: rest-purchase escape hatch) — design locked + built; server wire-verified W11-W17. All opens answered: grey-days-only (rule change made partials self-maintaining), 50k == rest cost (own constant), no cap (price-only guard, econ-doc tension accepted), one-shot via the seal itself, pre-ceremony beat 0 (NOT mid-ceremony — lockout stays acknowledgement-not-action), two-phase claim + re-entrant resolve. Authority: economy doc (Streak rescue) + morning-seq doc (Streak rescue gate).
-    (b) SEAL-DAY HERO BEAT — design locked + built (hero_beat.gd, UNVERIFIED, D15). No-amount rule dissolved the ceremony-reshape worry: morning keeps the whole reveal. Authority: four_tasks_hero_beat_design_notes.md. Sticker art placeholder until 4.D.
+[x] ★ Morning-sequence additions design conversation — RESOLVED + BUILT session 30, device-verified s31. Time: ~design 1h + build 4h.
+    (a) STREAK RESCUE — locked + built + verified (W11-W17, D12-D14). Authority: economy doc (Streak rescue) + morning-seq doc (Streak rescue gate). AMENDED s32 for span-sealing (4.25).
+    (b) SEAL-DAY HERO BEAT — locked + built + verified (D15). Authority: four_tasks_hero_beat_design_notes.md. Sticker art placeholder until 4.D.
 
 [ ] Username display normalisation vs recovery footgun. panel_heading lowercases at render; recovery matches STORED case → user types what they saw, gets user_not_found. Resolve: (a) lowercase server normalisation (heavy: re-derives hashes), or (b) recovery-screen copy "enter exactly as you first typed it, capitals matter" (~30min). Lean (b). Pair-key doc §12.
 
@@ -270,16 +275,13 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] Roster-week content list — mobile-writable work for on-roster weeks (in progress on phone, 2026-06-10): stamp messages (grey dry-tone pool, 5-10 each red/orange/yellow, 40+ green, 20 purple — currently bracket-stubs in PROD, would ship visibly if claimed today), help-menu copy (six subjects), rest-day task-label phrases (~15-30), MOTD pool expansion, sticker/stamp concept lists, promo-codes doc draft.
 
-[~] Doc sync pass — FIVE DOCS SHIPPED s29 (morning_sequence: freeze/resume + per-day trigger + soft walkback; system_map: §5.3/§9.2/§9.4/§10.x to as-built + honest header, §6-7 component refresh still owed; week_mode: fork + moot + scope; pair_key: §9.1a; stamp_tier: grey tier + tray terminology). REMAINING pile:
+[~] Doc sync pass — s29 shipped five docs; s32 shipped five more (economy, morning-seq — incl. the s30 rescue-gate section that never reached the repo, system map full refresh incl. the §6-7 inventory, timezone incl. boot-only clarification + rotation/MOTD wording, staggered-disclosure) + wire_regression_pack.md. REMAINING pile:
+    - Week-mode doc → Model B (popup) — lands with 4.D2's design pass.
     - Partner reactions doc → `four-tasks/deferred/`.
-    - `pickle_moon_repo_index.md`: reactions → deferred; promo codes doc ADDED (s29); ToS draft ADDED; schema migration-files-deleted note; write_rules → Background/Superseded.
+    - `pickle_moon_repo_index.md`: reactions → deferred; promo codes doc ADDED (s29); ToS draft ADDED; wire_regression_pack.md ADDED + session wire-test files REMOVED (s32); theme doc → v2 (s32); schema migration-files-deleted note; write_rules → Background/Superseded.
     - Project system prompt: drop "first feature with field-level write rules".
     - Terminology: `diary` → `motd`, `emoji` → `active_leader` across remaining docs.
-    - timezone_and_sealing: boot-only sync model note.
-    - morning_sequence: MOTD framing; "migration window" → "rotation window" (the s29 sync didn't touch these two).
-    - theme doc: `<id>_<role>.png` naming; trigger-gated picker hint; layer-3 "stamp" → STICKER.
     - onboarding: name confirm displays typed value EXACTLY.
-    - system_map §6-7: client component inventory refresh (sessions 24-29).
     - content_authoring doc: note receive-side shipped (4.22 s29) + beat-collision blocker RESOLVED (s26 presentation queue).
 
 [x] Promo codes design doc — WRITTEN (s29): `four_tasks_promo_codes_design_notes.md`. One-code-per-user-ever; permanent founders rate; attempt logging incl. failures; codes never grant coins; founders FLAG vs RATE distinction. Redemption endpoint + client entry remain Phase-5 commercial work.
@@ -300,7 +302,7 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] Rate limiting — Cloudflare platform edge, per-IP, generous. All write endpoints + APPtrioc. Own conversation pre-Phase-5.
 
-[ ] IANA timezone-name capture (v1.x). Includes the s29-parked `yesterday_iso` epoch−86400 DST edge (wrong ~1h around transitions for non-WA users) — same family, same fix window.
+[ ] IANA timezone-name capture (v1.x). Includes the s29-parked `yesterday_iso` epoch−86400 DST edge (wrong ~1h around transitions for non-WA users) — same family, same fix window. (Both now recorded in the timezone doc, s32.)
 
 [ ] Bonus pill two-sub ×1.5 display (s29 finding). Pill shows base multiplier only; server applies the sub boost invisibly. Lands with paywall/sub UI (5.s) — meaningless until subs exist.
 
@@ -324,13 +326,13 @@ PARKED — known, not blocking
 
 [ ] Wrangler D1 token-refresh quirk. Fix: logout + login.
 
-[ ] GOTCHA: autoload filename CASE must match registration exactly (Android PCK case-sensitive).
+[ ] GOTCHA: autoload filename CASE must match registration exactly (Android PCK case-sensitive). AND (s32): case-only renames don't register in git on Windows (core.ignorecase) — use `git mv`.
 
 [ ] GOTCHA: Android export needs INTERNET permission explicitly ticked.
 
 [ ] GOTCHA: device-test via `adb install -r`, not email/download.
 
-[x] ECONOMY REDESIGN — doc LOCKED s27 (AUTHORITY). Claim handler applies it in full as of s28.
+[x] ECONOMY REDESIGN — doc LOCKED s27 (AUTHORITY). Claim handler applies it in full as of s28. Amended s30 (streak/rescue) + s32 (span-sealing, 4.25 — doc-locked ahead of build).
 
 [ ] Coin economy balance pass — feel tuning of placeholder figures against real play. rest_cost now server-shipped (s29) so retunes are one server constant; extend the economy payload container as more numbers go live (reroll cost, sticker prices).
 
@@ -350,7 +352,7 @@ PARKED — known, not blocking
 DEFERRED — v1.x or later
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Push notifications.
+[ ] Push notifications (server-driven / FCM). Local scheduled reminders are v1.0 — tile 4.26.
 [ ] Audio (silent v1, audio v1.1).
 [ ] Partner reactions (deferred s12).
 [ ] Leaderboard — KILLED for v1.0 (2026-06-10), removed from Phase 4. Eternal-stats optionality PRESERVED: lifetime_coins + longest_streak live in schema now; `four_tasks_tracking_design_notes.md` covers richer per-user stats if revived for experience depth later. Design docs stay in `four-tasks/deferred/`.
@@ -377,3 +379,5 @@ Running project total at session 27 close: ~138.75h.
 Running project total at session 28 close: ~142.75h.
 Running project total at session 31 close: ~156.75h
 (s29 ~5h · s30 ~5h · s31 ~4h; s29 figure is an estimate — correct if wrong).
+Running project total at session 32 close: ~162.75h
+(s32 ~6h ESTIMATE, doc-only incl. THEME PREP — correct at close if wrong).

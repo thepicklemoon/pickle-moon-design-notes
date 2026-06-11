@@ -1,1325 +1,634 @@
-# Four Tasks — Theme & Sticker System Design Notes
+# Four Tasks — Theme & Sticker System Design Notes (v2)
 
-Last edit: 2026-05-15 21:35 AWST
+Last edit: 2026-06-11 AWST (session 32, mobile — the THEME PREP
+design conversation)
 
-Status: FOUNDATION LOCKED (session 5)
-        STICKER CANVAS SIZE LOCKED (session 6 mobile)
-        TIER 0 ANIMATED PACKS ADDED (session 6 mobile)
-        FEATURE-CATALOGUE MODEL LOCKED (session 7 mobile) —
-          supersedes the four-tier coverage gradient. Each sticker
-          ships whatever subset of features it ships, no tier
-          label. Per-slot selection from the user's accessible
-          library at runtime.
-        CELL TREATMENT OVERLAY + MASK ARCHITECTURE LOCKED
-          (session 7 mobile) — supersedes the implied "full
-          replacement" cell PNG model. Themed cells are stock
-          cells decorated by an overlay layer on top + optionally
-          a mask cutting the silhouette. No underlay. Z-order
-          pipeline documented under the CELL TREATMENT slot.
-        PIXEL-FREQUENCY PALETTE DERIVATION LOCKED (session 8 mobile) —
-          supersedes the palette.tres + reference-colour
-          substitution model. Palette roles are derived from the
-          sticker.png itself by pixel-count frequency, excluding
-          black, white, and greys. The art file is the only
-          source of truth; no sidecar palette file. See "THE
-          PALETTE KEY" section.
+Status: v1.0 CATALOGUE LOCKED (session 32) — seven slots ship at
+        launch; everything else moved to the DEFERRED CATALOGUE
+        with its locked architecture preserved. COLOUR SYSTEM
+        LOCKED (session 32) — up to four pixel-weighted roles plus
+        a free neutral ramp; supersedes the strict three-flat-roles
+        rule. RETINT MECHANISM LOCKED (session 32) — pre-bake at
+        slot change. PALETTE TRANSFORM STACK reserved (session 32,
+        v1.x feature, v1.0 architecture hook).
 
-Schema: NEW columns required at theme-system implementation —
-        see "Schema implications" section.
+This is theme doc v2. It restructures and supersedes v1 (the
+2026-05-15 edition). Everything still load-bearing from v1 is
+carried here; v1's superseded models are recorded as one-line
+history, not full sections. Supersession chain for the record:
+  - Four-tier coverage gradient → FEATURE CATALOGUE (s7).
+  - Full-replacement cell PNGs → overlay + mask (s7; now DEFERRED).
+  - palette.tres sidecar / central palette table (4.G) →
+    pixel-frequency derivation from sticker.png (s8).
+  - Three flat roles, greys-deferred → four weighted roles + the
+    canonical neutral ramp (s32, this edition).
+  - Cell treatments in v1.0 → v1.x incremental (s32).
+
 Implementation tiles: 4.14a (basic picker, pre-fork — tap-to-toggle
-pool membership only), 4.14b (post-fork — long-press per-element
-context menu + per-slot theme manager, FOUR TASKS ONLY), 4.D
-(sticker art).
-Tile 4.G (central palette table) is SUPERSEDED — see
-"Schema implications" below.
+pool only; APPtrioc inherits), 4.14b (post-fork — long-press
+context menu + per-slot theme manager, FOUR TASKS ONLY), 4.20
+(palette derivation devtool), 4.D (sticker art, Phase 4b).
 
-NOTE ON THE APPTRIOC FORK (locked session 5):
-  The full theme system (per-slot selection via long-press context
-  menu) is FOUR TASKS EXCLUSIVE. Tile 4.14b lands post-fork;
-  APPtrioc snapshots at tile 4.14a and never gets the context
-  menu. APPtrioc users see the picker but long-press is inert
-  (themed-sticker markers visible to hint at what Four Tasks
-  unlocks). The pool toggle (tap) IS available in APPtrioc. See
-  top of four_tasks_godot_todo.txt "APPTRIOC FORK ARCHITECTURE"
-  section.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PROBLEM
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The web prototype's theme system is the app's selling point in
-embryonic form. Long-press the top-left emoji, the picker opens,
-long-press an emoji inside the picker, that emoji becomes the user's
-"header" — its dominant colours are extracted via off-screen canvas
-pixel sampling and applied to the app background as a gradient. The
-streak bar gets a tinted accent. The loading screen gets a single
-colour. Everything else (day cells, task list, popups, util bar,
-calendar grid) stays hardcoded slate/zinc neutrals.
-
-It's a clever proof of concept that demonstrates the principle:
-change one emoji, the app reskins. But the actual reskin is small —
-only two UI surfaces participate — and the mechanism is fragile
-(relies on browser emoji font rendering, requires a setTimeout to
-wait for paint, depends on canvas pixel readback semantics that have
-no Godot equivalent).
-
-The Godot port replaces this with a fully hand-crafted system. Every
-sticker is hand-painted at 32×32 with deliberate colour discipline.
-The picker becomes the primary interface for personalising the app.
-The reskin is no longer cosmetic — it touches calendar cells, grid
-tiles, decorative flourishes, the whole chromatic identity of the
-app, and optionally extends to ambient atmosphere and audio.
-
-The palette propagation mechanism, however, is closer in spirit to
-the prototype than initially planned: the sticker.png IS the palette
-declaration. The renderer reads the painted pixels, derives three
-roles by frequency, and applies them to themed surfaces. The
-brittleness of the prototype (browser font rendering, canvas
-readback timing) doesn't exist in Godot — the source asset is a
-known, controlled PNG.
+APPTRIOC FORK NOTE (locked s5, unchanged): the full theme system
+is Four Tasks exclusive. APPtrioc snapshots at 4.14a — pool toggle
+works, long-press is inert, themed-sticker markers visible as the
+conversion hint.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 THE MODEL — PER-SLOT SELECTION FROM AVAILABLE LIBRARY
+(locked s7, unchanged)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The theme system has two layers:
+Two layers:
 
-  LAYER 1 — STICKER POOL.
-    Which stickers are eligible to be randomly slapped onto days
-    where the user completes all four tasks. Floor of 1 — every
-    completed day needs something to celebrate with. Same
-    behaviour as prototype's activeEmojis. Toggled via TAP on a
-    sticker in the picker grid. ALSO feeds the MOTD's emoji slot
-    (session 5 Q1 lock — see morning sequence doc). Stored
-    server-side as `users.active_stickers` (JSON array).
+  LAYER 1 — STICKER POOL. Which stickers are eligible to be
+    randomly slapped onto completed days (and feed the MOTD emoji
+    slot — morning-seq doc Q1). Floor of 1. Toggled via TAP in the
+    picker. Stored as `users.active_stickers`.
 
-  LAYER 2 — ACTIVE THEME SLOTS.
-    A set of named slots, each of which holds zero or one
-    sticker's contribution. The user fills slots from their
-    accessible library by long-pressing a sticker in the picker
-    and tapping the relevant element-icon in the context menu
-    that appears.
+  LAYER 2 — ACTIVE THEME SLOTS. Named slots, each holding zero or
+    one sticker's contribution, filled independently from the
+    user's accessible library via long-press → context menu →
+    element icon.
 
-Each sticker advertises whichever features it ships. The slots
-that sticker can fill are exactly the elements it owns. Stickers
-are not categorised into tiers; they are inventories of features.
-A frog sticker might ship seven element files. A chilli sticker
-might ship one. Both are valid stickers — their identity is
-defined by what they contribute, not by which tier-bucket they
-fall into.
+Stickers are INVENTORIES OF FEATURES, not tiers. A sticker ships
+whatever subset of elements it ships; the slots it can fill are
+exactly the elements it owns. The active theme is a per-slot
+selection over the library: background from frog, palette from
+chilli, popup skin from vampire — assembled piece by piece.
 
-THE ACTIVE THEME IS A PER-SLOT SELECTION OVER THE LIBRARY:
-  The user's live app at any moment is composed of one selected
-  sticker per slot, picked independently. Each slot pulls from
-  whichever stickers in the library ship that element.
+NO STACKING, NO COLLISIONS: a slot holds ONE element; picking a
+new contribution evicts the old one.
 
-  Example active state:
-    leader        = frog
-    palette       = chilli
-    background    = vampire
-    cell treatment = (empty — none of the user's stickers ship one)
-    active effect = chilli
-    ambient effect = frog
-    music         = vampire
-    label treatment = (empty)
-    dead-cell treatment = (empty)
-
-  The user assembled this by long-pressing each contributing
-  sticker and tapping that sticker's relevant element-icon. Each
-  tap immediately applies to the live app — no confirmation. The
-  user is free to swap any slot at any time, building up a
-  personal aesthetic from the available pieces.
-
-NO STACKING. NO COLLISIONS.
-  A slot holds ONE element. Picking a new sticker's contribution
-  for a slot evicts whatever was previously in that slot. Tap
-  frog's background icon then chilli's background icon → the
-  background is now chilli, frog is no longer contributing to
-  background.
-
-  This means there's no "frog water + chilli sizzle splashing
-  together" problem to design around. Each slot has a clean,
-  single source. If the user wants the splash, they pick frog
-  for active effect. If they want sizzle, they pick chilli for
-  active effect. They can't have both because there's only one
-  active-effect slot, period.
-
-THE LIBRARY IS A MENU PER SLOT.
-  Owning many stickers means having many *options* per slot —
-  each slot lists which stickers in the library can fill it. Tap
-  to swap. The user's library is a pantry; the active theme is
-  a meal assembled from it.
-
-INSTANT FEEDBACK, NO CONFIRMATION.
-  Tap an element-icon in the context menu → the slot updates
-  immediately and the app re-renders. No "are you sure" modal.
-  No commit-on-close pattern from the v2 identity picker — that
-  pattern exists because identity changes trigger pair-key
-  migrations. Theme changes don't. They're per-user, mutable,
-  cheap.
-
-  This is intentional. The point of the system is *exploration*.
-  You should be able to lose 20 minutes in the picker trying
-  combinations, seeing what resonates, swapping back and forth.
-  The instant-feedback loop is the joy.
+INSTANT FEEDBACK, NO CONFIRMATION: every element tap applies
+immediately. Theme changes are per-user, mutable, cheap (no
+pair-key consequence except the leader). Exploration is the joy —
+losing twenty minutes in the picker is the intended behaviour.
+APPLY ALL fills every slot the sticker can fill in one tap.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE SLOT CATALOGUE
+THE v1.0 SLOT CATALOGUE (locked session 32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The full set of named slots the theme system supports. Each is
-filled independently from the user's accessible library. Each
-expects a specific element file in a contributing sticker's folder.
+Seven slots ship at launch. The trimming principle (Morgan, s32):
+the day cell stays SACRED — stock calendar look, tier colour ramp,
+completion sticker on the hero moment, nothing else. The theme
+speaks through everything AROUND the cells. Richness comes from
+combinatorics (N stickers × 7 slots × any palette source × per-slot
+mixing), not from per-cell art.
 
-LEADER (sticker.png required — every sticker has this slot)
-  The sticker chosen as the visual identity of the calendar.
-  Renders in the avatar slot, contributes to in-app branding.
-  Every sticker can fill this slot because every sticker ships
-  sticker.png.
+1. LEADER (`<id>_sticker.png` — required on every sticker)
+   The identity sticker. Avatar slot, in-app branding, recovery
+   anchor. Participates in the pair-key hash; changing it triggers
+   rotation. Every sticker fills this slot.
 
-PALETTE SOURCE (sticker.png — every sticker has this slot)
-  The sticker whose painted colours tint the themed UI surfaces.
-  Three roles — primary, secondary, tertiary — are DERIVED from
-  the sticker.png itself by pixel-frequency counting, excluding
-  black, white, and greys. See "THE PALETTE KEY" for the full
-  rule. Every sticker can fill this slot because every sticker
-  ships sticker.png.
+2. PALETTE SOURCE (`<id>_sticker.png` — every sticker)
+   The sticker whose painted colours tint all themed surfaces.
+   Roles derived by pixel frequency — see THE COLOUR SYSTEM.
+   Every sticker fills this slot.
 
-BACKGROUND (background.png — optional)
-  Full-grid background layer rendered behind the calendar area.
-  This is the largest visual contribution a sticker can make.
-  Frog's swamp water overlapping day tiles, vampire's crumbling
-  castle bricks, cooking pack's hearth glow. Big surface, big
-  impact when shipped. Most stickers will NOT ship this — it's
-  reserved for stickers with genuine visual ambition.
+3. BACKGROUND (`<id>_background.png` — optional)
+   Full-screen layer behind everything. The largest visual
+   contribution a sticker can make. Reserved for stickers with
+   genuine visual ambition.
 
-CELL TREATMENT (overlay + mask architecture — locked session 7)
-  Per-state day cell decoration. Each cell state can ship two
-  optional files:
+4. BORDER (`<id>_border_corner.png` OR `<id>_border_tl/tr/bl/br.png`
+   — optional; NEW s32)
+   Corner flourishes that gather the screen together — the
+   app currently "just ends" at the panel margin; the border gives
+   it an edge. Z-ORDER: above the BACKGROUND slot, below every
+   card and all content. It never costs the calendar width; it may
+   tuck behind the cards' edges.
+   ART-ECONOMY CONVENTION: ship ONE `border_corner.png` and the
+   engine mirrors it to all four corners; ship any subset of the
+   four explicit `_tl/_tr/_bl/_br` files for organic asymmetry
+   (explicit files win over the mirrored single where both exist).
+   Aesthetic sibling of the popup skin — author them as a pair;
+   the system keeps them as separate slots (mixing freedom is the
+   model; cohesion is an authoring choice, not a mechanical one).
 
-    cell_overlay_<state>.png  — drawn ON TOP of the stock cell.
-                                Decoration, linework, vines,
-                                bricks-as-outline, frost creeping
-                                in from corners, etc. The stock
-                                cell renders normally underneath
-                                (date number, partial pips, sticker).
-    cell_mask_<state>.png     — alpha mask CUTTING the stock cell.
-                                Burn-from-bottom, claw-marks,
-                                irregular edges. Black pixels in
-                                the mask cut holes in the stock
-                                cell silhouette. Used sparingly
-                                for shape effects that addition
-                                alone can't achieve.
+5. CALENDAR CARD (`<id>_calendar_card.png` — 9-slice; NEW s32)
+   The card behind the calendar grid (currently the flat white
+   panel). 9-slice in role colours + neutrals.
 
-  <state> is one of: unmarked, completed, partial, rest. A sticker
-  ships any subset of overlays and any subset of masks. Most
-  stickers won't ship either — both are decorative flourishes, not
-  requirements. Stickers that DO ship treatments are the visually
-  ambitious ones.
+6. TRAY CARD (`<id>_tray_card.png` — 9-slice; NEW s32)
+   The tasks-tray card surface. 9-slice, same format family as
+   the calendar card — the expectation is most stickers shipping
+   one ship both (clone-and-tweak is the intended economy).
+   CONSTRAINTS, renderer-side not art-side:
+     - The 9-slice must survive the ceremony choreography — lift,
+       wobble, stamp landing, subtitle slot — all of which render
+       ON the card, none of which the card art may obstruct.
+     - TRAY BUTTONS STAY STOCK. [LOCK AT FIRST ART — Morgan, s32:
+       "probably the card can but the buttons can't; lock once I
+       see examples." Prominence of the tray's interactive
+       elements wins over theming until proven otherwise.]
 
-  OPEN (resolve at tile 4.14b): these four treatment buckets are
-  coarser than the runtime's nine cell states (the shipped model
-  splits "completed" into the red/orange/yellow/green tier ramp by
-  task count — see system map §7.4). Decide whether one
-  `cell_overlay_completed.png` covers the whole done ramp, or
-  "completed" means 4/4 only with "partial" covering 1-3. The
-  renderer's overlay-lookup must agree with the painter's
-  expectation. Not blocking until themed cell overlays are wired.
+7. POPUP SKIN (`<id>_popup.png` — 9-slice; NEW s32, closes the
+   long-flagged catalogue gap)
+   One 9-slice skinning EVERY dialog/popup card surface: rest
+   confirm, rescue confirm, pair dialog, the MOTD picker card,
+   and the future help menu / month-stats / milestone popups as
+   they land. One slot, one file, all dialogs — popups are a
+   family and skin as one.
 
-  NO UNDERLAY SLOT. Tinted backdrops behind cells are achieved
-  through the palette source slot (which retints the stock cell
-  fill). A separate underlay layer would be overkill for the
-  decorative effect overlays already provide.
-
-  Z-ORDER PIPELINE (locked session 7; layer 3 corrected session 14):
-    1. Stock cell fill (with mask applied if present) + border
-    2. Stock cell content — date number, partial-task pips
-    3. Theme overlay (cell_overlay_<state>.png if shipped)
-    4. Completion sticker (when present, randomly slapped)
-
-  NOTE (session 14): the cell face carries NO stamp layer. The
-  STAMP (tier colour + tier message, the sealed-day artefact) lives
-  on the TRAY, not the cell. The cell's loudest element is the
-  completion STICKER. Earlier drafts of this pipeline listed "stamp
-  art" as a cell layer — that was wrong. Sticker on the cell, stamp
-  on the tray. Overlay is atmospheric decoration sitting below the
-  sticker.
-
-DEAD-CELL TREATMENT (cell_overlay_dead.png + cell_mask_dead.png —
-                     optional, rarely shipped)
-  The visual treatment for days outside the current month view (the
-  April end-dates visible when looking at May, or pre-install days).
-  Same overlay + mask architecture as the in-month cell treatments.
-  Rose vines growing over the dead cell, jail bars, faded wash with
-  shape-cutting masks, dried leaves — whatever the theme calls for.
-  Most stickers won't ship this. When shipped, it's the kind of
-  detail that turns casual users into gratitude posters.
-  Effort:profit is low but signal value is high. Optional by
-  design — the catalogue model lets it be a sparingly-used flourish
-  rather than a per-pack requirement.
-
-GRID TILE (grid_tile.png — optional)
-  Repeating background tile for the calendar grid itself.
-  Distinct from BACKGROUND — grid_tile is bound to the calendar
-  area's structure, background is the layer behind it. Frog
-  might ship swampy-water-ripples as grid_tile and a wider swamp
-  vista as background.
-
-FLOURISH NAME (flourish_name.png — optional)
-  Decorative element placed near the user's name in the UI.
-  Frog's fly hovering above the name, vampire's bat silhouette,
-  fairy's sparkle trail. Small surface, easy to ship, signals
-  attention to detail.
-
-LABEL TREATMENT (label_background.png — optional)
-  A themed surface behind each task label. Medieval parchment
-  scroll, blood spatter, lily-pad outline, chalkboard texture.
-  Resolves the "raw CSS popping out of a castle calendar"
-  problem flagged in session 7 conversation. Subtle but
-  unifying. Doesn't touch font (font is locked global — see
-  below).
-
-ACTIVE EFFECT (effects_active.tres — optional)
-  Event-triggered animation that plays on user interaction.
-  Water splash when tapping a cell (frog), sizzle when pressing
-  a button (chilli), drip when claiming the morning sequence
-  (vampire), sparkle trail when selecting a sticker (fairy).
-  Single playback per trigger, fire-and-forget, low performance
-  cost. Each active effect declares which UI events it responds
-  to — cell tap, button press, sticker select, claim, etc.
-
-AMBIENT EFFECT (effects_ambient.tres — optional)
-  Continuous, atmospheric animation. Lily pads bobbing and
-  drifting, candle flames flickering, dust motes drifting from
-  castle bricks, bees visiting flowers, embers floating up from
-  a fire. Always-on while the relevant scenes are visible.
-  Performance-budget-significant — see "Performance rules" below.
-
-THEME AUDIO (theme_audio.tres + .ogg files — optional, rarely shipped)
-  Audio contributions. Can include:
-    - Ambient loop (e.g. distant frog croaks for the swamp)
-    - Stinger sounds at specific moments (e.g. fire crackle on
-      morning sequence claim for cooking pack)
-    - UI sound replacements (button press sounds, sticker
-      placement sounds)
-  Theme audio is the heaviest content axis — see "Audio
-  considerations" below.
-
-OPEN-EXTENSION:
-  The slot list is not closed. As future stickers prove out new
-  element ideas (a stamp variant per sticker, a custom morning-
-  sequence transition, a custom 4T-complete celebration), new
-  slots can be added. The folder convention naturally supports
-  this — drop a new optional filename, the system discovers it,
-  the picker grows a new icon. No central manifest to update.
+EMPTY SLOTS RENDER STOCK. There is no "default theme" sticker;
+the unthemed app is the stock UI exactly as it exists today (white
+cards, flat panel background, no border). The onboarding starter
+pack makes the first themed look a day-zero possibility, not a
+requirement.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-FONT — GLOBAL, NOT THEMED
+THE COLOUR SYSTEM (locked session 32 — supersedes the
+three-flat-roles rule and resolves the deferred grey question)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-MOTD font: LOCKED GLOBAL. The MOTD is the most-read text surface
-in the app and the strongest expression of the app's voice.
-Per-theme MOTD typography would dilute brand identity in service
-of per-theme atmosphere. The MOTD content already changes per
-theme via the stinger/vocabulary pool; changing the typography on
-top of that reduces the app's identity to nothing but a skin.
+ROLES — up to four, pixel-weighted:
+  A sticker is painted with UP TO FOUR non-neutral colours. At
+  load, the engine counts pixels per unique colour (neutrals and
+  transparency excluded), sorts descending, and assigns:
+    role-primary    = most-painted colour
+    role-secondary  = next
+    role-tertiary   = next
+    role-accent     = fourth, IF the sticker has a fourth
+  The painter expresses palette intent through pixel area: frog's
+  dominant green becomes the app's dominant colour, the beige
+  belly the supporting colour, the red highlight the accent.
+  Painting decisions ARE palette decisions — no sidecar, no
+  authoring step (s8 rule, carried).
 
-The locked font is part of the global aesthetic — pix-art-adjacent
-but not too blocky, intended to gel with the painted sticker
-aesthetic. This font choice is itself a cohesive force binding all
-themes together regardless of how visually different they are.
+  WEIGHTING IS THE PAINTER'S, TWICE OVER: derivation decides the
+  MAPPING ORDER only; how much primary vs accent a themed surface
+  shows is decided by how that surface's art is painted. A
+  background that is 80% role-primary pixels renders 80% in the
+  palette sticker's dominant colour.
 
-Decision is reversible in v1.x if per-theme typography demonstrates
-clear engagement lift, but locked global for v1.0.
+  ROLE-ACCENT FALLBACK (s32): non-sticker theme art may use
+  roles 1-3 freely; role-accent is an OPTIONAL fourth reference
+  that FALLS BACK TO ROLE-TERTIARY when the active palette source
+  yields only three colours. Art never breaks on a 3-colour
+  sticker; "3 or 4 colours, doesn't matter" stays true for the
+  painter on both sides.
 
-ALL OTHER UI FONTS: also global. Task labels keep the global font
-even when LABEL TREATMENT is themed. The label's *background*
-changes per theme, the label's *typography* does not. This
-maintains readability across themes and avoids glyph coverage
-risks (user-typed task content may include accented characters,
-emoji, unusual punctuation).
+THE NEUTRAL RAMP — free, structural, never retinted:
+  BLACK, WHITE, LIGHT GREY, DARK GREY are usable without limit in
+  BOTH stickers and non-sticker theme art: outlines, shadows,
+  highlights, anti-aliasing, advanced pixel-art technique. They
+  are excluded from palette derivation and never substituted.
+  Canonical authoring values (locked s32; chosen as true neutrals
+  near the luminances of the stock UI's slate ramp so themed art
+  and stock chrome read as one family):
+    BLACK        #000000
+    DARK GREY    #5A5A5A
+    LIGHT GREY   #B4B4B4
+    WHITE        #FFFFFF
+
+  THE EXACT "GREY" RULE (closes the v1 deferred question):
+    DERIVATION-EXCLUDED = any pixel where R == G == B exactly,
+    plus any pixel with alpha < 1.0. Crisp, tolerance-free,
+    devtool-matchable. Painters should prefer the four canonical
+    values, but ANY true neutral is legal and structural.
+  ANTI-ALIASING DISCIPLINE: AA between a role colour and anything
+  produces intermediate non-neutral pixels that pollute the
+  derivation count and (in non-sticker art) dodge substitution.
+  Rule: AA neutral-to-neutral freely; role colours stay hard-edged
+  flats. The devtool's full colour list is where violations show.
+
+REFERENCE ROLE VALUES (locked s32 — replaces the placeholders):
+  Non-sticker theme art is painted in these four reference values,
+  substituted exactly at bake time:
+    role-primary    #FF0000
+    role-secondary  #00FF00
+    role-tertiary   #0000FF
+    role-accent     #FF00FF
+  Maximally distinct, never plausible as final art, trivially
+  exact-matchable. Plus the neutral ramp, painted as-is.
+
+STICKER.PNG IS THE EXCEPTION (carried): the sticker itself is
+painted in its REAL colours and is never retinted — it is the
+source the palette is derived FROM; retinting it would be
+circular. It always looks like itself, in the picker and on cells.
+
+PAINTER'S CONSTRAINT (amended for four roles):
+  Up to four non-neutral colours, with CLEAR PROPORTIONAL
+  DIFFERENCE between adjacent ranks — no 49/51 splits. If two
+  ranks are close, adjust pixels until intent is unambiguous.
+  More than four non-neutrals = graceful failure: the top four
+  propagate, the rest render in the sticker only. Discipline, not
+  load-time validation; the devtool catches mistakes.
+
+SACRED SEMANTIC COLOURS (carried, unchanged): the cell tier ramp
+(grey/red/orange/yellow/green), rest-day purple, error red,
+warning orange, body-text near-black — hardcoded, never themed,
+unaffected by palette source. The day cell's voice stays the
+app's voice.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ASSET ARCHITECTURE — ONE FILE PER FEATURE, FOLDER PER STICKER
+RETINT MECHANISM — LOCKED: PRE-BAKE AT SLOT CHANGE (s32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Each sticker lives in its own folder under
-`res://assets/stickers/<id>/` (or in the pickle-moon-assets
-repo at `stickers/<id>/`). Files within use the convention
-`<id>_<role>.<ext>` — sticker_id first, role suffix, snake_case.
-Examples below use a sticker_id of `frog`.
+When the palette source (or, v1.x, the transform stack) changes,
+the engine generates retinted copies of every loaded non-sticker
+theme texture: per pixel, exact-match the four reference values →
+substitute the derived roles (accent falling back to tertiary);
+neutrals and everything else pass through. Cache the baked
+ImageTextures; renderers consume the cache. Re-bake on change;
+per-frame cost is ordinary sprite rendering.
+
+WHY PRE-BAKE over the v1 candidates:
+  - Clarity over cleverness: it is "make a recoloured copy when
+    the theme changes" — fully legible GDScript (Image.get_pixel /
+    set_pixel loops), debuggable by eye in the 4.20 devtool, no
+    shader knowledge required.
+  - The v1.0 art volume is small (per active theme: one
+    background, two card 9-slices, one popup 9-slice, ≤4 border
+    corners — a handful of small textures). Bake time and memory
+    are trivial.
+  - Transform stack composes for free (functions applied to the
+    derived roles BEFORE baking).
+  - Locked-sticker PREVIEW = bake into a separate preview cache,
+    swap pointers, revert on close/timeout. No special path.
+FALLBACK RECORDED: if slot-change ever visibly hitches on weak
+devices as the catalogue grows, the same reference-value model
+moves to a fragment shader (v1's option A) without touching any
+art. Indexed-PNG (option C) is retired — workflow constraint for
+no advantage over pre-bake.
+
+THE PALETTE PIPELINE (one line to hold):
+  sticker.png → derive roles (pixel count, neutrals excluded)
+  → [v1.x: apply transform stack] → bake reference-painted art
+  → render.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PALETTE TRANSFORM STACK — v1.x FEATURE, v1.0 HOOK (s32)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Meta stickers ship a PALETTE TRANSFORM instead of (or alongside)
+art: a function over the derived role set, applied between
+derivation and bake. Composable by construction — the active
+transforms are an ordered list, each a pure function on four
+colours. Examples (Morgan, s32):
+  - jester  → permute the role mapping (primary↔tertiary scramble)
+  - yin-yang → invert the palette
+  - chrome  → hue-shift all roles by a fixed amount
+Combining jester + yin-yang = a scrambled, inverted palette.
+Toggled from the meta sticker's context menu like any element.
+
+STATE: `active_theme.mods` — ordered JSON array of transform IDs.
+The slot map stays a map; mods are the one list-shaped key (a
+transform stack is inherently ordered and stacking is the point —
+the no-stacking rule applies to ART slots, not to functions).
+
+v1.0 ships the hook (the pipeline stage exists, the list is read
+and applied; an empty list is a no-op). The meta stickers
+themselves, their context-menu affordance, and the transform
+vocabulary are v1.x content. Cost of the hook now: one function
+call site. Cost of retrofitting later: re-plumbing the bake path.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ASSET DIMENSIONS (s32 — derived from Layout.gd, replacing the
+v1 deferral; all render targets are the 1080×2400 design viewport)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Measured render geometry (Layout.gd constants):
+  Panel content width: 1080 − 2×24 margin            = 1032
+  Calendar card:       1032 wide × ~1020 high (min), r16 corners
+  Cell box:            ~138 × 130 (7 cols, 6px gaps, inside the
+                       card's 12px inner margin), r10 corners
+  Sticker on cell:     ~100px (≈75% cell width) — 32×32 source
+                       at ~3x. LOCKED s6, unchanged.
+  Tray card:           1032 wide × ~935 high (min), r16 corners
+  Background:          full viewport 1080×2400
+
+AUTHORING SIZES (integer Nearest scaling; [TUNE AT FIRST ART]
+markers are expected to move once real pixels exist):
+
+  BACKGROUND          360 × 800 source @ 3x render.
+                      3x keeps pixel density in the same family
+                      as the ~3x sticker. [TUNE AT FIRST ART:
+                      3x vs 4x (270×600) — pick whichever density
+                      paints better, then lock for the catalogue.]
+
+  CARD 9-SLICES       48 × 48 source, 16px slice margins, @ 3x
+  (calendar / tray /  (corners render 48px; compatible with the
+   popup)             stock r16 corner rounding). Centre patch
+                      tiles or stretches — declare per file via
+                      a one-line .import convention at 4.14b.
+                      [TUNE AT FIRST ART: margin 12 vs 16.]
+
+  BORDER CORNERS      96 × 96 source @ 3x (≈288px corner zone).
+                      Anchored to viewport corners, may overlap
+                      the background freely and tuck under cards.
+                      [TUNE AT FIRST ART: size + whether edges
+                      between corners ever ship — v1 is corners
+                      only, per the s32 sketch.]
+
+  RULE OF THE FAMILY: one source-pixel scale per asset class,
+  integer render scale always, Nearest always. When in doubt
+  match the sticker's effective ~3x so the app reads as one
+  pixel-art world.
+
+DEFERRED WITH THEIR SLOTS: cell variant sizes, grid tile size,
+flourish/label bounding boxes, effect sprite sizes — specced when
+those slots return (DEFERRED CATALOGUE below).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ASSET ARCHITECTURE — FOLDER PER STICKER, FILE EXISTENCE IS
+DECLARATION (carried s7/s8; filename set updated s32)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Each sticker lives in `stickers/<id>/` (bundled: res://assets/
+stickers/<id>/; downloaded: user://stickers/<id>/ — see RUNTIME
+ASSET DELIVERY). Files use `<id>_<role>.<ext>` — prefix for
+out-of-folder readability, snake_case for Godot/git/Windows
+sanity.
 
   REQUIRED:
-    frog_sticker.png        — the sticker itself, 32×32 RGBA.
-                              Source of truth for both the
-                              leader visual AND the palette
-                              (derived at runtime from this
-                              file — see "THE PALETTE KEY").
+    frog_sticker.png          — 32×32 RGBA. Leader visual AND
+                                palette source of truth.
 
-  OPTIONAL (any subset):
-    frog_background.png         — full-grid background layer
-    frog_grid_tile.png          — calendar grid background tile
-    frog_cell_overlay_unmarked.png   — overlay on unmarked cells
-    frog_cell_overlay_completed.png  — overlay on completed cells
-    frog_cell_overlay_partial.png    — overlay on partial cells
-    frog_cell_overlay_rest.png       — overlay on rest day cells
-    frog_cell_overlay_dead.png       — overlay on out-of-month cells
-    frog_cell_mask_unmarked.png      — alpha mask cutting unmarked cells
-    frog_cell_mask_completed.png     — alpha mask cutting completed cells
-    frog_cell_mask_partial.png       — alpha mask cutting partial cells
-    frog_cell_mask_rest.png          — alpha mask cutting rest day cells
-    frog_cell_mask_dead.png          — alpha mask cutting dead cells
-    frog_flourish_name.png      — decoration near user's name
-    frog_label_background.png   — surface behind task labels
-    frog_effects_active.tres    — tap/event-triggered animation spec
-    frog_effects_ambient.tres   — continuous ambient animation spec
-    frog_theme_audio.tres       — audio pack spec
-    frog_*.ogg                  — audio files referenced from theme_audio.tres
-    frog_effects_custom.gd      — custom GDScript (escape hatch)
+  OPTIONAL v1.0 SET (any subset):
+    frog_background.png
+    frog_calendar_card.png    — 9-slice
+    frog_tray_card.png        — 9-slice
+    frog_popup.png            — 9-slice
+    frog_border_corner.png    — single, engine-mirrored ×4
+    frog_border_tl.png        — explicit corners (any subset;
+    frog_border_tr.png          explicit wins over mirrored)
+    frog_border_bl.png
+    frog_border_br.png
 
-NAMING CONVENTION RATIONALE:
-  The folder is already namespaced (sticker_id is the folder
-  name), so role-only filenames would be sufficient inside the
-  folder. The prefix exists for readability outside the folder
-  context — git diffs, search results, shared files. Reading
-  `frog_cell_overlay_completed.png` in any view tells you both
-  the pack and the role. Snake_case matches Godot conventions
-  and sidesteps Windows/git filename case-sensitivity hazards.
+  v1.x FILENAMES (recognised-and-ignored by the v1.0 engine —
+  graceful forward compatibility, carried rule): the cell
+  overlay/mask family, grid_tile, flourish_name,
+  label_background, effects_*.tres, theme_audio.tres + .ogg,
+  *_custom.gd, and the per-cell `_<N>` variant convention (stable
+  date-hash selection — locked s8, parked with the cell slots).
 
-A minimal sticker ships only `<id>_sticker.png`. A maximal sticker
-ships everything. Most ship somewhere in between, choosing what
-makes sense for their identity. Sparsity is its own design axis
-— a minimal sticker that ships only an exquisite tap-sizzle can
-be more compelling than a maximal one that ships everything. The
-catalogue is enriched by variety in sticker *shape*, not just
-sticker *count*.
+NO MANIFEST: the engine scans the folder, strips the `<id>_`
+prefix, matches role suffixes against the known catalogue, builds
+the context menu from what exists. Unknown roles ignored. Adding
+a feature to a sticker = dropping a file. (Carried verbatim in
+spirit from v1 — this rule is the catalogue model's engine.)
 
-NOTE: palette.tres is NO LONGER part of the sticker folder. Palette
-roles are derived from sticker.png at runtime — see "THE PALETTE
-KEY" section. This is a session 8 change from the prior model.
-
-FILE EXISTENCE IS DECLARATION:
-  No central manifest declaring which sticker has which features.
-  The engine scans the sticker folder at load and builds the
-  context-menu element-icon list from what's present, matching
-  on the `<id>_<role>` pattern. Adding a new feature to a sticker
-  is dropping a new file in its folder following the convention.
-  Removing a feature is deleting the file. Zero metadata
-  bookkeeping.
-
-  Engine implementation note: the folder scan recognises files
-  by stripping the `<id>_` prefix and matching the role suffix
-  against the known slot catalogue. Files that don't match the
-  convention are ignored. Files matching unknown roles are also
-  ignored (graceful forward compatibility — new slots added in
-  future versions don't break old engines).
-
-PER-SLOT VARIANT VARIATIONS:
-  Any cell-treatment slot may ship multiple numbered variants
-  by appending `_<N>` to the role suffix:
-
-    frog_cell_overlay_completed_1.png
-    frog_cell_overlay_completed_2.png
-    frog_cell_overlay_completed_3.png
-
-  When variants are present, the engine treats them as a
-  variant set and picks one per cell via a stable hash of the
-  cell's date (so the same cell always shows the same variant,
-  but different cells in the same month show different
-  variants). The base file (without `_<N>` suffix) is treated
-  as variant 0 if also present, or absent variants simply
-  shrink the pool.
-
-  Painters who want one overlay ship one file. Painters who
-  want variation ship N files. No new mental model. Useful
-  range is approximately 3-7 variants — fewer reads as
-  monotony, more becomes indistinguishable.
-
-  Solves the per-cell repetition problem: a single overlay
-  applied identically to 30+ cells in a month view becomes
-  visually monotonous. Variant rotation gives the eye natural
-  texture without coordinated cell logic.
-
-WHY FOLDER-PER-STICKER, NOT SPRITE-SHEET-PER-STICKER:
-  Sprite sheets force a fixed slot layout up front. The catalogue
-  model explicitly rejects fixed slot layouts. Folder-per-sticker
-  lets each sticker bring exactly what it brings. Aseprite
-  workflow matches: one Aseprite project per asset, exports go
-  into the sticker's folder side-by-side.
-
-WHY OPTIONAL EVERYTHING:
-  The catalogue model rejects the idea of a "full theme" bar that
-  every featured sticker must clear. Demanding completeness either
-  caps the catalogue size at "however many full themes can be
-  painted" or forces shipping low-effort filler to fill slots.
-  Both kill content cadence. The optional model lets every new
-  sticker contribute whatever it can, sustainably, indefinitely.
+A minimal sticker ships sticker.png alone. A maximal v1.0 sticker
+ships seven files. Sparsity is a design axis, not a deficiency —
+the catalogue is enriched by variety in sticker SHAPE.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PICKER UX
+RUNTIME ASSET DELIVERY — R2 (NEW s32; the s29-flagged gap)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The picker is the single surface where the entire theme system is
-managed. No dedicated "atmosphere mixer" screen.
+The 4.22 receive side records `content_drop_assets.r2_keys` but
+nothing client-side can fetch or render them — without this
+design, post-launch packs deliver announcements, not art. The
+design:
 
-GESTURES:
-  - TAP on a sticker → toggles pool membership (Layer 1 — the
-    active_stickers pool). Floor of 1, identical to prototype and
-    APPtrioc.
-  - LONG-PRESS on a sticker (with vibration feedback) → opens the
-    sticker's CONTEXT MENU.
-
-THE CONTEXT MENU:
-  A small popover anchored to the long-pressed sticker showing
-  element-icons for every feature that sticker ships. Visual
-  language only — icons, no text — for screen economy and style.
-
-  If the sticker is LOCKED (not owned, or partner-owned and the
-  user's subscription has lapsed):
-    Single PREVIEW button. Tap → temporarily applies ALL of the
-    sticker's elements to the live app so the user can see what
-    they're missing. Reverts when the menu closes (or after a
-    timeout).
-
-  If the sticker is UNLOCKED:
-    One icon per element the sticker ships. Tap an icon →
-    immediately applies that element to the relevant slot in the
-    live app. No confirmation. No commit-on-close. Just send it.
-
-    Plus an APPLY ALL button → fills every slot this sticker can
-    fill, evicting whoever was previously contributing to each.
-
-ICON VOCABULARY (placeholder — deferred to tile 4.14b implementation):
-  Real iconography decisions belong at implementation time once
-  the visual style is concrete. Placeholders for design discussion:
-
-    LEADER             — sticker thumbnail itself or a flag icon
-    PALETTE SOURCE     — artist's palette icon
-    BACKGROUND         — rectangle / picture-frame icon
-    CELL TREATMENT     — grid / 3-cell icon
-    DEAD-CELL TREATMENT — faded cell icon
-    GRID TILE          — small repeating tile pattern
-    FLOURISH NAME      — decoration / ribbon icon
-    LABEL TREATMENT    — text-with-underline icon
-    ACTIVE EFFECT      — sparkle icon
-    AMBIENT EFFECT     — drifting-particles icon
-    THEME AUDIO        — quarter-note icon
-
-  These are placeholders. The final icons should be visually
-  consistent with the app's painted aesthetic and immediately
-  legible at icon-size. Defer the actual icon design to a focused
-  visual-design pass when tile 4.14b is ready.
-
-THEMED-STICKER MARKING IN THE GRID:
-  Stickers that ship more than the bare minimum (sticker.png only)
-  are visually marked in the picker grid — they have more to offer
-  than palette-only stickers. The marking hints at richness without
-  spoiling what specifically the sticker ships. Discovery preserved.
-
-  Exact marking is an art decision (glint, corner badge, subtle
-  border, small animation). Defer to tile 4.14b implementation.
-
-  Note: the marking does NOT differentiate between locked and
-  unlocked stickers in the user's view. The user always sees
-  what's in their accessible library marked the same way; locked
-  status is revealed only on long-press (when the context menu
-  shows preview-only).
-
-STAGGERED DISCLOSURE OF THE LONG-PRESS GESTURE:
-  Long-press in the picker is a slow-reveal feature per the
-  staggered disclosure doc. Day-1 onboarding teaches TAP only
-  (pool toggle). Long-press is revealed TRIGGER-GATED on first
-  picker open (session 8 change — was previously day-7 scheduled),
-  surfaced explicitly: "did you know you can long-press to combine
-  their elements?" Until then, long-press is functional but
-  unsurfaced.
-
-  Four Tasks only. APPtrioc never reveals long-press — for
-  APPtrioc users, long-press is inert.
+  - LAUNCH PACKS ARE BUNDLED in the binary (res://). R2 delivery
+    is for POST-LAUNCH drops only. One code path renders both:
+    the folder-scan looks in res:// first, then user://stickers/.
+  - MANIFEST: the drop's `content_drop_assets` rows ARE the
+    manifest — one row per file, `r2_keys` the fetch path,
+    filenames following the `<id>_<role>` convention. No second
+    manifest format.
+  - FETCH MOMENT: on drop-popup acknowledgement (the 4.22 client
+    half), the client downloads the pack's files to
+    user://stickers/<id>/ with a small progress affordance, then
+    acks delivered. Explicit, attended, once.
+  - IMMUTABILITY: a sticker id's assets never change after
+    release (immutable-past extends to art — a re-release is a
+    new id). Therefore: cache forever, no versioning, no
+    invalidation machinery. Integrity = byte-length check against
+    the asset row; hash verification is v1.x if ever needed.
+  - PARTNER-RENDER RULE: partner days render with the PARTNER's
+    `day_theme_state`, so the viewer may encounter sticker ids
+    they don't own and were never offered. Asset PIXELS are not
+    the secret — ENTITLEMENT gates use, not sight (the locked
+    preview already shows everything). The client may fetch any
+    referenced sticker's assets by id (`GET .../stickers/:id/
+    assets` or direct public R2 paths — endpoint shape decided at
+    build). Missing-while-offline degrades to stock render +
+    retry on next poll. Same rule covers the user's own
+    historical days after a reinstall.
+  - APPtrioc: no R2 path — its sticker set is bundled, full stop.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE PALETTE-AGNOSTIC ART RULE
+PICKER UX (carried s7/s8; icon vocabulary re-cut for v1.0)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-All NON-STICKER theme art (backgrounds, grid tiles, cell overlays,
-flourishes, label backgrounds, effect sprites) is painted with
-THREE FLAT COLOUR ROLES — primary, secondary, tertiary — using
-canonical reference values. At runtime, the renderer substitutes
-the reference role-values for the active palette source's derived
-colours (see "THE PALETTE KEY" for how those colours are
-determined).
+The picker is the single management surface. TAP = pool toggle
+(layer 1). LONG-PRESS (vibration) = context menu (layer 2,
+Four Tasks only, trigger-gated reveal on first picker open per
+the staggered-disclosure doc).
 
-This means:
-  - The lily-pad cell overlay in the frog pack is not painted in
-    literal lily-pad green. It is painted using three flat
-    role-values (e.g. role-primary, role-secondary, role-tertiary).
-  - When frog fills the palette source slot, the renderer reads
-    frog's sticker.png, derives the three roles by pixel
-    frequency, and substitutes. The lily pad renders in frog's
-    natural colours.
-  - When chilli fills the palette source slot instead, the same
-    lily pad PNG renders in chilli's colours — red lily pad
-    against red theme.
+CONTEXT MENU: icon-per-shipped-element, no text. v1.0 vocabulary
+(placeholder glyph concepts; final icon art at 4.14b):
+  LEADER · PALETTE · BACKGROUND · CALENDAR CARD · TRAY CARD ·
+  POPUP SKIN · BORDER — plus APPLY ALL.
+LOCKED sticker → single PREVIEW button: bakes the sticker's full
+contribution into the preview cache, applies live, reverts on
+menu close or a 30-SECOND TIMEOUT (locked s32 from the v1
+"say 30s" — generous enough to tap around and watch it breathe).
+Locked stickers render ENTICING, never greyed — locked status is
+revealed only on long-press (carried rule; exact treatment is
+4.14b art).
 
-THIS APPLIES TO ALL RENDERED NON-STICKER THEME ART:
-  - All cell treatment variants (overlays AND masks-as-decoration).
-  - Background and grid tile.
-  - Flourishes.
-  - Label backgrounds.
-  - Active and ambient effect art.
-
-STICKER.PNG IS THE EXCEPTION:
-  Sticker art is painted in its REAL FINAL COLOURS. The frog
-  sticker is painted in actual mossy green, cream belly, dark
-  green eyes. The painted pixels are what the user sees in the
-  picker grid AND on completion-stamped day cells. The sticker is
-  never retinted — it always looks like itself.
-
-  This is the rule that swapped in session 8: the sticker is the
-  source of palette declaration. It would be circular to retint
-  the very thing the palette is derived FROM.
-
-WHY THIS MATTERS:
-  Eliminates the cross-theme clash that would otherwise occur on
-  non-sticker theme art. If frog fills leader and vampire fills
-  palette source, vampire's castle background's lily pads (if
-  such a thing existed) would clash against a black-and-red
-  app. The retint rule makes the whole composition cohere
-  regardless of which sticker fills which slot.
-
-  One source of truth per sticker for colour: the sticker.png
-  itself. No "sticker frog" + "theme frog" double-maintenance.
-  The sticker IS the palette declaration.
-
-REFERENCE ROLE-VALUES FOR NON-STICKER THEME ART:
-  All non-sticker theme art is painted using three known
-  reference values:
-
-    role-primary:   pure red    #FF0000
-    role-secondary: pure green  #00FF00
-    role-tertiary:  pure blue   #0000FF
-
-  These are deliberately ugly values — they never appear in
-  finished art because they always get substituted. The ugliness
-  is the point: a stray reference-pure-red pixel that survives
-  substitution is obvious during testing.
-
-  Black, white, and greys in non-sticker theme art pass through
-  unchanged — they're structural (outlines, shadows, highlights)
-  and are not subject to palette substitution.
+THEMED-STICKER MARKING (carried): stickers shipping more than
+sticker.png are marked in the grid — richness hinted, specifics
+unspoiled, identical for locked/unlocked. Marker style is 4.14b
+art; it is ALSO the APPtrioc conversion hint, so it must read in
+the HTML5 build.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE PALETTE KEY
+PALETTE DERIVATION DEVTOOL (tile 4.20; carried, synced to s32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-LOCKED SESSION 8: palette roles are DERIVED from sticker.png
-itself, not declared in a sidecar file. The painted PNG is the
-single source of truth for both the leader visual and the palette
-that propagates through every themed surface.
-
-THE DERIVATION RULE:
-
-  1. Load the sticker.png.
-  2. For each unique colour in the image, count the number of
-     pixels using that colour.
-  3. EXCLUDE black, white, and greys from the count entirely
-     (definitions in "Painter's constraint" below). These pass
-     through as structural and are never substituted in any
-     theme art.
-  4. From the remaining colours, sort by descending pixel count.
-  5. The most-painted colour = role-primary.
-     The middle = role-secondary.
-     The least = role-tertiary.
-
-These three derived values are what every themed surface (cell
-overlays, background, grid tile, flourishes, etc.) substitutes
-its reference role-values against.
-
-PAINTER'S CONSTRAINT:
-
-  Every sticker is painted using NO MORE THAN three non-grey
-  colours, plus any amount of black, white, and grey for
-  structural use (outlines, shadows, highlights, eye whites,
-  etc.).
-
-  The three colours must be used with CLEAR PROPORTIONAL
-  DIFFERENCE — one obviously dominant, one obviously middle,
-  one obviously least. No deliberate 49/51 splits. If two
-  colours are dangerously close in pixel count, the painter
-  should adjust the art to clarify intent.
-
-  This constraint is the entire system. The painter expresses
-  palette intent through pixel area. Painting decisions ARE
-  palette decisions, with no separate authoring step.
-
-WHY NO PALETTE.TRES FILE:
-
-  Considered and rejected as redundant. Under the painter's
-  constraint above, the painted PNG already unambiguously
-  expresses primary/secondary/tertiary. A sidecar file declaring
-  the same information would be a second source of truth that
-  could drift from the art when edits happen. Removing it
-  eliminates a class of art/metadata sync bugs and one piece of
-  per-sticker authoring overhead.
-
-  The session 7 model required authoring a palette.tres alongside
-  every sticker.png, which introduced the very drift problem this
-  rule fixes. The session 8 rule consolidates: paint, ship, done.
-
-PERFORMANCE NOTE:
-  Pixel-count derivation runs ONCE per sticker at load time, not
-  per frame. The result is cached. A 32×32 image has 1024 pixels;
-  counting them is instant. There is no per-frame cost.
-
-GREY USAGE — DEFERRED:
-  The exact definition of "grey" (any RGB triple where R≈G≈B
-  within some tolerance? A specific fixed grey ramp? Limit on how
-  many distinct greys per sticker?) is deferred to implementation
-  time. The grey question is low-stakes — initial constraint is
-  "use grey for outlines and structural shading, don't overuse" —
-  and the precise rule will be informed by the first painted
-  pack. Captured in "WHAT THIS DOC LEAVES OPEN" below.
-
-WHAT HAPPENS IF A STICKER USES MORE THAN THREE NON-GREY COLOURS:
-  The first three by pixel count become primary/secondary/
-  tertiary; the rest are still rendered as painted in the
-  sticker itself but don't propagate to themed art. This is a
-  graceful failure mode rather than a hard reject — old stickers
-  or stickers that bend the constraint still render correctly,
-  they just have less expressive palette propagation. The
-  painter's constraint is a discipline, not a load-time
-  validation. The devtool (see below) is where mistakes get
-  caught.
-
-SACRED SEMANTIC COLOURS:
-  Some colours are not themed and never change regardless of
-  palette source:
-    - Completion green (stamp tier 4 / four-of-four done)
-    - Rest day purple
-    - Error red
-    - Warning orange
-    - Stamp tier 1/2/3 partial colours
-    - Body text near-black on light backgrounds
-    - Border / outline near-white on dark
-  These are hardcoded in the engine, not derived from any
-  sticker. Primary/secondary/tertiary are the THEMED colour
-  roles, derived per sticker. Sacred semantics are SEPARATE and
-  unaffected by palette source.
+DevKit sub-screen, READ-ONLY by design (no override hatch — wrong
+ordering is fixed by re-painting; the PNG stays the only truth).
+Minimum view, updated for s32:
+  - Load a sticker.png (file dialog / drag-drop), show at ~6x.
+  - Swatch panel: primary / secondary / tertiary / ACCENT (when
+    present) — swatch + RGB + pixel count each.
+  - Full non-neutral colour list, sorted, with counts.
+  - AMBIGUITY BADGE when adjacent ranks are within 10% pixel
+    count (starting threshold, tune against real packs).
+  - NEUTRAL AUDIT (new): list any near-neutral non-neutrals
+    (R≈G≈B but not exactly equal — usually AA accidents that will
+    pollute derivation) so they get cleaned before shipping.
+THE EXCLUSION FUNCTION IS SHARED: the devtool and the runtime
+renderer call the SAME derivation function (R==G==B + alpha
+exclusion, four-role sort). Write it once, validate by eye in the
+tool, wire it into the bake path. Build order pinned at the tile.
+Deferred enhancements carried from v1: live themed-surface
+preview, side-by-side, batch report, histogram.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PALETTE DERIVATION DEVTOOL
+FONT — GLOBAL, NOT THEMED (carried s7, condensed)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-A development-only utility for visualising the palette that
-WOULD be derived from a sticker.png. Lives in the devkit scene
-(scenes/devkit.tscn — currently a sanity-check skeleton from
-tile 0.4, fleshed out by tile 5.2). NOT shipped to users.
-
-PURPOSE:
-  The painter's constraint depends on the painter knowing which
-  colour will become primary/secondary/tertiary BEFORE shipping
-  the sticker. Without a visualiser, the painter has to either
-  manually pixel-count in Aseprite or ship-and-test in the live
-  app — both clunky and prone to surprises.
-
-  The devtool removes the guesswork: drop a sticker.png in, see
-  exactly which colours the derivation algorithm would pick, in
-  what order, with their pixel counts. If the result is wrong
-  (e.g. secondary and tertiary are too close to call confidently),
-  the painter goes back to Aseprite, adjusts a few pixels, and
-  re-checks. No build-deploy-test cycle.
-
-MINIMUM SHIPPED VIEW:
-  - Load a sticker.png from disk (file dialog or drag-drop).
-  - Display the sticker at meaningful size (e.g. 6x scale,
-    ~192×192 on screen).
-  - Below the sticker, a swatch panel showing:
-      * Primary    — the derived role-primary colour swatch +
-                     RGB value + pixel count
-      * Secondary  — the derived role-secondary colour swatch +
-                     RGB value + pixel count
-      * Tertiary   — the derived role-tertiary colour swatch +
-                     RGB value + pixel count
-  - A list of all non-grey colours in the image with pixel
-    counts, sorted descending — so the painter can see the
-    full ordering, not just the top three.
-  - A small badge or warning when the top-three ordering is
-    AMBIGUOUS — e.g. when secondary and tertiary are within a
-    configurable tolerance of each other (10% difference is a
-    reasonable starting threshold). The badge says "ordering is
-    close — confirm intent before shipping."
-
-NO OVERRIDE CAPABILITY:
-  The devtool is READ-ONLY. It does not write any sidecar file,
-  does not let the painter override the derived ordering, does
-  not produce any artefact other than displayed information.
-  This is deliberate.
-
-  If the derived ordering is wrong, the fix is to re-paint —
-  adjust pixels in Aseprite until the desired ordering emerges
-  from the algorithm. The sticker.png remains the only source
-  of truth. There is no "the algorithm says X but I want Y"
-  escape hatch, because that hatch would re-introduce the
-  drift problem the no-sidecar rule was designed to prevent.
-
-OPTIONAL ENHANCEMENTS (DEFERRED):
-  These are quality-of-life additions that aren't part of the
-  minimum view. Add as they become useful:
-    - Live preview of theme application — show what a few
-      stock themed surfaces (a cell, a background tile) would
-      look like with the derived palette applied.
-    - Side-by-side comparison of two stickers' derived
-      palettes.
-    - Batch derivation report — point at the
-      res://assets/stickers/ folder, get a table of every
-      sticker's derived palette in one view.
-    - Histogram of all colours in the image (including greys
-      and structural) for diagnostic painting.
-    - "Snap to canonical reference values" preview — show
-      what the non-sticker theme art would look like rendered
-      with this sticker's derived palette (i.e. visualises
-      the retint applied to test-art).
-
-WHERE THIS LIVES:
-  scenes/devkit.tscn currently exists as a Control-rooted scene
-  (tile 0.4). When tile 5.2 gates the devkit to debug-only
-  loading via a Main scene, this devtool slots into the devkit
-  as one of its panels. Pre-tile-5.2 it can be run standalone
-  via F6 since devkit.tscn is already runnable that way.
-
-IMPLEMENTATION NOTE:
-  The Godot Image class can iterate pixels with
-  Image.get_pixel(x, y) and accumulate into a Dictionary keyed
-  by Color. For a 32×32 image this is 1024 iterations — fast
-  enough that even a naive implementation is real-time. No
-  optimisation required for the devtool.
-
-  The grey-exclusion rule used in the devtool MUST match the
-  rule used at runtime in the actual renderer — they will
-  share the same derivation function once that function is
-  written. Implementation order is: write the function, use it
-  in the devtool, validate by eye, then wire it into the
-  runtime renderer.
+All typography is global — the MOTD font especially (the app's
+voice; per-theme type would dissolve brand identity into skin).
+Themed surfaces change what's BEHIND text, never the text itself.
+Readability + glyph-coverage insurance. Reversible in v1.x only
+on demonstrated engagement evidence.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EFFECTS — ACTIVE AND AMBIENT
+SUBSCRIPTION INTERACTION (carried s8/v1, condensed; economy doc +
+monetisation doc remain the commercial authority)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Two distinct effect slots, each conceptually different.
-
-ACTIVE EFFECTS (effects_active.tres) — event-triggered, one-shot.
-  Fires once per relevant UI event:
-    - Cell tap → splash/sizzle/drip/sparkle on the tapped cell.
-    - Button press → small flash or particle on the button.
-    - Sticker selected → sparkle around the picker tile.
-    - Morning sequence claim → themed celebration accent.
-    - Stamp slap → themed reinforcement of the stamp animation.
-  Cheap per-event cost. Fire-and-forget. Performance budget
-  concern is negligible.
-
-  effects_active.tres declares which UI events the sticker
-  responds to and what parameters (tween curves, particle counts,
-  audio sting if paired with theme_audio.tres). The active effects
-  coordinator reads the .tres and routes events.
-
-AMBIENT EFFECTS (effects_ambient.tres) — continuous, atmospheric.
-  Always-on while the relevant scene is visible:
-    - Lily pads bob and drift on the day cells
-    - Candle flames flicker on castle bricks
-    - Dust motes drift down from a stone background
-    - Bees occasionally visit flowers on a garden background
-    - Embers float up from a fire-themed background
-  Performance-budget-significant. Subject to global rules below.
-
-PERFORMANCE RULES (apply to all effects):
-  - Ambient effects only run on visible viewport. Off-screen
-    scenes pause their effects.
-  - All effects pause when the app is backgrounded.
-  - Each effects.tres declares a particle / element count. The
-    coordinator caps the GLOBAL active count across all running
-    effects — if a sticker's ambient effect alone uses too many
-    particles, the coordinator silently degrades quality. No
-    user-visible failure mode.
-  - Reduce-motion accessibility (iOS/Android system preference):
-    when enabled, ambient effects pause entirely; active effects
-    play a simpler fallback (static flash instead of particle
-    burst).
-
-EFFECTS RENDERING IS PALETTE-AWARE:
-  Effect art (particle sprites, splash sprites, drip sprites) is
-  painted in reference role-values and retinted at runtime per
-  the standard palette substitution rule. The frog water splash
-  in chilli palette renders as cream-and-red liquid; the vampire
-  drip in frog palette renders as moss-green ooze. Cohesion
-  preserved across mixed compositions.
-
-EFFECTS COORDINATOR — ARCHITECTURE NOTE:
-  Single Godot autoload, signal-driven. UI events emit signals
-  (cell_tapped, button_pressed, sticker_selected, etc). The
-  coordinator listens, looks up which active effect (if any) is
-  bound to that event, plays it. Ambient effects are registered
-  on scene entry, unregistered on exit.
-
-  effects_custom.gd in a sticker folder is the escape hatch for
-  effects that don't fit the declarative effects_active.tres /
-  effects_ambient.tres spec. Avoid where possible — every custom
-  script is per-pack maintenance — but available when an effect
-  is genuinely unique (e.g. a multi-frame procedural animation
-  that needs real logic).
+  - ACCESSIBLE LIBRARY = own purchases + partner's purchases when
+    the pair holds ≥1 active subscription. Access is BINARY
+    per-sticker — in the library means every element usable.
+  - CATALOGUE GATE: regular monthly drops are subscriber-only
+    purchasable; free users keep launch-era packs + occasional
+    thank-you drops. Unsubscribing keeps what you bought, locks
+    new drops.
+  - IMMUTABLE PAST: `days.day_theme_state` freezes the FULL slot
+    map at seal (shipped, v1.0 schema). Sealed days render their
+    era's theme forever, sub state notwithstanding. The
+    PARTNER-RENDER RULE (runtime delivery section) is what makes
+    this hold across devices and viewers.
+  - PREVIEW IS THE MARKETING: locked preview applies everything
+    live; the user's own taste does the persuasion. No nag.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-AUDIO CONSIDERATIONS
+SCHEMA (shipped tile 1.3 — unchanged by s32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Theme audio is the heaviest content axis. Including it in a
-sticker has more implications than including any visual element.
+  users.active_leader   TEXT NN            -- pair-key participant
+  users.active_theme    TEXT NN DEFAULT '{}'  -- JSON slot map
+  users.active_stickers TEXT NN DEFAULT '[]'  -- JSON pool array
+  days.day_theme_state  TEXT NN DEFAULT '{}'  -- frozen at seal
 
-FILE SIZE:
-  A 2-minute ambient loop is roughly 2MB at low ogg bitrates.
-  Stinger sounds are smaller (~50KB each). A pack that ships an
-  ambient loop + 4-5 stingers + replacement UI sounds is in the
-  3-4MB range. Multiple themed audio packs add up quickly.
-  Consider runtime download rather than bundling all audio in the
-  app shell, especially as the catalogue grows.
-
-PLATFORM AUDIO RULES:
-  iOS background audio is strict. Theme audio that should
-  continue playing while the user is briefly in another app needs
-  declared entitlements and proper AVAudioSession category
-  selection. Audio that should stop when backgrounded needs the
-  opposite. Decide per-effect type:
-    - Ambient loops: stop when backgrounded (atmospheric, not
-      essential).
-    - Stinger sounds: don't play in background (they're tied to
-      foreground events).
-  iOS doesn't make this hard, but it requires conscious setup.
-
-LICENSING:
-  Every audio file needs a clear rights story:
-    - Original composition (Morgan or commissioned artist).
-    - Royalty-free with documented licence.
-    - Public domain (rare, must be verified).
-  NO ambiguous "I found it on YouTube" audio. Ever.
-  The marketing notes collaboration template (Section 4) covers
-  artist-commission terms — same template applies to theme
-  composers.
-
-USER PREFERENCE:
-  Mandatory global "theme audio on/off" toggle in settings.
-  Some users will never want app audio. A subset will want SFX
-  but not music. Defer the granularity of the toggle (master vs
-  music vs SFX vs UI sounds) to settings-screen implementation,
-  but the principle is: audio is opt-out at user level, no matter
-  what the active theme ships.
-
-AUDIO IS LIKELY RARE IN THE CATALOGUE:
-  Painting a sticker takes hours. Painting a sticker AND
-  composing its audio takes days. Most stickers will NOT ship
-  audio. The ones that do are content events — anchors that
-  marketing can build a drop around. Don't commit to audio per
-  pack; commit to audio on select packs as content drops.
+active_theme keys at v1.0: palette, background, calendar_card,
+tray_card, popup, border (+ the reserved `mods` array, v1.x).
+Absent/null key = empty slot = stock render. New slots are new
+JSON keys — no migration, by design. Leader stays its own column
+(identity hash participant); everything else is theme state, no
+rotation on change.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SUBSCRIPTION INTERACTION
+DEFERRED CATALOGUE — v1.x, ARCHITECTURE PRESERVED (s32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The theme system intersects with the monetisation v2.0 model
-(four_tasks_monetisation_position.md). Key intersection points:
+Everything below is DESIGNED and PARKED. Ship incrementally once
+the v1.0 surface is painted and lived-in; nothing here blocks
+launch. The locked architecture is preserved so returning to a
+slot is a build task, not a re-design.
 
-LIBRARY ACCESS:
-  The user's "accessible library" — the set of stickers whose
-  context menus they can interact with — depends on subscription
-  state:
-    - All stickers OWNED by the user (purchased with coins): in
-      library, all slots usable.
-    - All stickers OWNED by the user's partner (if pair has at
-      least one active subscription): in library, all slots
-      usable.
-    - All other stickers: VISIBLE in the picker grid (so the user
-      knows they exist) but LOCKED. Long-press shows only the
-      preview button, not the per-element icons.
+CELL TREATMENTS (deferred s32 — Morgan: the cell is the most
+daunting, smallest surface; deferring it un-obscures the whole
+vision). Locked architecture preserved verbatim in spirit:
+  - Overlay + mask, NO underlay (s7): `cell_overlay_<state>.png`
+    draws ON TOP of the stock cell; `cell_mask_<state>.png`
+    alpha-cuts its silhouette. Z-pipeline: stock fill (masked) →
+    stock content (date, pips) → overlay → completion sticker.
+    The cell face carries NO stamp (sticker on the cell, stamp on
+    the tray — s14 correction stands).
+  - State buckets: unmarked / completed / partial / rest (+ dead).
+    OPEN AT RETURN: bucket-vs-nine-states split (one completed
+    overlay for the whole done ramp, or completed=4/4 with
+    partial=1-3). The s32 grilling's recommendation on record:
+    coarse buckets — the overlay is atmosphere; the tier already
+    speaks through the sacred stock colour.
+  - Per-cell `_<N>` variants by stable date-hash (s8).
+  - DEAD-CELL treatment defers with the family.
 
-  Library access is binary per-sticker, not per-element. If a
-  sticker is in your accessible library, all of its elements are
-  usable. Subscription doesn't differentiate "you can use the
-  cell treatment but not the ambient effect" — that would be
-  needless complexity for no monetisation gain.
+GRID TILE — deferred: background + calendar card own that
+territory in v1.0; a third stacked layer must earn its way back.
 
-CATALOGUE PURCHASE GATE:
-  Most monthly pack drops are SUBSCRIBER-ONLY PURCHASABLE. A
-  free user cannot spend coins on most new packs even if they
-  have the coins. The catalogue extension over time is one of
-  the things subscription buys.
+FLOURISH NAME, LABEL TREATMENT — deferred; small surfaces, real
+charm, after the big five prove the system.
 
-  Free users CAN purchase:
-    - Their onboarding-free starter pack (already locked).
-    - Their pre-launch / launch-era packs (whatever ships at
-      v1.0).
-    - Occasional thank-you drops (off-schedule, infrequent, free
-      to everyone, possibly review-gated — see Open work).
+ACTIVE + AMBIENT EFFECTS — deferred with their locked rules
+preserved: declarative .tres + coordinator autoload (signal-
+driven, event-routed); ambient only on visible viewport, pause on
+background, global particle cap with silent degrade; reduce-
+motion accessibility branch (ambient off, active simplified);
+effect art is reference-painted and palette-baked like all theme
+art; effects_custom.gd escape hatch, bias against. The .tres
+schemas + coordinator design get their own pass when effects
+return.
 
-  Free users CANNOT purchase regular monthly drops while
-  unsubscribed.
+THEME AUDIO — deferred (audio is v1.1 app-wide regardless).
+Locked principles preserved: ~3-4MB per audio pack argues runtime
+download (the R2 path above now exists for exactly this); ambient
+loops stop on background, stingers foreground-only; LICENSING —
+original, documented royalty-free, or verified PD, never
+ambiguous, ever; mandatory global audio toggle, opt-out beats any
+theme; audio ships on SELECT packs as content events, not per
+pack.
 
-  This creates a clean subscription value:
-    - Free user pays nothing. Has access to a fixed catalogue
-      that grows occasionally with thank-you drops.
-    - Subscriber pays subscription. Has access to the
-      ever-growing catalogue + partner's library + small coin
-      bonus.
-    - Unsubscribing reverts the user to the free catalogue
-      window — they keep what they bought, but new drops are
-      locked until they re-subscribe.
+META MODS — the transform stack above; the hook is v1.0, the
+stickers are v1.x.
 
-PAST DAYS PRESERVE FULL SLOT STATE:
-  Immutable-past principle from monetisation v2.0 extends to ALL
-  theme slots, not just leader and palette source. The full
-  active-slot configuration is preserved at day-seal time. A
-  subscriber's days from their subscription period render
-  forever with whatever slots they had filled, even after
-  unsub.
-
-  Schema (shipped tile 1.3, session 12): `days.day_theme_state`
-  (JSON, frozen at seal) captures the full slot map for that day,
-  not just day_leader + day_palette as previously sketched in
-  monetisation v2.0. The earlier two-column approach
-  (day_leader + day_palette) is superseded by the single JSON
-  column to handle the full slot set.
-
-INSTANT FEEDBACK STILL APPLIES TO LOCKED STICKERS' PREVIEW:
-  The preview button on a locked sticker temporarily applies all
-  the sticker's elements live. The user sees what they're
-  missing. The preview is the marketing — no nag screen needed,
-  the user's own taste does the persuasion work.
-
-  Preview reverts on context menu close OR after a generous
-  timeout (say 30 seconds) so the user can interact with the
-  preview state — tap things, see the active effect fire, scroll
-  the calendar — before it disappears.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ASSET DIMENSIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-STICKER.PNG — LOCKED (session 6 part 2):
-
-  32 × 32 pixels, transparent background, RGBA.
-
-  Reasoning:
-    - 1080×2400 portrait target; 7-column calendar with ~12px
-      padding and 6×6px gaps gives each day cell ~134px of width.
-    - Sticker renders at ~75% of cell width (prototype ratio) =
-      ~100px on-screen.
-    - 32×32 source → ~3x integer-ish scale on cell. Clean Nearest,
-      no fractional artefacts.
-    - 32×32 at picker render (~6x scale) fills picker grid
-      confidently.
-    - Forces silhouette discipline while leaving headroom for
-      personality detail.
-
-  Effective art area ~26×26 inside with margin for rotation
-  wobble (prototype's stickerOffset applies on day cells).
-
-DEFERRED TO IMPLEMENTATION SESSION:
-  - Background.png canvas size (full-grid background — sizing
-    depends on actual calendar area dimensions).
-  - Grid tile size (depends on cell render size).
-  - Cell treatment variants (probably ~128×128 for the cell —
-    one cell width — but exact ratio to be measured against the
-    rendered day cell scene).
-  - Dead-cell treatment (same as cell variants).
-  - Flourish_name bounding box.
-  - Label_background bounding box (depends on task row height).
-  - Effect art (particle sprites) — varies per effect; declared
-    in effects_active.tres / effects_ambient.tres specs.
-  - Reference role-value exact RGB values
-    (placeholder #FF0000/#00FF00/#0000FF).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RETINT MECHANISM — DEFERRED TO IMPLEMENTATION SESSION
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-The palette-agnostic art rule (for non-sticker theme art) requires
-the engine to substitute the three reference role-values for the
-three derived palette colours at render time. Three candidate
-approaches:
-
-  A. Shader-based substitution at draw time.
-     Fragment shader checks each pixel against the three reference
-     role-values and substitutes from a uniform. Cheap per-frame
-     cost, no asset duplication. One shader applied across every
-     themed surface.
-
-  B. Pre-bake at slot-change time.
-     When the palette source slot changes, the engine generates
-     retinted copies of all non-sticker theme art in memory (or
-     on disk cache). Renders read the cached copies. Per-change
-     cost once; per-frame cost is normal sprite rendering. Memory
-     cost scales with theme art count.
-
-  C. Indexed-palette PNG with runtime palette swap.
-     Non-sticker theme art shipped as indexed-colour PNGs. The
-     PNG palette itself is rewritten at slot-change time. Standard
-     texture samplers handle the rest. Workflow constraint:
-     Aseprite must export indexed.
-
-Decision blocked on: actual count of theme art pieces (memory cost
-of B), prototyping shader A for pixel-art-correctness, and
-confirming Aseprite indexed-export workflow for C. All three are
-implementable in Godot; differences are workflow + perf + asset
-size.
-
-Defer to first implementation pass (tile 4.14b). Whichever path is
-picked, the AUTHORING workflow stays the same: paint stickers in
-their real colours (subject to the painter's constraint), paint
-non-sticker theme art in reference role-values, derive the palette
-from the active palette source's sticker.png at runtime.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SCHEMA IMPLICATIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Per-user theme state needs to be stored server-side. Recommended
-schema:
-
-  users.active_leader      TEXT     -- sticker ID (identity field)
-  users.active_theme       TEXT     -- JSON map of slot → sticker ID
-  users.active_stickers    TEXT     -- JSON array of sticker IDs (pool)
-
-active_leader is its own column because it participates in the
-pair-key identity hash (per pair-key v2 — the user-facing identity
-sticker is the recovery anchor). All other slots live in the
-JSON map.
-
-The JSON map approach is cleaner than a column-per-slot because
-adding a new slot later doesn't require a schema migration — just
-a new key in the JSON. The schema column count stays stable as
-the slot catalogue grows.
-
-JSON map shape:
-  {
-    "palette":        "<sticker_id>",
-    "background":     "<sticker_id>",
-    "cell":           "<sticker_id>",
-    "dead_cell":      "<sticker_id>",
-    "grid_tile":      "<sticker_id>",
-    "flourish":       "<sticker_id>",
-    "label":          "<sticker_id>",
-    "effect_active":  "<sticker_id>",
-    "effect_ambient": "<sticker_id>",
-    "audio":          "<sticker_id>"
-  }
-
-Any key may be absent or null (slot is empty — default renders).
-
-PAIR-KEY PARTICIPATION:
-  active_leader participates in the pair-key identity hash. All
-  other slots are non-identity fields, freely changeable without
-  pair-key rotation. This is the schema split the previous theme
-  doc deferred. LOCKED now: leader is identity, everything else
-  is theme state.
-
-THEME SCHEMA (shipped tile 1.3, session 12 — wholesale, no migration):
-  The theme columns landed in the v1.0 schema rewrite, not as an
-  incremental migration. Final shape on the live schema:
-    users.active_leader   TEXT NOT NULL   -- participates in pair-key hash
-    users.active_theme    TEXT NOT NULL DEFAULT '{}'   -- JSON slot map
-    users.active_stickers TEXT NOT NULL DEFAULT '[]'   -- JSON pool array
-    days.day_theme_state  TEXT NOT NULL DEFAULT '{}'   -- JSON, frozen at seal
-
-  active_leader is its own column because it participates in
-  pair-key hashing. The rest are JSON for forward-compat with new
-  slots. The prototype-era `icon` column does not exist in the v1.0
-  schema — its role is split across active_leader and the
-  active_theme JSON's `palette` key.
-
-THE PALETTE_TABLE.TRES TILE (4.G) — STILL SUPERSEDED.
-  Both the original central palette table model AND the
-  per-sticker palette.tres model are now superseded. Palette is
-  derived from sticker.png at runtime — no central table, no
-  sidecar file.
+ANTICIPATED FUTURE SLOTS (s8 footnote, carried compressed —
+parking spots, not promises; the bias stays "make it work within
+current slots"):
+  - cell_underlay (glow/halo — the one effect overlay-above can't
+    do), grid_revealed_image (cells as windows into one
+    continuous image; z probably below stock fill, above
+    background), position-modular cell variants (even/odd,
+    weekday-aware), cell_custom.gd escape hatch.
+  - REJECTED and staying rejected: image-extends-beyond-cells
+    (theatre), per-frame variant randomisation (kills "this is MY
+    May 15" — stable date-hash is the locked answer).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WHAT THIS DOC LEAVES OPEN
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Captured for the implementation session, not now:
-
-  - Asset dimensions for non-sticker theme files (background,
-    cell variants, grid tile, flourishes, label backgrounds,
-    effect art). Sticker locked at 32×32 session 6.
-  - Retint mechanism (shader, pre-bake, or indexed-palette).
-  - Reference role-value exact values (placeholder
-    #FF0000/#00FF00/#0000FF).
-  - Exact definition of "grey" for the palette derivation
-    exclusion rule. Tolerance threshold (R≈G≈B within what
-    delta?), whether a fixed grey ramp is enforced or any
-    near-neutral colour is treated as grey, limit on number of
-    distinct greys per sticker. Low-impact — initial constraint
-    is "use grey for outlines and structural shading, don't
-    overuse" — and the precise rule will be informed by the
-    first painted pack.
-  - Tolerance threshold for the devtool's "ambiguous ordering"
-    warning. Starting value 10% pixel-count difference between
-    adjacent ranks; tune against real painted stickers.
-  - Default theme art set design (what does the app look like
-    when MOST slots are empty? — e.g. brand new user with only
-    onboarding-free sticker).
-  - Themed-sticker marker visual style (glint, badge, border,
-    animation).
-  - Context-menu visual design (size, position, dismissal
-    behaviour).
-  - Final icon vocabulary for the context menu (placeholders
-    listed in "Picker UX" — defer to focused visual-design pass
-    at tile 4.14b).
-  - Whether to add a fourth colour role (accent / highlight).
-    Under the new derivation rule this would mean allowing four
-    non-grey colours in a sticker, with the fourth becoming
-    role-accent. Defer to first painted pack — three may be
-    enough, the prototype managed with three.
-  - effects_active.tres and effects_ambient.tres schemas —
-    exact fields, supported tween / particle / shader / audio
-    parameters.
-  - theme_audio.tres schema — what audio events does it bind to,
-    how is the ogg file path declared, ambient vs stinger
-    differentiation.
-  - Generic effects coordinator design — single autoload,
-    signal hookup, lifecycle, viewport-visibility integration,
-    reduce-motion branch.
-  - Audio playback architecture — single Godot AudioStreamPlayer
-    per scope vs pooled players, bus routing, fade-in/out on
-    slot change.
-  - Locked vs unlocked picker rendering for free vs paid users —
-    locked stickers should look enticing, not greyed out.
-  - Preview timeout exact duration (locked sticker preview
-    behaviour).
-  - Thank-you drop mechanism (free-user-purchasable packs,
-    possibly review-gated unlock). Surfaced in monetisation v2.0
-    discussion, not yet specified. Lives in the monetisation doc
-    when fleshed out, not this one.
+Marked [TUNE AT FIRST ART] above — settle with real pixels, then
+lock here:
+  - Background source density (3x vs 4x).
+  - 9-slice margins (16 vs 12) + centre tile-vs-stretch defaults.
+  - Border corner size; whether edge strips ever join the corners.
+  - Tray buttons stock-vs-skinnable [LOCK AT FIRST ART, leaning
+    stock].
+  - Devtool ambiguity threshold (start 10%).
+Owed at 4.14b (build-time, not art-blocking):
+  - Final context-menu icon art + menu visual design.
+  - Themed-sticker marker style (must read in the APPtrioc HTML5
+    build).
+  - Exact endpoint shape for the partner-render asset fetch.
+  - 9-slice centre-mode declaration convention.
+Deferred with their features: everything in the DEFERRED
+CATALOGUE; thank-you-drop mechanism (monetisation doc's to spec).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ANTICIPATED FUTURE SLOTS — DESIGN-SPACE FOOTNOTE
+WHAT MORGAN PAINTS, PER PACK (the practical summary)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-This section records slot ideas surfaced in session 8 design
-conversations that are NOT part of the current spec but have
-identifiable shapes if/when they prove necessary. The intent is
-preservation — future-Morgan or future-Claude looking at a
-specific visual ambition won't have to rediscover the same
-analysis.
-
-The architecture is intentionally open-extension; these are
-parking spots, not promises. The bias should remain "make the
-visual work within current slots" not "find a reason to add a
-slot." Every new slot weakens the constraint that drives
-painting discipline.
-
-  cell_underlay_<state>.png
-    A layer drawn BELOW the stock cell (currently the
-    architecture has overlay above, mask cutting, but no
-    underlay). For glow, neon, soft auras, halo effects, gentle
-    backdrop tints distinct from palette retint. The original
-    theme doc rejected underlays on the grounds that "tinted
-    backdrops are handled by palette retint," which holds for
-    flat tint but not for blur/falloff/halo effects. Add this
-    if a sticker genuinely needs glow-style decoration that
-    overlay-above can't deliver.
-
-  grid_revealed_image.png (or similar name)
-    A single calendar-grid-sized image rendered only through
-    the cell shapes — cells act as windows into the image
-    rather than self-contained decoration targets. Solves the
-    "brick pattern fragments at cell boundaries" problem by
-    laying the pattern continuously underneath and letting the
-    cells reveal a coherent piece of it. Constraints: image
-    composition must be designed for the grid layout; pixel art
-    works well here, painted styles look chopped up. Different
-    from background.png (which sits behind everything visible)
-    and grid_tile.png (which repeats per cell). Z-layer
-    question to settle if implemented: probably below stock
-    cell fill but above background.png.
-
-  cell_overlay_<state>_<position_mod>.png
-    Position-aware variant slots for patterns that need to
-    coordinate with cell position (alternating rows, weekday-
-    aware decoration, "every Nth cell different"). Different
-    from the per-cell-variant rotation (which is random by
-    stable hash); position-modular is deliberate per-position.
-    Likely 2-variant (even/odd) or 7-variant (weekday-aware)
-    most useful. Engine picks variant by cell's position mod N.
-
-  cell_custom.gd
-    Escape hatch — bespoke GDScript for cell rendering when
-    declarative slots can't express the intent. Mirrors the
-    existing effects_custom.gd pattern. Use only when a sticker
-    genuinely needs rendering logic that can't be expressed as
-    a fixed set of PNG slots. Every custom script is per-pack
-    maintenance, so the bias is strongly against — but the
-    door stays open.
-
-CASES CONSIDERED AND REJECTED:
-
-  image_extends_beyond_cells (window-cut with continuation):
-    Considered: a single image larger than the visible calendar
-    that "extends beyond the cells" so swiping months reveals
-    more of it. Rejected as theatre — the cells are the
-    calendar, content outside them isn't real estate the user
-    is meant to look at. The brick-wall case (continuous
-    pattern visible through cell windows) stands on its own
-    merits as the grid_revealed_image slot above; image
-    extension is bonus complexity that doesn't earn its keep.
-
-  per-frame randomisation of cell variants:
-    Considered: cell variants pick randomly per render, varying
-    over time. Rejected — random changes undermine the "this is
-    MY May 15" feeling. Stable hash of cell date is the locked
-    answer for per-cell variant pools (see PER-SLOT VARIANT
-    VARIATIONS in asset architecture).
+A maximal v1.0 pack of one sticker:
+  1× sticker.png        32×32, real colours, ≤4 non-neutrals +
+                        neutral ramp, proportional clarity
+  1× background.png     360×800, reference values + neutrals
+  1× calendar_card.png  48×48 9-slice, reference values
+  1× tray_card.png      48×48 9-slice (clone-and-tweak the above)
+  1× popup.png          48×48 9-slice (same family)
+  1-4× border corners   96×96 each (one file = auto-mirrored)
+A minimal pack: sticker.png alone. Everything between is valid.
+Open Aseprite.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RELATED DOCS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  - four_tasks_pair_key_design_notes.md
-    Identity model. active_leader participates in the pair-key
-    hash; all other slots do not. Picker UX inheritance (the
-    long-press gesture pattern) — though the commit-on-close
-    model is NOT inherited here for non-leader slots; theme slot
-    changes are instant.
-
-  - four_tasks_staggered_disclosure_design_notes.md
-    Long-press gesture (per-element context menu) is a trigger-
-    gated reveal on first picker open (session 8 — was day-7
-    scheduled). Four Tasks only — APPtrioc never reveals this.
-    The post-fork picker depth is the conversion mechanic from
-    APPtrioc to Four Tasks.
-
-  - four_tasks_architectural_preference.md
-    Clarity over cleverness — informed the session 8 decision to
-    derive palette from the painted sticker rather than declare
-    in a sidecar. The painted PNG is already an unambiguous
-    declaration under the painter's constraint; a sidecar would
-    be a second source of truth with no real benefit.
-
-  - four_tasks_pair_key_design_notes.md (identity authority)
-    active_leader changes trigger pair-key ROTATION. Other slot
-    changes are normal user-field writes, no rotation. (The old
-    write_rules doc is superseded; pair-key doc is the authority.)
-
-  - four_tasks_morning_sequence_design_notes.md
-    Q1 — MOTD's emoji slot reads from the active_stickers pool.
-    The pool is dual-purpose by design.
-
-  - four_tasks_monetisation_position.md
-    Library access mechanic depends on subscription state.
-    Catalogue purchase gate makes subscription the access path to
-    new monthly drops. Immutable past extends to full slot state,
-    not just leader/palette — captured in the single
-    `days.day_theme_state` JSON column (shipped v1.0 schema).
-
-  - four_tasks_sticker_pack_brainstorm.md
-    Content-side brainstorm of which packs ship which elements.
-    The brainstorm uses the feature-catalogue model — each pack
-    entry lists its elements explicitly rather than claiming a
-    tier label.
+  - four_tasks_pair_key_design_notes.md — active_leader is the
+    identity/rotation participant; all other slots are free
+    writes.
+  - four_tasks_staggered_disclosure_design_notes.md — long-press
+    reveal is trigger-gated on first picker open; Four Tasks only.
+  - four_tasks_architectural_preference.md — no-sidecar derivation
+    (s8) and the pre-bake mechanism (s32) are both this rule
+    applied.
+  - four_tasks_morning_sequence_design_notes.md — MOTD emoji slot
+    reads the pool; the tray-card slot must respect the ceremony
+    choreography.
+  - four_tasks_monetisation_position.md + economy redesign doc —
+    library access, catalogue gate, immutable past, pack pricing.
+  - four_tasks_sticker_pack_brainstorm.md — content-side pack
+    planning under the catalogue model.
+  - system map §6.7/§7 — Palette.gd sacred-vs-themed split; the
+    bake cache becomes the themed side's source at 4.14b.

@@ -1,6 +1,6 @@
 # Staggered Feature Disclosure — Design Principle
 
-**Status:** LOCKED as a design principle (session 2, refined session 5, substantial revisions session 8 to reflect onboarding scope expansion and week mode v1.0 inclusion, tutorial_progress merge semantics added session 12).
+**Status:** LOCKED as a design principle (session 2, refined session 5, substantial revisions session 8 to reflect onboarding scope expansion and week mode v1.0 inclusion, tutorial_progress merge semantics added session 12, week-mode cascade destination updated to Model B session 32 — recording the s30 fork resolution).
 
 **Scope:** this is a *meta-principle* about how features are introduced to the user over time. It doesn't dictate which features exist; it governs *when* the user discovers them.
 
@@ -56,7 +56,7 @@ Day counts are absolute from install date, not pair-formation date. Some reveals
 |-----|-----------------------------------------------------------|
 | 0   | Core onboarding (see above)                               |
 | 1   | First morning sequence — stamp animation, coin payout     |
-| 2   | Long-press philosophy reveal — triggers week mode tutorial|
+| 2   | Long-press philosophy reveal — relays into week mode      |
 | 3   | Rest day intro                                            |
 | 4   | Partner reactions intro — DEFERRED to v1.x with the feature |
 | 5   | First streak milestone (trigger-gated, fires on 5-day)    |
@@ -80,13 +80,13 @@ The most distinctive reveal in the schedule. A meta-philosophy moment, not a fea
 
 **Dismissal pattern:** no Got it button. The popup clears when the user performs the long-press on a day name. The act of dismissing IS the learning. This establishes a new pattern in the app's tutorial language: gesture-teaching reveals dismiss via the taught gesture; content reveals dismiss via Continue.
 
-**Cascading effect:** the long-press on a day name triggers the week mode tutorial, which handles its own feature introduction. The day-2 reveal stays focused on philosophy; the gesture serves as a relay into the feature reveal.
+**Cascading effect:** the long-press on a day name opens week mode itself (see below). The day-2 reveal stays focused on philosophy; the gesture serves as a relay into the feature.
 
 **Implementation note:** the popup needs to be positioned so day names are visible underneath it, or the gesture-dismissal magic breaks. Layout discipline required.
 
-### Day 2 (cascading) — week mode tutorial
+### Day 2 (cascading) — week mode intro
 
-Fired by the day-2 long-press. Introduces per-weekday task templating. Copy and flow TBD when week mode tutorial gets its own design pass (see week mode design notes). Note: week mode is now in v1.0 scope (session 8 decision — features touching schema, calendar UI, ritual loop, or write rules ship at launch rather than retrofitted against frozen code).
+**Resolved s32 (recording the s30 Model-B fork resolution; supersedes "tutorial flow TBD"):** there is no separate week-mode tutorial. The cascade destination is the week-mode feature surface itself — the day-2 long-press opens the **week-mode popup** (Model B: a popup off the weekday header with the four task slots and per-slot override controls), with a **one-time intro line** inside the popup on first open. The feature teaches itself; the intro line is one sentence of framing, not a flow. `tutorial_progress.week_mode_intro` marks the line as shown. Note: week mode is in v1.0 scope (session 8 decision — features touching schema, calendar UI, ritual loop, or write rules ship at launch rather than retrofitted against frozen code); interaction-model detail lives in the week mode design notes (4.D2).
 
 ### Day 3 — rest day intro
 
@@ -201,7 +201,7 @@ The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup
 
 - **Onboarding (tiles 3.1-3.x)** — locked at the eight-screen flow documented in onboarding design notes. Includes theme, MOTD, partner panel intro, coin grant, library sharing plant. Anything beyond that floor waits for the staggered schedule.
 - **Morning sequence (tile 4.6)** — natural surfacing window for scheduled reveals on subsequent days. Day-2 long-press philosophy fires here. Day-3 rest day intro fires here. Day-4 partner reactions would fire here when that feature ships (deferred to v1.x).
-- **Week mode tutorial** — chained off the day-2 long-press philosophy reveal. Implementation lands alongside week mode feature in v1.0.
+- **Week mode (tile 4.D2)** — the day-2 long-press relays straight into the week-mode popup; a one-time intro line on first open is the entire "tutorial" (Model B, s30/s32). No separate tutorial flow exists or is planned.
 - **MOTD reroll** — fully introduced in onboarding screen 6. No separate reveal needed.
 - **Help menu (tile 4.11)** — always-available escape hatch from the staggered approach. Scope obligation: must include reference copy for every staggered reveal that ships (day-2 philosophy, day-3 rest day, picker context menu, coin name personalisation, subscription disclosure, streak milestones; partner reactions copy lands with the feature in v1.x). The "reveals never re-fire" rule depends on the help menu being a complete reference for users who dismissed too fast or want to revisit.
 - **Basic sticker picker (tile 4.14a, pre-fork)** — pool toggle is available immediately. No reveal needed. APPtrioc inherits this picker.
@@ -225,7 +225,7 @@ The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup
 - `four_tasks_theme_design_notes.md` — sticker picker context menu is a trigger-gated reveal on first picker open (session 8 change from day-7 scheduled).
 - `four_tasks_onboarding_design_notes.md` — onboarding floor. Substantially expanded session 8 to include theme, MOTD, partner panel, coin grant. Anything beyond the floor lives in this doc's schedule.
 - `four_tasks_monetisation_position.md` — day-21 subscription disclosure builds on the day-0 library-sharing plant.
-- `four_tasks_week_mode_design_notes.md` — week mode is v1.0 scope (session 8 decision). Tutorial fires via the day-2 long-press philosophy cascade.
+- `four_tasks_week_mode_design_notes.md` — week mode is v1.0 scope (session 8 decision). The day-2 long-press relays into the week-mode popup (Model B); the one-time intro line lives there.
 - `four_tasks_achievements_brainstorm.md` — counter-example: hidden Easter-egg achievements explicitly DO NOT use staggered disclosure. Pure discovery, no scheduled reveal.
 - Tile 4.11 (help menu) — the "show me everything" escape valve. Scope obligation noted in cross-cutting hooks above.
 - Future tile: TutorialCoordinator autoload + `tutorial_progress` schema reservation on `users`.
@@ -245,3 +245,7 @@ The day-2 long-press philosophy reveal introduces a new dismissal pattern: popup
 
 - `tutorial_progress` merge semantics paragraph added to architectural implications section 1. Server-as-source-of-truth, reveals immutable once fired, never re-show across reinstalls or devices. Closes the parked item from session 11.
 - Help menu (tile 4.11) cross-cutting hook upgraded with scope obligation: must carry reference copy for every staggered reveal. The immutability of reveals depends on the help menu being a complete fallback.
+
+## Session 32 changes summary
+
+- Week-mode cascade destination resolved (recording the s30 Model-B fork resolution): the day-2 long-press opens the week-mode popup itself; a one-time intro line on first open replaces the separate tutorial flow. "Week mode tutorial" renamed "week mode intro" accordingly; schedule table, cascading-effect paragraph, cross-cutting hook, and week-mode cross-reference aligned.

@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-11 AWST (session 31)
-Last updated: 2026-06-11 (session 31 — DEVICE LEDGER D1-D15 CLEARED, all s29+s30 code verified; 5 fixes shipped + verified same day: ceremony stage-normalization deadlock, sealed-beats-clock gating, coin-source ±2d bound, devkit FK wipe, DevKit.gd case rename)
+Last edit: 2026-06-11 AWST (session 32, mobile)
+Last updated: 2026-06-11 (session 32 — 4.25 span-sealing DOC-LOCKED; stranded s30/s31 syncs written fresh; wire_regression_pack.md created; DevKit.gd rename found missing from git; ★THEME PREP RESOLVED same session — theme doc v2; tile 4.26 notifications added. Doc-only, no code.)
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -33,8 +33,11 @@ Key locked design docs (authority):
   - morning_sequence                  — 12-beat ceremony + post-sequence
                                         presentation queue (collision resolved
                                         session 26)
+  - economy_redesign                  — coin/streak/rescue AUTHORITY (any
+                                        number or multiplier build reads it)
   - recovery / timezone_and_sealing / motd / stamp_tier / theme / week_mode /
     rate_limiting / tracking / onboarding / content_authoring_tool
+  - wire_regression_pack.md           — re-runnable server wire tests (s32)
 
 Repo map: `pickle_moon_repo_index.md` (raw-URL resolver). Always use
 `refs/heads/main/` raw-URL form.
@@ -57,7 +60,8 @@ ARCHITECTURE (locked):
     accounted-for day, computes stamp/coins/streak then. `morning_payout_
     due_for` column dropped as redundant. (Eager-seal-at-completion
     considered + REJECTED session 26 — unnecessary over-engineering;
-    lazy is sufficient.)
+    lazy is sufficient. 4.25 span-sealing DOC-LOCKED s32: the walk will
+    seal the whole span back to the last seal, not one target.)
   - File naming: autoloads PascalCase (Backend/State/Identity); else
     snake_case; internal code always snake_case.
 
@@ -698,10 +702,168 @@ RECORDED, not built:
   - Rapid-tick untick reproducible ONLY under mock-clock hopping (s29 #7
     residual) — PARKED.
 
+DIRECTION LOCKED (end of session): walkback span-sealing amendment —
+empty days adjudicated AT FIRST CONTACT during the walk (1-day gap + live
+streak → rescue fires then, anchored to the gap day's own seal; 2+ day gaps
+batch-seal grey silently; payout target seals after). Kills the discovered
+wart: current adjacency checks behind the target only, so a streak advances
+past a hole on day N and retroactively collapses on N+1. Stateless rescue
+architecture survives unchanged. Tile 4.25 — doc before code, next session.
+
 Files: morning_sequence.gd, App.gd, task_list.gd, index.ts, seed_devkit.sql,
 DevKit.gd (rename). Client fixes device-verified within session; index.ts
 deployed at close.
 
 Session 31 time: ~4h.
 Running total: ~156.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 32 — 2026-06-11 (mobile, at work — DOC-ONLY, no code)
+4.25 DOC-LOCKED · stranded syncs written · wire pack · ★THEME PREP RESOLVED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+PROJECT FILES RESET: clean-slate replacement (todo + devlog + .gd scripts
++ server zip). Verified all carry the s31 finals (five fix markers present)
+— the s31 canonical-file trap is closed.
+
+FOUND (repo audit before amending): NONE of the s31 bookkeeping syncs had
+reached the repo, and the s30 morning-seq STREAK RESCUE GATE section was
+never pushed at all (economy's s30 section landed; morning-seq header still
+said s29). Pair-key §9.1a was the one s31 sync that DID land — that todo
+item was simply unticked. Also: the s31 devkit.gd → DevKit.gd rename never
+registered in git — Windows core.ignorecase swallows case-only renames, so
+the repo still carries lowercase and a fresh clone resurrects the dead-
+autoload-on-Android bug. Fix tiled: `git mv devkit.gd DevKit.gd` (laptop).
+
+4.25 WALKBACK SPAN-SEALING — DOC-LOCKED (build owed, ~3-5h + verify).
+Resolutions made inside the s31-locked direction, now authoritative in the
+docs:
+  - The claim walks the FULL span (last seal +1 → local_date −1), oldest
+    first; every day ends terminal — contiguous history.
+  - Never-opened days seal GREY: accounted_for stays 0, zero payout,
+    SILENT (no ceremony for a day never engaged with). Accounted days seal
+    at natural tier; the most recent is the payout target + ceremony day.
+  - The walk runs even with NO payout target — the first-contact fix
+    (skip Tue, open Wed: Tue judged Wed morning; no retroactive collapse).
+  - Rescue = PRE-SCAN: exactly ONE zero-task day in the span AND streak ≥1
+    → offer, anchored to that day's own seal; two-plus (incl. gap + grey
+    target) → batch-seal silently, break, NO offer. Extends the locked
+    no-false-hope rule — no chained offers, no two-purchase saves.
+  - pending_rescue.target_date / target_tier become NULLABLE (rescue can
+    fire on a payout-less claim). Pending seals NOTHING; resolve re-walks
+    and seals the whole span in one batch. Stateless/re-entrant unchanged.
+  - Shadowed accounted day (needs two consecutive claim failures): seals
+    at tier WITH its payout, silently batched; ceremony presents only the
+    most recent day.
+  - Corrected on the way: the morning-seq doc's "stranded days drain
+    most-recent-first, self-correcting" claim was WRONG in steady state
+    (one unsealed row produced per day, one consumed — older rows shadowed
+    forever, payout lost). Recorded as the second fault 4.25 retires.
+
+FILES WRITTEN (7 — commit checklist in todo top block):
+  - economy_redesign: streak rule → per-day walk-order math; rescue →
+    first-contact + pre-scan; never-opened/shadowed earn rules; SPAN-
+    SEALING STATUS line (doc describes target, wire runs s30 until 4.25).
+  - morning_sequence: Q5 rewritten as span-sealing; STREAK RESCUE GATE
+    section written fresh in 4.25 form (the missing s30 content); beats
+    0/0b added to the beat list (s31 stage normalization synced); claim-
+    contract step 5 fixed (still carried the SUPERSEDED s27 green-only
+    streak rule); freeze/resume confirmed present; Q8 shipped-cost note +
+    stale 300-600 pack price → 20k-100k; absence-return queue entry case.
+  - system_map: FULL refresh — §4 to ten tables (content-drops trio), §5.1
+    full endpoint surface (motd roll/pool/reroll, drops + ack, rest,
+    resolve_solo were all missing), §5.2 FK-wipe helper, §5.3 ±2d bound +
+    stranded-day fault + 4.25 forward note (observational discipline:
+    shipped wire stays primary), §6-§7 client inventory REWRITTEN against
+    the uploaded .gd set (the long-owed s24-31 debt paid; stale facts
+    fixed: toggle_task signature, onboarding "STUB", Bonus "will apply",
+    devkit menu), §10 sealed-beats-clock + bound invariants, §11/§12
+    pruned of shipped items, repo path → C:\dev\, s30+s32 changelog rows
+    (s30's refresh had never logged itself).
+  - timezone_and_sealing: new CLOCK BOUNDS section (±2d coin-source bound
+    + sealed-beats-clock client rule, generalised); anti-scrubbing section
+    honestly QUALIFIED — the original "forward rolls skip, don't farm"
+    analysis was wrong under fully-trusted local_date (roll-claim-roll-
+    claim minted a payout per roll; the bound closes the mint); 4.25
+    supersedes-on-build note on the single-row walkback; yesterday_iso
+    DST edge recorded.
+  - staggered_disclosure: week-mode cascade destination = Model B popup +
+    one-time intro line (day-2 long-press relays into the feature itself;
+    "tutorial" → "intro" throughout). 4.D2 fork recorded RESOLVED in todo;
+    week-mode doc's own Model-B sync rides 4.D2's design pass.
+  - wire_regression_pack.md (NEW): folds the s29/s30 session packs into
+    one paste-ready reference ($BASE/$U session vars); W1-W17 marked
+    PASSED s31; W18 commands; 4.25 re-spec block W13r/W14r (span shapes,
+    shared sealed_at as the atomicity probe) + W19 (first-contact hole,
+    null target) + W20 (gap+grey suppression); device rescue-affordability
+    recipe. session_29/30_wire_tests.md DELETE on commit.
+  - todo: top block → commit checklist + git-mv item; 4.25 → [~] design
+    closed; 4.D2 fork resolved (Model B); doc-sync pile updated; s32
+    total row.
+
+THEME PREP DESIGN CONVERSATION — RESOLVED (same session, second
+half; the critical-path conversation gating 4.14b/4.20/4.D, done
+by mobile grilling against annotated screenshots + border sketch).
+Theme doc REWRITTEN AS v2 (restructure supersedes the 2026-05-15
+edition; locked v1 content carried, superseded models compressed
+to history). The locks:
+  - COLOUR SYSTEM: up to FOUR pixel-weighted roles per sticker
+    (primary→accent by count; surface share stays the painter's);
+    role-accent falls back to role-tertiary on 3-colour stickers;
+    FREE NEUTRAL RAMP #000000/#5A5A5A/#B4B4B4/#FFFFFF — usable in
+    stickers AND theme art, never retinted; exact grey rule:
+    derivation excludes R==G==B exactly + alpha<1; AA neutral-to-
+    neutral only; reference values locked #FF0000/#00FF00/
+    #0000FF/#FF00FF. Supersedes strict-three-flats.
+  - v1.0 SLOT CATALOGUE = SEVEN: leader, palette source,
+    background, calendar card, tray card, popup skin, border.
+    THE CELL STAYS SACRED — cell treatments (+ dead-cell, grid
+    tile, flourish, label, effects, meta-mods) DEFERRED to v1.x
+    with locked architecture preserved in the doc; audio already
+    v1.1 globally. (Morgan: cells were the most daunting,
+    smallest surface — deferring un-obscures the vision.)
+  - NEW SLOTS: border = corner flourishes, z above background /
+    below cards, never costs calendar width; convention = one
+    border_corner.png auto-mirrored ×4 OR explicit _tl/_tr/_bl/
+    _br subset (explicit wins). Popup skin = ONE 9-slice for all
+    dialog surfaces. Calendar card + tray card = separate
+    9-slice slots (clone-and-tweak economy). Tray buttons stock
+    [LOCK AT FIRST ART].
+  - RETINT MECHANISM LOCKED: PRE-BAKE at slot change (clarity
+    over cleverness — legible GDScript, devtool-debuggable,
+    transform-stack-free, preview = second bake cache). Shader
+    recorded as fallback; indexed-PNG retired.
+  - META-MODS reserved: palette transform stack between
+    derivation and bake (jester permutes, yin-yang inverts,
+    chrome hue-shifts; composable ordered list in
+    active_theme.mods). v1.x feature, v1.0 pipeline hook.
+  - DIMENSIONS derived from Layout.gd: background 360×800 @3x,
+    card 9-slices 48×48/16px margins @3x, border corners 96×96
+    @3x — all [TUNE AT FIRST ART]. Integer Nearest always.
+  - R2 RUNTIME ASSET DELIVERY designed (closes the s29 gap):
+    launch packs bundled res://; drops download to
+    user://stickers/<id>/ on drop-ack; content_drop_assets rows
+    ARE the manifest; assets immutable per sticker id (cache
+    forever); PARTNER-RENDER RULE — client may fetch any
+    referenced sticker's assets by id, entitlement gates use not
+    pixels; offline degrades to stock + retry.
+  - Picker: 30s preview timeout locked; locked stickers enticing
+    not greyed; devtool gains accent swatch + neutral audit.
+ART IS UNBLOCKED: per maximal pack = sticker 32×32 + background +
+three 48×48 9-slices + 1-4 border corners. Sticker-only valid.
+
+ALSO ADDED: tile 4.26 — notifications, CRUDE pass, wanted ASAP
+for the daily-driver APK. Local only, no FCM. Design locked in
+conversation: two daily notifications, tap opens app — morning
+"your coins are waiting" + ~8pm "you haven't ticked your tasks
+today, want to do that before bed?". Fixed times/copy v1.0,
+customisable v1.x; true server push stays v1.x.
+
+OPEN AFTER THIS SESSION: W18 wire check, W10 (optional), laptop-emoji
+parity, git case-rename fix, commit the EIGHT files (seven above + theme
+doc v2; checklist in todo). Then 4.25 build → daily-driver switch (with
+4.26 + stamp pools), or straight to Aseprite — next roster-break call.
+
+Session 32 time: ~6h (ESTIMATE — doc-only incl. THEME PREP; correct at
+close).
+Running total: ~162.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
