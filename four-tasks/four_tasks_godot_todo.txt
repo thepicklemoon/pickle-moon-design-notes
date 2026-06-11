@@ -1,16 +1,116 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-04 AWST
-Last updated: session 28 — claim handler economy LIVE (partner multiplier 1.2-1.5, two-sub ×1.5 boost + streak bonus, solo phantom 1.5; baked immutable at seal). Partner-rest → ×1.5 fix (handler first cut read rest as 0 tasks; contradicted locked rule + pill). Claim returns multiplier+motd. Tray subtitle slot repurposed (LabelLabel state-driven: sealed-day MOTD / "TASKS FOR" eyebrow; sealed-day reopen shows MOTD in perpetuity). Morning sequence beats 5a (bonus line / "Rest Day") + 7 (diary MOTD glitch, overwrites 5a) — last stubs gone. DevKit seed gives claimable days a MOTD. 4.8 same-day rest system: server endpoint (wire-tested 5/5) + client (long-press, confirm dialog, coin tick) — mechanism done, content + device-test deferred. morning_sequence design doc updated. Both S27 OWED items closed. Last code: session 28.
+Last edit: 2026-06-10 AWST (second pass — autonomous run)
+Last updated: session 30 — STREAK RESCUE + RULE CHANGE + HERO BEAT (2026-06-11, design locked mobile, built same day). Streak rule AMENDED (economy doc authority): ≥1 task ADVANCES, rest holds, only zero-task days break — sealed grey OR never-opened gap (gap detection closed a real hole: gaps never broke streaks as shipped). STREAK RESCUE GATE: claim returns pending when exactly one purchasable day saves a streak ≥1; new POST /users/:id/claim/resolve (re-entrant; decline = seal grey, accept = convert/create rest + seal, atomic); RESCUE_COST = 50k own constant, economy.rescue_cost shipped; no cap (price-only guard — econ doc open-tension updated, accepted). SERVER WIRE-VERIFIED same day (W11-W17 all pass). CLIENT HALF built UNVERIFIED: rescue_confirm.gd (no scrim-cancel — decline is irreversible), State pending routing (coordinator unchanged — parked one-shot picks up the resolve), App wiring, Backend.resolve_claim. SEAL-DAY HERO BEAT built UNVERIFIED: hero_beat.gd overlay (cell proxy fly + sticker pop + no-amount card), once-per-date Prefs marker, worked + rest variants, 2 DevKit trigger rows. WEEK MODE fork resolved → Model B popup editor (doc rewritten; per-weekday toggle retired, per-slot radios, override table reshape owed at 4.D2). Also: s29 W1-W9 wire-verified 2026-06-11 (+ sweep-chat getEligibleDrops per-drop parse isolation patch). Device ledger D1-D15 pending. Last code: session 30.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
-Completed-tile history with session attribution + time logged: devlog v2 SUMMARY block + v1 archive.
+Completed-tile history with session attribution + time logged: devlog v3 SUMMARY block + v1/v2 archives.
 
 Tags: [CODE] [ART] [CONFIG] [ADMIN] [DECIDE]
 Status: [ ] not started, [~] in progress / design closed, [x] done
 Convention: ticked tiles get `Time: ~Xh` or `~Xmin` on title line.
 Tiers (for items outside phase structure): ACTIVE / PARKED / DEFERRED.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 29+30 TEST LEDGER — burn down BEFORE next code session
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Files to replace (s29 set already deployed/landed 2026-06-11; SESSION-30
+outputs supersede where named): index.ts (s30 = s29+sweep-patch+rescue) ·
+App.gd · State.gd · Backend.gd · Prefs.gd · devkit_menu.gd · NEW
+rescue_confirm.gd · NEW hero_beat.gd. No schema change in s30.
+Schema first: `npx wrangler d1 execute four-tasks-dev --remote --file=schema.sql`
+(whole file is safe — IF NOT EXISTS throughout; adds the three content-drop
+tables). Then deploy once: `npx wrangler deploy --env dev` from server/ (also
+proves the new wrangler.toml parses AND registers the Thursday cron; NOTE:
+bare `wrangler deploy` now lands on DEV — prod requires explicit
+`--env production`).
+
+WIRE (laptop, curl vs dev worker):
+  [x] W1  PUT tasks_done to a fresh date → row has accounted_for = 1 in D1.
+  [x] W2  Sealed-day write still 409 day_sealed.
+  [x] W3  PUT {"rest_day": true} → 400 naming the rest endpoint.
+  [x] W4  Rest endpoint toggle on (debit) / off (refund) round trip clean.
+  [x] W5  41-char username → 400 value_too_long naming the field; normal length 200.
+  [x] W6  Unpair → initiator pending_unpair_notice NULL, recipient carries initiator's username.
+  [x] W7  GET /users payload: economy.rest_cost = 50000 AND economy.reroll_cost = 100.
+  [x] W8  POST /users/:id/motd/reroll with coins ≥ 100 → 200, user debited 100,
+          roll has adverb/verb/noun; with coins < 100 → 409 insufficient_coins.
+  [x] W9  Drops round trip: SQL-seed one live drop (uuid, shape='patch',
+          status='live', released_at=now, simple JSON payload) → GET
+          /users/<TestUser>/drops returns it parsed → POST .../delivered → ok
+          → GET again → empty. Then seed one with released_at BEFORE
+          TestUser's created_at → not returned (forward-only).
+  [ ] W10 (optional) Cron: `npx wrangler dev --test-scheduled` then
+          curl "http://localhost:8787/__scheduled?cron=0+0+*+*+4" → a queued
+          drop flips live. (Or let a real Thursday prove it on dev.)
+
+  SESSION 30 wire (commands: session_30_wire_tests.md) — ALL PASSED 2026-06-11:
+  [x] W11 grey rescue: pending → 409 floor (nothing sealed, re-offers) →
+          accept (purple, -50k, lifetime untouched, streak held 3, one-shot).
+  [x] W12 grey rescue: decline (grey seal, streak 0, declining free).
+  [x] W13 gap rescue: accept (missing day created sealed-purple, same
+          sealed_at as target = atomic batch; streak 4; debit + earn).
+  [x] W14 2-day gap: no offer, immediate seal + break (streak 1).
+  [x] W15 streak rule proof: 2-task day ADVANCES 3 → 4 (old rule reset).
+  [x] W16 resolve with nothing pending → plain-claim degradation, no charge.
+  [x] W17 economy payload carries rescue_cost 50000.
+
+DEVICE (phone):
+  [ ] D1  DevKit morning_payout → boot ceremony fires, payout totals correct (#1 regression + #12).
+  [ ] D2  Finish ceremony → home → device date +1 → foreground → ceremony fires WITHOUT restart (#1 kill shot).
+  [ ] D3  Background/foreground same date → nothing fires, no input-lock flash.
+  [ ] D4  Airplane-mode failed claim → network back → bg/fg → ceremony fires (retry).
+  [ ] D5  Home out MID-ceremony → reopen → resumes from freeze point, completes, input dead throughout (#4).
+  [ ] D6  Full ceremony → MOTD stays in header at settle, no vanish (#5).
+  [ ] D7  Airplane mode → rest ON → immediately tap a task → rest fails, flag rolls back; network back, bg/fg → NO phantom coin animation (#7 + #11).
+  [ ] D8  Rest dialog cost copy reads 50,000, afford gate behaves (#10).
+  [ ] D9  Spam-tap a cell ~10× fast → card ends at dock, no upward creep; then DevKit ceremony → lift/return lands correctly (#13).
+  [ ] D10 Mock clock: D2 repeated via DevKit (Mock clock → "Today +1" → status
+          updates → bg/fg → ceremony fires for the mocked day → "Clear mock" →
+          status shows OS clock). Do D2 via Android settings ONCE first — the
+          purest #1 test has no new code in its path.
+  [ ] D11 Bug catcher: DevKit → Dialogs → open → counter live, send disabled
+          when empty → type + send → thanks state → row in dev D1 bug_reports.
+          Cancel path closes clean. Airplane-mode send → failure copy →
+          network back → retry succeeds.
+
+  SESSION 30 device (rescue + hero, all client code UNVERIFIED):
+  [ ] D12 DevKit "Streak rescue — grey day" → reboot → rescue dialog over flat
+          calendar BEFORE any ceremony beat (input works above the blocker);
+          accept → rest-variant ceremony plays for the converted day, coins
+          tick -50k at settle, streak bar holds.
+  [ ] D13 Same scenario, decline → grey-stamp ceremony plays, streak bar 0 at
+          settle. Then DevKit "— 1-day gap" → accept → worked ceremony for
+          yesterday, bought day appears purple in the calendar at beat-12
+          refresh (poll merge).
+  [ ] D14 Rescue with coins < 50k (default seed) → dialog shows shortfall copy,
+          SAVE disabled, LET IT GO seals grey. Kill app mid-dialog (unanswered)
+          → reopen → offer re-presents (self-heal; per-day marker re-armed).
+  [ ] D15 Hero beat: tick 4th task today → cell proxy flies + sticker pops +
+          "FOUR FOR FOUR" card, NO amount, tap dismisses, proxy returns;
+          untick/retick → does NOT re-fire (Prefs once-per-date); rest confirm
+          → rest variant fires ~0.8s after coin tick-down; DevKit Dialogs rows
+          fire both variants from fallback origin.
+
+Regression-only riders (no dedicated step): #6 timeout, #12 relative coins,
+#15 prints, #16/#22 comments+cap, #17 walkback, #19 dim, #21 coalesce.
+
+BOOKKEEPING OWED POST-VERIFY:
+  [ ] Devlog session-29 entry (sweep summary, fixes, parked findings, time).
+  [ ] Devlog session-30 entry — drafted, [FILL AT VERIFY] time + D12-D15 result.
+  [ ] Doc sync: system map §5.3 (claim pending_rescue + resolve endpoint +
+      amended streak rule) and §4.x (rescue_confirm / hero_beat components).
+  [ ] Doc sync: staggered disclosure — week-mode cascade destination is now
+      the popup + one-time intro line (Model B, one line).
+  [ ] Doc sync: morning-seq doc rescue-gate section — implementation nuance:
+      the dialog mounts ABOVE the already-raised blocker (started() precedes
+      the claim), not literally before the lockout; same design intent.
+  [ ] Doc sync: morning-seq doc "App should call abort()" → freeze/resume model (new file header is the source text).
+  [ ] Doc sync: pair-key doc §9 — partner payload carries partner's user_id (= write credential); intra-pair trust posture, record as a decision.
+  [ ] Tick 4.14c if D-pass confirms (see tile).
+  [ ] Resolve "streak semantics under week mode" as MOOT in devlog (label-overrides only; see 4.D2).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APPTRIOC FORK ARCHITECTURE (locked session 5)
@@ -39,185 +139,155 @@ PHASE 0 — Pre-flight (CLOSED)
 [x] 0.11 [DECIDE/CONFIG] Ledger live (`pickle-moon-ledger`). Session 1+2. ~1.25h.
 [x] 0.12 [CONFIG] Dev environment. Session 2. ~15min.
 
-GATE: Closed. Project opens, ABN active, business name registered, toolchain ready, privacy policy + ledger live.
+GATE: Closed.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 1 — Backend + foundations
+PHASE 1 — Backend + foundations (CLOSED)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 [x] 1.0 [CONFIG] Cloudflare account. Session 1. ~10min.
 [x] 1.0a [DECIDE/ADMIN] Domain `thepicklemoon.com` registered. Session 1. ~30min.
 [x] 1.0b [CONFIG] Toolchain (Node v24.15.0 + Wrangler 4.90.0 + OAuth). Session 1. ~25min.
 [x] 1.1 [CODE] Worker scaffold + D1 schema. Session 2. ~3h.
+[x] 1.2 [CODE] Worker endpoints v1 (rewritten to user_id model session 12). Sessions 3+12. ~3h + rewrite.
+[x] 1.3 [CODE] Worker defensive write rules — ten write endpoints, v1.0 schema (7 tables, 36 cols), all curl-verified + deployed. Session 12. ~5h.
+[x] 1.4 [CODE] Lazy seal-on-open. ABSORBED into 1.3 claim transaction. Session 12.
+[x] 1.5 [CODE] Godot Backend autoload. Time: ~30min.
+[x] 1.6 [CODE] Godot State autoload. Time: ~30min.
+[x] 1.7 [CODE] Godot Identity autoload. Time: ~30min.
 
-[x] 1.2 [CODE] Worker endpoints v1. Session 3+12. ~3h initial + rewritten in session 12.
-    GET /health, GET /users/:user_id, POST /resolve. Wholesale rewrite to user_id model in session 12.
-
-[x] 1.3 [CODE] Worker defensive write rules. Session 12. ~5h.
-    Ten write endpoints across three batches:
-      Batch A: POST /users, POST /users/:user_id/bug_report, POST /users/:user_id/dismiss_unpair_notice, PUT /users/:user_id/days/:date.
-      Batch B: PUT /users/:user_id (with rotation), POST /users/:user_id/unpair, POST /users/:user_id/join_by_values.
-      Batch C: POST /users/:user_id/claim (lazy seal + payout + stamp + streak + theme snapshot).
-    v1.0 schema rewritten wholesale (7 tables, 36 cols). Old migration_001/002/003.sql DELETED. schema.sql is single source of truth. Partner reactions killed for v1.0. Promo codes scope added. morning_payout_due_for column dropped (redundant under lazy-seal).
-    All 11 endpoints curl-verified locally + deployed remote. Stub stamp_messages.ts created.
-
-[x] 1.4 [CODE] Lazy seal-on-open. ABSORBED into tile 1.3 claim endpoint transaction. Session 12.
-
-[x] 1.5 [CODE] Godot Backend autoload. Stateless HTTP layer, 22 signals (success+failure per endpoint). Spawn-per-call HTTPRequest. Time: ~30min.
-
-[x] 1.6 [CODE] Godot State autoload. In-memory mirror. Days re-indexed for O(1) lookup. Optimistic mutation + snapshot rollback. UI-lockout via _writes_in_flight. Time: ~30min.
-
-[x] 1.7 [CODE] Godot Identity autoload. user://identity.cfg via ConfigFile. Emits boot_resolved(has_identity, load_succeeded) for the boot router. Time: ~30min.
-
-GATE: Closed. Cold-boot manually-populated identity.cfg loads pair data from Worker. Three boot paths verified.
+GATE: Closed.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 2 — Visible app skeleton
+PHASE 2 — Visible app skeleton (CLOSED)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[x] 2.1 [CODE] Loader scene. Centred Pickle Moon splash + hidden ErrorLabel. Routes to App / Onboarding / retry-on-error via Identity.boot_resolved. Scene swaps via call_deferred. Throwaway app.tscn + onboarding.tscn stubs. Time: ~1h.
+[x] 2.1 [CODE] Loader scene. Time: ~1h.
+[x] 2.2 [CODE] App scene with two-panel swipe. Time: ~1h.
+[x] 2.3 [CODE] Calendar grid — 9-state cell model, bounded month nav. Sessions 13-15. ~5h.
+[x] 2.4 [CODE] Task list. Session 15. ~2h.
+[x] 2.5 [CODE] Tasks tray. Session 15. ~1.5h.
+[x] 2.6 [CODE] Streak bar — self panel. Session 16. (2.6+2.7 ~2h combined.)
+[x] 2.7 [CODE] Bonus pill — partner panel. Session 16 (+today_iso fix s23).
+[x] 2.8 [CODE] Partner panel polling (30s/paused/10s-deferred + selective merge). Session 16. ~1.5h.
+[x] 2.9 [CODE] DevKit — scenario menu, dev worker + D1, flag-gated. Session 18. ~1h.
+[x] 2.A [CODE] Panel heading + project-wide font + Prefs.gd. Session 18. ~2h.
 
-[x] 2.2 [CODE] App scene with two-panel swipe. PanelYou + PanelPartner. 8px intent-lock, 1:1 drag with 50px edge give, always-snap at 12% threshold, 400ms TRANS_QUART EASE_OUT. Mouse + touch. Time: ~1h.
-[x] 2.3 [CODE] Calendar grid. `calendar_grid.tscn` + `day_cell.tscn`. Reads `State.days`. 9-state cell model (UNMARKED/RED/ORANGE/YELLOW/GREEN/REST + DEAD_HISTORICAL/PRE_INSTALL/FUTURE). Prev/next month nav bounded by install_iso (left) and today (right). Off-month cells render real prev/next dates dead-treated. Always 6 rows. Sessions 13+14+15. ~5h total.
-[x] 2.4 [CODE] Task list. `task_list.tscn` + `task_row.tscn`. Reads State. Tap toggles via State.toggle_task (no in-flight guard, no rollback). Past days render as post-payout (done = green ✓, undone = red ✕). Rest days = all rows purple ✓. Partner tray read-only. Session 15. ~2h.
-[x] 2.5 [CODE] Tasks tray. `tasks_tray.tscn` per panel. Slide-down on day-cell tap, slide-up on close ✕ or tap-same-day. Day-swap = close + open new. Cross-panel day-carry on swipe. Session 15. ~1.5h.
-[x] 2.6 [CODE] Streak bar — self panel. Flame + current_streak + coin pill in single rounded bar. Merged with 2.7 (same visual unit). Session 16. ~2h combined.
-[x] 2.7 [CODE] Bonus pill — partner panel. Purple capsule showing partner-derived multiplier (reads partner's TODAY as of session 23). Bonus.gd autoload computes; client-side rule mirrors the future server payout rule. Session 16 (today_iso fix session 23). ~2h combined.
-[x] 2.8 [CODE] Partner panel polling. 30s foreground / paused background / 10s deferred focus-in. Backend.poll_user() + State selective-merge (in-flight write preservation). Verified end-to-end via curl. Session 16. ~1.5h.
-[x] 2.9 [CODE] DevKit. Scenario menu overlaid on live app, separate dev worker + D1, build-flag-gated (editor OR custom feature). Three live scenarios (default / fresh_install / recovery_flow); ~15 more stubbed. See `four_tasks_devkit_design_notes.md`. Session 18. ~1h.
-[x] 2.A [CODE] Panel heading + project-wide font. Per-panel `{display}'s four tasks` title (tap to flip name/username, lowercase username at render) + MOTD subtitle (today fallback to yesterday). Local per-device prefs via new `Prefs.gd` autoload. Departure Mono set as project font (Project Settings → GUI → Theme); JetBrains Mono explicit on MOTD subtitle. New `Fonts.gd` autoload exposes both. Session 18. ~2h.
-
-GATE: Boot with seeded pair, see tasks, tick them, see saves server-side, switch panels, see partner data, reboot to onboarding. Bones present.
+GATE: Closed.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PHASE 3 — Onboarding + identity flow
+PHASE 3 — Onboarding + identity flow (CLOSED session 25)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Reference: `four_tasks_onboarding_design_notes.md`. Solo-as-default, 8-screen flow, pairing post-onboarding via "Add my partner" button on partner panel. Single /join_by_values endpoint.
+Reference: `four_tasks_onboarding_design_notes.md`. Solo-as-default, 8-screen
+flow, pairing post-onboarding. VALIDATION (every name/username/sticker input):
+no `|`, non-empty; UX caps username ~20 (server 40), sticker ~short (server
+50), task labels ~30 (server 49). Server caps ENFORCED as of session 29
+(value_too_long).
 
-NOTE: onboarding.tscn currently the placeholder stub + an instanced flag-gated devkit_button (added session 23 so DevKit is reachable on a fresh install). Phase 3 replaces the scene wholesale; keep a devkit entry point reachable pre-App.
+[x] 3.1 [CODE] Onboarding state machine + entry routing. Session 24.
+[x] 3.2 [CODE] Welcome + first-time/recover fork. Session 24.
+[x] 3.3 [CODE] Name + immutable confirm. Session 24.
+[x] 3.4 [CODE] Username. Session 24.
+[x] 3.5 [CODE] Starting avatar (layout only; theme theatre = Phase 4 seam). Session 24.
+[x] 3.6 [CODE] MOTD (6) — real as of 4.4 (session 26).
+[x] 3.7 [CODE] Partner's calendar (7) — placeholder; real surface is 3.10A in App.
+[x] 3.8 [CODE] Coins/picker, closing (8) — placeholder (economy-fenced).
+[x] 3.9 [CODE] Four-tasks entry. Session 24.
+[x] 3.10A [CODE] Pairing — "Add my partner" join flow + partner_empty_state. Session 24.
+[x] 3.10B [CODE] Recovery flow — two-tier, prod-verified both directions. Session 25. Time: ~4h.
 
-PENDING:
-  - Four-tasks entry screen placement (copy locked, slot TBD between 6+7 or 7+8).
-  - "Start the day" button on screen 8 — fire day-1 morning sequence immediately or defer?
-
-VALIDATION RULES (every name/username/sticker input):
-  - No `|`, non-empty. (`__` ban REMOVED session 22 — `||` is now the separator, only `|` is banned. `_`/`__`/`-`/apostrophe/period all allowed. See pair-key doc §12.)
-  - UX caps: username ~20 chars (server 40), sticker ID ~shorter (server 50), task labels ~30 (server 49).
-
-[x] 3.1 [CODE] Onboarding scene state machine + entry routing. Panel-swap architecture: controller owns enum/sequence/history/_data/commit seam, shows one child panel at a time; panels emit advance/back/alt + take enter()/set_back_visible()/set_context(). Generic placeholder stands in for unbuilt steps. Session 24. ~part of onboarding build.
-[x] 3.2 [CODE] Welcome (1) + first-time/recover fork (1a). Real panels, locked copy. Recover routes to off-spine RECOVERY_STUB (resolve NOT called — 3.10B). Session 24.
-[x] 3.3 [CODE] Name (2) + immutable confirm (3). Validated input (non-empty, no '|', ≤49), Continue gated, confirm shows value verbatim, Back restores. set_context added to contract here. Session 24.
-[x] 3.4 [CODE] Username (4). Mutable, no confirm, cap 20 UX / 40 server. Session 24.
-[x] 3.5 [CODE] Starting avatar (5) — LAYOUT ONLY. Static fake-calendar backdrop (dumb ColorRect grid, zero State — deliberate isolation boundary), right-side picker, 4 real stickers from res://assets/icons/<id>/<id>_sticker.png, single-select (modulate-dim), nothing selected on entry. NO retinting / theme theatre / companions — theme preview is a Phase 4 seam, designed separately. THEME_THEATRE + COMPANIONS remain placeholders. Session 24. STARTER_LEADERS = [frog, black_cat, vampire, chilli].
-[x] 3.6 [CODE] MOTD (6) — PLACEHOLDER (economy-fenced). Real spinners/tutorial-coin loop is Phase 4. Walks through.
-[x] 3.7 [CODE] Partner's calendar (7) — PLACEHOLDER in onboarding. Real recruitment surface built in App (see 3.10A). Walks through.
-[x] 3.8 [CODE] Coins/picker, closing (8) — PLACEHOLDER (economy-fenced). "Start the day" button present. Walks through.
-[x] 3.9 [CODE] Four-tasks entry (TASKS) — real. Four validated inputs, gates on all four, ghost-text hints, stashes task_labels. Placed 6→7. Completes the green commit payload. Session 24.
-
-GREEN PATH PROVEN (session 24, device): full walk → POST /users → Identity.save → boot into App on a real named calendar. Onboarding spine functionally complete; theatre/companions/MOTD/coins are Phase-4 dressing.
-
-[x] 3.10A [CODE] Pairing — "Add my partner" join flow. pair_dialog (name+username text + sticker PICKER) → Backend.join_by_values; handles partner_not_found / ambiguous_match / already_paired / pair_key_collision / network. partner_empty_state recruitment surface on solo partner panel. App.gd instances/removes empty state on partner_changed, opens dialog, reloads on success. Dev-verified: two accounts paired, partner calendar binds, symmetric link confirmed by curl. Session 24. ~part of pairing build.
-[x] 3.10B [CODE] Recovery flow. Time: ~4h. Two-tier, separate routes. SERVER: POST /resolve_solo added (one self-triple → users WHERE pair_id IS NULL → user_id; 200/404 user_not_found/409 ambiguous_match, mirroring join_by_values). Paired /resolve unchanged. CLIENT: onboarding_recovery.tscn+.gd behind RECOVERY_STUB (was dead). Both triples on one screen; partner placeholder "leave blank if solo"; blank partner → resolve_solo, filled → resolve_pair, partial → blocked. BOTH pickers toggleable (retap unselects — makes partner-blank reachable after mis-tap). Success → Identity.save + reboot via Loader. Backend.resolve_solo() + solo_resolved/solo_resolve_failed signals added. PROD-VERIFIED on-device: solo success (own calendar), solo wrong-value 404, paired success BOTH directions (pair_key reconstructs pair without the other user re-running join), paired-tried-solo correctly refused both ways. Prod wiped to zero post-test. Design: `four_tasks_recovery_design_notes.md`. Session 25.
-
-GATE: CLOSED (session 25). Fresh install walks welcome → first day. Solo user on App scene with own data. Pairing works for ambiguous + unambiguous matches. Recovery proven both tiers, both directions, on prod.
+GATE: CLOSED (session 25).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE 4 — Skeleton (ALL CODE, build now)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Re-split from the old "Look, feel, hero moments" (session 25). Phase 4 is now
-EVERY code tile — the daily loop made fully usable. Art is NOT a dependency:
-stub/placeholder/throwaway art is valid everywhere here, real painting slots in
-later. Phase 4b (below) is the painting, done separately at the easel.
+Re-split session 25. Phase 4 = EVERY code tile — the daily loop made fully
+usable. Art is NOT a dependency: stub/placeholder art is valid everywhere;
+real painting is Phase 4b. Tiles that READ art build against placeholder PNGs.
 
-Rule for this phase: if it's code, it's here, and it builds against stub art.
-Tiles that READ art (pickers, theme manager) are built to accept placeholder
-PNGs so the machinery is felt on-device before any real painting hours.
+Fork sits between 4.14a (pre-fork, APPtrioc inherits) and 4.14b (post-fork,
+Four Tasks exclusive).
 
-Fork still sits between 4.14a (pre-fork, APPtrioc inherits) and 4.14b
-(post-fork, Four Tasks exclusive) — see FORK POINT marker. The fork is a CODE
-boundary, unaffected by the art re-split.
+FORECAST (2026-06-10 review): remaining Phase-4 code ≈ 90-105h at current
+velocity ≈ ~3 roster breaks to code-complete. Critical-path design
+conversation: THEME PREP (gates 4.14b; schedule first thing next break, doc
+before code). Realistic store launch: Sept-Oct 2026.
 
 ━━━ PRE-FORK CODE TILES (APPtrioc inherits) ━━━
 
-[x] 4.1 [CODE] Glitch typewriter utility. Time: ~1h. GlitchType.gd (autoload, thin factory) + glitch_reveal.gd (worker, one per reveal). Freeze-on-lock left→right sweep, faster churn, spaces preserved, wide alphabet, drives any Label. Built fresh (not ported) but reviewed vs prototype — inherited the better impl (pre-scrambled frame one). Tested standalone. Lock cadence tunable; final feel deferred to in-context. Consumed by 4.6 + 4.11. Session 25. (glitch_all_marked / onboarding-popup wiring = 4.2, deferred — polish.)
-[ ] 4.2 [CODE] Wire glitch-word reveals into onboarding popups. 24 marked words from web build.
-[x] 4.3 [CODE] CoinFX utility — CLOSED session 27. CoinFX.gd autoload: fly_coins (rect->target, staggered, shrink+fade), count_up (display-only, never touches State), wiggle (taskWiggle port), coins_for_row (4-7). Stub coin art = Label glyph; real sprite 4.A (swap _make_coin). Consumed by 4.6 beat 6. NOTE: must be REGISTERED as autoload; filename PascalCase for Android PCK.
-[x] 4.4 [CODE] MOTD spinner — CLOSED session 26. Time: ~6h total. Widget (msg_wheel/msg_picker, session 25) + trigger wiring: onboarding_motd.gd/.tscn screen-6 panel (auto-spin, reroll, Continue→composed_message), create_user sends today+motd, server writes users+day-0 rows in one batch. Triggers (2)/(3) subsumed by 4.6/4.5. TUNING deferred: column widths, font, doubled selector band, EMOJI REEL renders IDs as TEXT not art (wheel Label-based — needs TextureRect column).
-[ ] 4.5 [CODE] MOTD reroll cost. First free during sequence; subsequent flat 90-110 coins, no escalation. Reroll is VENT not sink. Lock button + confirm popup. NUMBERS placeholder pending ECONOMY REDESIGN.
-[x] 4.6 [CODE] Morning sequence — coordinator CLOSED session 27. Time: ~5h (s26) + ~6h (s27). All 12 beats real. Beat 6: per-row cascade (700ms) — done->wiggle+coin fly+count-up; undone->reveal MISSED; rest->reveal purple. Count-up rewinds display to (total-earned) and climbs (claim merges total before ceremony; display-only). Cross-month nav real (show_month before beat 3, nav back beat 11). Picker-invisible bug fixed (beat 9 shows/hides). msg_picker card added. Device-verified: blitz, stamp, red/purple reveals, MOTD glitch all read correctly.
-    DONE (session 28): claim handler economy application (multiplier/sub/streak + partner-rest ×1.5 fix); tray-MOTD diary subtitle (beats 5a/7).
-    OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold 0.45s); cross-month verified-on-real-1st only.
-[x] 4.7 [CODE] Stamp slap — DONE session 26 (folded into 4.6 beat 7). Data-driven: stored on day row (stamp+sealed_at), tier DERIVED from tasks_done count (shared w/ cell), rendered on every tray open (persists + partner-visible), slap_stamp() = render+animate (slam overshoot). Placeholder art (tinted panel+message); real stamps = 4.C. Message authoring is content (PARKED).
-[~] 4.8 [CODE] Rest day system — MECHANISM DONE (s28), content + device-test deferred. Time: ~2h. SAME-DAY-ONLY. Long-press own today cell → confirm dialog (toggle on, debits 50k) / silent refund (toggle off). Server: POST /days/:date/rest (debit/refund, same-day guard, idempotent, transactional; wire-tested 5/5). Client: rest_confirm.gd modal + Backend.set_rest_day + State.toggle_rest_day rewired + streak_bar coin tick. Cell/row rest-purple repaint free via day_changed. DEFERRED: (a) device-test full loop; (b) rest-day task-label content swap (~15-30 phrases, felt cheesy — rows still show real labels on rest). No design doc (spec scattered, adequate). See also: rest-purchase escape hatch (PARKED).
-[ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days.
-[ ] 4.10 [CODE] Month stamp + month stats popup.
-[ ] 4.11 [CODE] Help menu — two-tier. Six subjects, [g]glitch[/g] markup (consumes 4.1).
-[ ] 4.12 [CODE] Bug catcher — popup, submit, confetti, thanks. Server bug_report endpoint already exists (tile 1.3).
-[ ] 4.13a [CODE] Leaderboard endpoint — GET /leaderboard. DEFERRED (`four-tasks/deferred/`). Possibly not shipping.
-[ ] 4.13 [CODE] Leaderboard UI. Depends on 4.13a revival.
-[ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (conversion pull for APPtrioc). READS sticker art — build against the 4 existing stickers + stub PNGs for the rest; sparse is valid.
-[ ] 4.14c [CODE] Future cells non-tappable (enforces same-day-only rest, session 23). day_cell.gd / calendar_grid.gd — DEAD_FUTURE cells must not open a tray or accept long-press rest designation. Small client change; pairs with 4.8. Server future-rest guard skipped (forged future rest only stamps the forger's own calendar).
-[ ] 4.D2 [CODE] Week mode. Per-weekday opt-in toggle (off by default). Divergence on first task edit, not on toggle. Cal-icon stays universal standard-four editor with warning on week-mode days. Today-only edit rule. Personal not shared. Schema: `week_mode_weekdays` bitmask + `user_weekday_overrides` table (already in v1.0 schema). Reference: `four_tasks_week_mode_design_notes.md`.
-    DEPENDS: streak semantics under week mode (PARKED — resolve before this tile).
+[x] 4.1 [CODE] Glitch typewriter utility. Session 25. ~1h.
+[ ] 4.2 [CODE] Wire glitch-word reveals into onboarding popups. 24 marked words from web build. (~2-3h)
+[x] 4.3 [CODE] CoinFX utility. Session 27. (Stub coin art; real sprite 4.A — swap _make_coin only.)
+[x] 4.4 [CODE] MOTD spinner. Sessions 25-26. ~6h. TUNING deferred (column widths, font, selector band, emoji reel TextureRect column).
+[~] 4.5 [CODE] MOTD reroll cost — SERVER HALF DONE (s29): POST /users/:id/motd/reroll (relative debit, 409 insufficient_coins, returns user + fresh roll); REROLL_COST=100 placeholder shipped via economy payload; fee-is-vent-not-protection decision recorded at the constant (free /motd/roll remains the first-spin path). CLIENT HALF remains: picker lock button + confirm popup wiring (ceremony-adjacent — with Morgan). (~2h left)
+[x] 4.6 [CODE] Morning sequence — coordinator. Sessions 26-28. ~11h + economy. OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold); cross-month verified-on-real-1st only. INTERRUPTION model rewritten session 29: freeze/resume, no abort (doc sync owed).
+[x] 4.7 [CODE] Stamp slap — folded into 4.6 beat 7. Session 26. Placeholder art; real stamps 4.C. Messages = content (PARKED).
+[~] 4.8 [CODE] Rest day system — MECHANISM DONE (s28) + session-29 hardening (free-rest hole closed, per-op rollback, server-shipped cost, anim-leak fix). Time: ~2h. Device test = S29 ledger D7/D8. DEFERRED: rest-day task-label content swap (~15-30 phrases; felt cheesy).
+[ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days — bonus is a PAYOUT component (server-side, economy doc applies; immutable at grant). UNBLOCKED 2026-06-10: streak-semantics question was moot (week mode is label-overrides only — every day still has four tasks; streaks untouched). (~4-6h)
+[ ] 4.10 [CODE] Month stamp + month stats popup. Client-computable from days payload. (~3-5h)
+[ ] 4.11 [CODE] Help menu — two-tier, six subjects, [g]glitch[/g] markup (consumes 4.1). Copy = roster-week content list. (~4-6h)
+[~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: confetti (waits on 4.9's SHARED confetti system — no one-off particles) + real-UI trigger (one line, lands with 4.11's help menu). (~30min left, inside 4.9/4.11)
+[ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h)
+[~] 4.14c [CODE] Future cells non-tappable. SESSION-29 AUDIT: implementation appears ALREADY COMPLETE — day_cell.is_interactive() rejects taps AND long-presses on DEAD_FUTURE. Device-verify (tap + long-press a future cell does nothing) and tick. (~0h)
+[ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready: `week_mode_weekdays` bitmask + `user_weekday_overrides` table (in v1.0 schema; needs its write endpoint).
+    OPEN at design sign-off (RESOLVE BEFORE BUILD): interaction model. The LOCKED doc = two silent gestures (long-press day name in TRAY HEADING toggles the weekday; long-press an individual task LABEL to edit; doc explicitly rejected popup flows). Morgan's 2026-06-10 description = single POPUP off the weekday header with four tasks + radio selectors per slot. Different surface + mechanism, same propagation. Pick one, sync the doc, then build.
+    Streak-semantics dependency REMOVED — moot (label overrides only; streaks/payout/stamps untouched, week-mode doc line 27). (~8-12h + design)
 
 ━━━ FORK POINT ━━━ APPtrioc launches from snapshot after 4.14a. See PHASE 5b. ━━━
 
 ━━━ POST-FORK CODE TILES (Four Tasks exclusive) ━━━
 
-[ ] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration) on picker. Unlocked sticker menu: per-slot icons, tap = instant application + APPLY ALL. Locked sticker menu: PREVIEW button (temporary, ~30s revert). Pair-key rotation fires on `active_leader` change ONLY.
-    ART-BLOCKED (code, but gated): needs theme implementation prep decisions (cell render sizes, retint mechanism, the line ~289 pile) before the renderer can be wired. Build the picker machinery against placeholder/throwaway art so the minimum 'alive' sticker count is felt on-device before committing painting hours. Reference: `four_tasks_theme_design_notes.md`.
-[ ] 4.15 [CODE] Username + icon edit. Settings → triggers rotation. "Changes may take a minute" dismissible popup.
-[ ] 4.16 [CODE] Partner reactions. DEFERRED to v1.x. Doc moved to `four-tasks/deferred/`.
-[ ] 4.17 [CODE] Coin name generator (server-side). DEFERRED.
-[ ] 4.18 [CODE] Coin name reroll UI + endpoint. DEFERRED (depends on 4.17).
-[ ] 4.19 [CODE] TutorialCoordinator autoload + reveal content. v1.x scope. Reads `users.tutorial_progress`, computes day-of-use, fires one reveal per session boot. Day-2 long-press philosophy reveal uses gesture-dismissal (no "Got it" button). Reference: `four_tasks_staggered_disclosure_design_notes.md`.
-[ ] 4.20 [CODE] Palette derivation devtool. Loads sticker.png, displays derived palette swatches with RGB + pixel counts. Read-only. Grey-exclusion rule MUST match runtime renderer (shared function). Lands as a DevKit scenario / sub-screen rather than a separate scene.
-[ ] 4.21 [CODE] Un-pair flow — symmetric break + change-username follow-up + dismissable banner. Time: ~3-4h.
-    Server: POST /users/:user_id/unpair already implemented (tile 1.3). Dismiss endpoint already implemented. NOTE session 25: no client trigger exists yet — this tile is the entire client UI.
-    Client A (initiator): long-press partner panel header → menu → `Un-pair`. Popup: title `Un-pair?`, no body, Cancel/Un-pair (mild red tint). On 200, change-username follow-up popup: `Change your username?`, pre-filled input, Skip/Save.
-    Client B (recipient): sees banner `[username] un-paired.` with × dismiss. Position TBD at implementation. One-shot, server-tracked.
-    Post-un-pair state = post-onboarding-solo state. Banner is only delta on B's side. No cooldown. Re-pair via standard `Add my partner`. UI always says "un-pair". Reference: `four_tasks_pair_key_design_notes.md` Section 17.
+[ ] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration). Unlocked menu: per-slot icons, instant application + APPLY ALL. Locked menu: PREVIEW (~30s revert). Rotation fires on active_leader change ONLY.
+    GATED on the THEME PREP design conversation (see ACTIVE) — render sizes, retint mechanism, palettes, schemas, coordinators. Build machinery against placeholder art. Reference: `four_tasks_theme_design_notes.md`. (~10-15h + design)
+[ ] 4.15 [CODE] Username + icon edit. Settings → triggers rotation. "Changes may take a minute" popup. (~3-4h)
+[ ] 4.20 [CODE] Palette derivation devtool — DevKit sub-screen. Loads sticker.png, shows derived swatches + RGB + counts. Grey-exclusion MUST share the runtime renderer's function. DIRECTLY SUPPORTS the endless-sticker production loop — build before the first big 4.D batch. (~2-3h)
+[ ] 4.21 [CODE] Un-pair flow — client UI (server endpoints done 1.3; initiator-notice fix s29). Initiator: long-press partner header → menu → Un-pair → confirm → change-username follow-up. Recipient: dismissable banner (one-shot, server-tracked). Reference: pair-key doc §17. (~3-4h)
+[~] 4.22 [CODE] Content-drops delivery pipeline — SERVER RECEIVE-SIDE DONE (s29): schema (content_drops / content_drop_assets / content_drop_deliveries), GET /users/:id/drops (live + forward-only + undelivered; release-day local-time gating is CLIENT-side per client-owns-the-clock; subscriber_only returned not filtered — sub-pack news is conversion pull), POST delivered ack (explicit, idempotent, never implicit on read), Thursday-release cron (wrangler [triggers] + scheduled handler). Tests = W9/W10. CLIENT HALF remains: presentation queue + drop popup (ceremony-adjacent — with Morgan). Publishing = manual SQL at launch; authoring tool post-launch. (~3h left)
 
-GATE: The daily loop is fully usable on stub art. Tick tasks → day seals → morning sequence fires → payout lands → stamp slaps. MOTD spins. Rest days work. Picker toggles the pool. Week mode works. Un-pair works. Everything functions; nothing is painted yet. APPtrioc fork point passed (after 4.14a).
+MOVED OUT OF PHASE 4: 4.13/4.13a leaderboard (KILLED for v1.0, 2026-06-10 —
+see DEFERRED; eternal-stats optionality preserved); 4.16 partner reactions,
+4.17/4.18 coin names, 4.19 TutorialCoordinator (all v1.x, see DEFERRED).
+
+GATE: The daily loop is fully usable on stub art. Tick → seal → ceremony →
+payout → stamp. MOTD spins, reroll costs. Rest days work. Picker toggles the
+pool, theme manager applies. Week mode works. Un-pair works. Content drops
+render. Everything functions; nothing is painted yet.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE 4b — Art & feel (PAINTING ONLY, at the easel)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Everything that needs a brush. Replaces the stub art the Phase 4 skeleton was
-built against. Done at home-office Aseprite time, art-volume-bottlenecked (the
-stated #1 post-launch risk). The skeleton already works without any of this —
-this phase makes it beautiful, not functional.
-
 [ ] 4.A [ART] Coin sprite.
 [ ] 4.B [ART] Frog mascot.
-[ ] 4.C [ART] Stamp set. Six tiers: grey/red/orange/yellow/green/purple (grey 0-task added session 22). Replaces stub stamp art from 4.7.
-[ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png` naming. Palette derived from sticker.png pixel-frequency (≤3 non-grey colours). 32×32 RGBA. Sticker.png is the EXCEPTION to palette-agnostic art rule (real colours; all else in canonical reference values, retinted at runtime). First frog painted (session 8, ongoing in `pickle-moon-assets`). Replaces the stub PNGs the 4.14a/4.14b pickers were built against. Reference: `four_tasks_theme_design_notes.md`.
-[ ] 4.E [ART] UI chrome (buttons, popups, dividers, util bar). Themed surfaces in reference palette; sacred-semantic in final colours.
-[ ] 4.F [ART] Onboarding example calendar screenshots. Real Godot build screenshots once theming in.
+[ ] 4.C [ART] Stamp set. Six tiers: grey/red/orange/yellow/green/purple.
+[ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png`. Palette from sticker.png pixel-frequency (≤3 non-grey). 32×32 RGBA. Launch set + 3-4 pack buffer (see PARKED pack-drop item). Reference: theme doc.
+[ ] 4.E [ART] UI chrome (buttons, popups, dividers, util bar).
+[ ] 4.F [ART] Onboarding example calendar screenshots (real build, post-theming).
 
-GATE: App looks like Four Tasks. Hand-painted craft (the locked go-to-market differentiator) is in. Skeleton + art = shippable build.
+GATE: App looks like Four Tasks. Skeleton + art = shippable build.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PHASE 5 — Ship Four Tasks to stores
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 >>> BUY A FUCKIN MAC <<<
-(Mac decision deferred from tile 0.8. Options: M4/M5 mini, MacInCloud, borrow. Needed before tile 5.5.)
+(Deferred from 0.8. Options: M4/M5 mini, MacInCloud, borrow. Needed before 5.5.)
 
-[ ] 5.1 [CONFIG] Production Worker deployment. Real domain (`api.fourtasks.thepicklemoon.com`). Builds point to production; dev/test to staging.
-[ ] 5.2 [CONFIG] DevKit excluded from release exports — verify "devkit" custom feature is absent from store export presets (Project → Export → preset → Resources → Custom Features). Build-flag plumbing already done in tile 2.9; this tile is the audit at Phase 5 gate. NOTE session 23: the onboarding devkit_button + the App devkit button both gate on the flag, so both vanish in a release build — confirm visually after the release export.
+[ ] 5.0 [DECIDE] Android-first option. Considered 2026-06-10, NOT taken (store-spend at launch matters; alienating iOS adopters feels wrong) but kept as a conscious lever if Phase 5 slips: Google-only launch halves Phase 5, APPtrioc (HTML5) doesn't need iOS, iOS fast-follows on revenue. Revisit only if the Mac/review path stalls.
+[ ] 5.10 [ADMIN] Google Play Console setup. ★ PULLED FORWARD (2026-06-10): DO NEXT ROSTER BREAK. Identity verification has days-to-weeks lead time, and IAP products must exist in the console before RevenueCat plumbing is testable. Costs an evening now; costs a break if discovered late.
+[ ] 5.1 [CONFIG] Production Worker deployment. Real domain (`api.fourtasks.thepicklemoon.com`). Builds → production; dev/test → staging.
+[ ] 5.2 [CONFIG] DevKit excluded from release exports — audit the custom feature is absent from store presets; confirm both devkit buttons vanish in a release build.
 [ ] 5.3 [CODE] Production logging + error reporting.
-[ ] 5.4 [CONFIG] Android build — release signing, keystore, signed `.aab`, verify on Pixel. (Debug Android toolchain already set up session 23: export templates 4.6.3, JDK 17, Android Studio SDK, Godot paths, ETC2 toggle. Release adds a real upload keystore + .aab format.)
-[ ] 5.5 [CONFIG] iOS build — Xcode export, signing, archive, TestFlight, install on iOS device.
+[ ] 5.s [CODE] Subscription infrastructure plumbing — RevenueCat SDK + webhook endpoint SETTING users.subscription_active (server-set only; claim-side economy already reads it, s28), entitlement check, lapse flow, paywall UI, day-21 value-summary disclosure copy. Depends on 5.10 console products existing. (~10-15h)
+[ ] 5.4 [CONFIG] Android build — release signing, keystore, signed .aab, verify on Pixel. (Debug toolchain done s23.)
+[ ] 5.5 [CONFIG] iOS build — Xcode export, signing, archive, TestFlight, device install. (Mac gate.)
 [ ] 5.6 [ART] App icon master 512×512.
 [ ] 5.7 [ART] Store screenshots. 4-6 portraits per store.
 [ ] 5.8 [ART] Feature graphic Google Play. 1024×500.
-[ ] 5.9 [ADMIN] Privacy policy finalised + hosted. Final pass on `privacy_policy.md`. Flip repo public OR Cloudflare Pages from private. Align with honest threat model (pair-key Section 9).
-[ ] 5.9a [ADMIN] Terms of Service drafted + hosted. Optional for submission, worth having before paying users. Plain-language, matches privacy policy tone. ~1-2h. Lives in `pickle-moon-public/terms.md`.
-[ ] 5.10 [ADMIN] Google Play Console setup.
+[ ] 5.9 [ADMIN] Privacy policy finalised + hosted. Align with honest threat model (pair-key §9 — incl. the s29 partner-user_id note).
+[~] 5.9a [ADMIN] Terms of Service — DRAFTED (s29, `terms_of_service_draft.md`): plain-language, ACL carve-out, store-billing refund posture, pair-visibility honesty, 13+ age line. REMAINS: Morgan review (+ consider professional read before paid launch) + host in pickle-moon-public.
 [ ] 5.11 [ADMIN] Apple App Store Connect setup.
 [ ] 5.12 [ADMIN] Google review submission.
 [ ] 5.13 [ADMIN] Apple review submission. Reviewer notes: "use pair name testa / partner testb to bypass onboarding."
@@ -230,147 +300,118 @@ GATE: Two store listings, two live apps. Quiet launch. APPtrioc not yet live.
 PHASE 5b — APPtrioc fork + ship
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] 5b.0 [DECIDE] APPtrioc naming sanity check. Quick research on atrioc precedent for branded use. If clean → ship as APPtrioc. If hesitant → DM permission first.
-[ ] 5b.1 [CODE] Snapshot Four Tasks at fork point. Branch `apptrioc-fork-base` off `four-tasks` repo at commit after 4.14a closes.
+[ ] 5b.0 [DECIDE] APPtrioc naming sanity check. Clean → ship; hesitant → DM permission first.
+[ ] 5b.1 [CODE] Snapshot at fork point. Branch `apptrioc-fork-base` after 4.14a closes.
 [ ] 5b.2 [CONFIG] Create `pickle-moon-apptrioc` repo. Private to start.
-[ ] 5b.3 [CODE] APPtrioc backend — separate Worker + D1. Simpler schema (unilateral, ~5-6 endpoints). Crib Four Tasks conventions. Zero shared code. User can't exist in both.
-[ ] 5b.4 [ART] APPtrioc sticker set + theme art. 5-8 hand-painted riffing on atrioc community.
-[ ] 5b.5 [CODE] APPtrioc skin + config on fork branch. Three-button onboarding (atrioc / Ari / everyone else) with password gates for first two. Default partner = atrioc for "everyone else". Tooltip: "want themes? Four Tasks has more."
-[ ] 5b.6 [CODE] Atrioc chain-import sweetener. One-time data import; atrioc on first login sees existing don't-break-the-chain calendar from public stream data.
-[ ] 5b.7 [CONFIG] Godot HTML5 export pipeline. PWA manifest + service worker. Browser-only, not on stores.
-[ ] 5b.8 [CONFIG] Deploy APPtrioc to Cloudflare Pages. `apptrioc.thepicklemoon.com`. Browser + mobile test.
-[ ] 5b.9 [ADMIN] Leak atrioc password 1-2 weeks pre-video. Hidden in Twitch chat / YouTube description. Leak Ari's separately.
-[ ] 5b.10 [ADMIN] Record launch video. 10min, self-shot, voice-over. Hard 20h edit budget. No licensed music. Filmed after APPtrioc live.
-[ ] 5b.11 [ADMIN] Launch — video + Reddit post + APPtrioc live, same day.
+[ ] 5b.3 [CODE] APPtrioc backend — separate Worker + D1, unilateral, ~5-6 endpoints. Zero shared code. (Design pass first — see ACTIVE.)
+[ ] 5b.4 [ART] APPtrioc sticker set + theme art. 5-8 hand-painted.
+[ ] 5b.5 [CODE] APPtrioc skin + config. Three-button onboarding with password gates. Default partner = atrioc. Tooltip: "want themes? Four Tasks has more."
+[ ] 5b.6 [CODE] Atrioc chain-import sweetener.
+[ ] 5b.7 [CONFIG] Godot HTML5 export pipeline. PWA manifest + service worker.
+[ ] 5b.8 [CONFIG] Deploy to Cloudflare Pages. `apptrioc.thepicklemoon.com`.
+[ ] 5b.9 [ADMIN] Leak passwords 1-2 weeks pre-video.
+[ ] 5b.10 [ADMIN] Record launch video. 10min, self-shot. Hard 20h edit budget.
+[ ] 5b.11 [ADMIN] Launch — video + Reddit + APPtrioc live, same day.
 
-GATE: APPtrioc live, video dropped, Reddit post up. Both products in market.
+GATE: Both products in market.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[x] Pair-key inter-user separator __→|| + remove all four __-value bans (option A, only `|` banned). Server hash + dev D1 re-seed. Deployed to dev, round-trip verified. Session 22. ~2h (incl. the three design gates).
+[x] Session 29 full-stack bug sweep + 20 fixes. See TEST LEDGER block (top). Unverified until ledger burns down. Devlog entry owed.
 
-[x] accounted_for code batch (item two). Schema column `days.accounted_for` (write-once boolean) + walkback rewrite (now `accounted_for = 1`, dropped string-match) + app-open writes today's row + grey 0-task disappointment tier. schema.sql + index.ts + stamp_messages.ts (grey pool). Deployed to dev, ALTER applied to dev DB, 4 tests passed (today doesn't self-seal, normal seal, grey seal, idempotent double-claim). Walkback `< local_date` invariant verified on real data. Session 23.
+[ ] ★ THEME PREP design conversation — CRITICAL PATH (gates 4.14b, shapes 4.D specs + 4.20). First thing next roster break, Aseprite open, doc before code. NOW ALSO INCLUDES (s29): runtime sticker-asset loading — the client fetching/caching R2-hosted PNGs. 4.22's schema records r2_keys but no client can render them; without this design, new-pack ART still requires an app update and the "endlessly paint stickers" loop only delivers announcements. Same art-pipeline surface as the rest of this conversation. The pile: cell sticker render size (~100px), picker grid size (~200px), cell variant source sizes, grid tile size, background slot dims, flourish/label bounding boxes, safe-area rules, retint mechanism (shader/pre-bake/indexed PNG), reference palette RGBs, default theme art, themed-sticker marker style, context-menu icon vocabulary, effects_active/effects_ambient/theme_audio .tres schemas, effects + audio coordinator architecture, locked-vs-unlocked picker rendering, preview timeout, exact "grey" definition. PLUS: cell-overlay buckets vs 9 runtime states (one completed.png for the whole done ramp, or completed=4/4 + partial=1-3? renderer lookup must match painter expectation); theme slot catalogue gaps (popup skin, meta mods).
 
-[x] Client local-date offset fix. State.gd today/yesterday/install_iso now read the live OS offset via `_local_offset_seconds()` (bias min × 60), replacing `+ 8*3600`. DEVICE-VERIFIED session 23: WA bias +480 / today correct; Honolulu bias -600 / date correct. Both sign directions confirmed, no negate needed. Session 23.
+[x] ★ Morning-sequence additions design conversation — RESOLVED + BUILT session 30 (2026-06-11, mobile). Time: ~design 1h + build 4h (server verified, client pending).
+    (a) STREAK RESCUE (was: rest-purchase escape hatch) — design locked + built; server wire-verified W11-W17. All opens answered: grey-days-only (rule change made partials self-maintaining), 50k == rest cost (own constant), no cap (price-only guard, econ-doc tension accepted), one-shot via the seal itself, pre-ceremony beat 0 (NOT mid-ceremony — lockout stays acknowledgement-not-action), two-phase claim + re-entrant resolve. Authority: economy doc (Streak rescue) + morning-seq doc (Streak rescue gate).
+    (b) SEAL-DAY HERO BEAT — design locked + built (hero_beat.gd, UNVERIFIED, D15). No-amount rule dissolved the ceremony-reshape worry: morning keeps the whole reveal. Authority: four_tasks_hero_beat_design_notes.md. Sticker art placeholder until 4.D.
 
-[x] `_dict_equal` — investigated, NOT A BUG. JSON.stringify sort_keys defaults true (confirmed vs engine source + 7-case sweep) → already order-independent. Capture Item 8 premise was wrong. Comment added in State.gd; no code change. Session 23.
+[ ] Username display normalisation vs recovery footgun. panel_heading lowercases at render; recovery matches STORED case → user types what they saw, gets user_not_found. Resolve: (a) lowercase server normalisation (heavy: re-derives hashes), or (b) recovery-screen copy "enter exactly as you first typed it, capitals matter" (~30min). Lean (b). Pair-key doc §12.
 
-[x] Riders. Bonus.gd `yesterday_iso`→`today_iso` (live partner-today pill). index.ts duplicate POST /users comment block removed. Session 23.
+[ ] Max display length for headings. Ellipsis probably. Pre-Phase-5 polish.
 
-[x] DevKit "default" scenario bounce — CLOSED + device-verified (session 23). Was NOT the identity logic; a stack of three: (1) autoload filename case — file was devkit.gd, registration is res://scripts/DevKit.gd; Windows editor hid it, case-sensitive Android export failed "Can't open" → autoload Nil → menu crash; fixed by renaming to DevKit.gd. (2) missing INTERNET permission in the Android export preset → seed POST got HTTPRequest result code 3 (CANT_CONNECT); fixed by ticking Permissions → Internet. (3) the DevKit.gd default→Identity.save(TestUser) post-seed write was correct all along. Verified via adb install -r: [DEV] → Default lands on the seeded calendar on-device.
+[ ] On-touch jitter tuning pass. DRAG_DEADZONE / TAP_DRAG_THRESHOLD on real fingers.
 
-[x] [DEV] button anchor on onboarding — addressed in the session-24 panel-swap rebuild; the instanced devkit_button is anchored bottom-centre (preset 7) in the new onboarding.tscn, matching App. Session 24.
+[~] DevKit mockable clock — BUILT (s29): State._mock_today_iso (feature-gated setter, cleared by clear(), flows through the claim's local_date so a mocked tomorrow runs the REAL seal path) + shift_iso_days pure-calendar arithmetic + DevKit "Mock clock" section (status / Today +1 / Clear). Test = D10.
 
-[x] Reverted offset-test scaffold before committing. onboarding.tscn restored to plain placeholder + instanced devkit_button; orphaned onboarding.gd deleted. Session 23.
+[ ] DevKit disappointment-day scenario (seed an unsealed accounted 0-task row for grey-tier testing). DevKit-only.
 
-[     ] Theme cell-overlay buckets vs runtime cell states. Overlay file naming uses unmarked/completed/partial/rest (4 buckets); runtime has 9 states incl. the red/orange/yellow/green tier ramp. Decide whether one cell_overlay_completed.png covers the whole done ramp or "completed" = 4/4 only with "partial" = 1-3. Renderer lookup must match painter expectation. Resolve at 4.14b. See theme doc cell-treatment section.
+[ ] Roster-week content list — mobile-writable work for on-roster weeks (in progress on phone, 2026-06-10): stamp messages (grey dry-tone pool, 5-10 each red/orange/yellow, 40+ green, 20 purple — currently bracket-stubs in PROD, would ship visibly if claimed today), help-menu copy (six subjects), rest-day task-label phrases (~15-30), MOTD pool expansion, sticker/stamp concept lists, promo-codes doc draft.
 
-(Tray MOTD subtitle item folded into tile 4.6, session 25.)
+[~] Doc sync pass — FIVE DOCS SHIPPED s29 (morning_sequence: freeze/resume + per-day trigger + soft walkback; system_map: §5.3/§9.2/§9.4/§10.x to as-built + honest header, §6-7 component refresh still owed; week_mode: fork + moot + scope; pair_key: §9.1a; stamp_tier: grey tier + tray terminology). REMAINING pile:
+    - Partner reactions doc → `four-tasks/deferred/`.
+    - `pickle_moon_repo_index.md`: reactions → deferred; promo codes doc ADDED (s29); ToS draft ADDED; schema migration-files-deleted note; write_rules → Background/Superseded.
+    - Project system prompt: drop "first feature with field-level write rules".
+    - Terminology: `diary` → `motd`, `emoji` → `active_leader` across remaining docs.
+    - timezone_and_sealing: boot-only sync model note.
+    - morning_sequence: MOTD framing; "migration window" → "rotation window" (the s29 sync didn't touch these two).
+    - theme doc: `<id>_<role>.png` naming; trigger-gated picker hint; layer-3 "stamp" → STICKER.
+    - onboarding: name confirm displays typed value EXACTLY.
+    - system_map §6-7: client component inventory refresh (sessions 24-29).
+    - content_authoring doc: note receive-side shipped (4.22 s29) + beat-collision blocker RESOLVED (s26 presentation queue).
 
-[x] Morning sequence beat collision resolution — RESOLVED session 26, folded into `four_tasks_morning_sequence_design_notes.md` ("Post-sequence presentation queue"). Sequence is sovereign/uninterruptible/first; a simple non-animated queue drains AFTER it cedes control, once per app-open; no replay of a completed sequence. Unblocked 4.6.
+[x] Promo codes design doc — WRITTEN (s29): `four_tasks_promo_codes_design_notes.md`. One-code-per-user-ever; permanent founders rate; attempt logging incl. failures; codes never grant coins; founders FLAG vs RATE distinction. Redemption endpoint + client entry remain Phase-5 commercial work.
 
-[ ] Seal-day hero beat. When a day seals (last task ticked off, or rest-day claim), the cell flies up + enlarges to fill most of the screen, sticker pops while the cell zooms back into position, and a popup frames the coin payout as arriving tomorrow morning rather than same instant. Decouples seal from payout — creates a "come back tomorrow" hook. Reshapes morning sequence beat ordering and disclosure timing for first occurrence. Design pass against `four_tasks_morning_sequence_design_notes.md` — touches same surface as the collision item above; resolve together.
+[ ] identity.cfg backup hook (Keychain/Keystore/cloud). NOT v1.0-blocking; recovery flow covers device replacement. Focused conversation Phase 5-ish.
 
-[ ] Morning-sequence rest-purchase escape hatch (design doc, PARKED — own conversation). Lets the user buy a rest day during the morning sequence to mask a 0-task disappointment day before it stamps grey. Same reactive same-moment mechanic as same-day rest, pointed one step into the past. Open questions: does it rewrite an already-engaged day's tier; bailout-premium cost vs normal rest; can it be abused daily to never face grey. Architectural shadow — write the design before building. BEAT PLACEMENT CONSTRAINT (s28): the hatch must intercept BEFORE the stamp lands (beat 7) — it has to fire after the day's tier is known but before it's sealed/revealed, i.e. between claim and stamp. Mind where it sits in the payout beats; a late interception (after beat 7) would mean un-stamping, which is worse. Surfaced session 23.
+[ ] Update devlog AI Reading Guide for repo-fetching workflow (raw URLs via repo index, curl over web_fetch for fresh pushes).
 
-[ ] Username display normalisation consistency vs recovery — NOW LIVE (recovery shipped session 25). `panel_heading.gd` lowercases usernames at render (DB stores as typed). Recovery matches against STORED values (server NFC+trim+collapse, NO casefold), so a user who typed "MoR91rY" must type "MoR91rY" at recovery — but they've only ever SEEN "mor91ry" in the app. They will type what they saw, get user_not_found, and have no idea why. This is a real footgun in the screen just built. Resolve: either (a) propagate lowercase into server normalisation so display == match key, or (b) accept divergence + add recovery-screen copy "enter exactly as you first typed it, capitals matter". Audit now, while recovery is fresh. See `four_tasks_pair_key_design_notes.md` §12.
+[ ] Log Cloudflare domain receipt in ledger. Paid 11 May 2026, IN-64839053, USD $10.46 (~A$16-17). Renewal 10 May 2027.
 
-[ ] Max display length for headings. Long names/usernames overflow the 60pt title at 1080 panel width — a 40-char lowercase username plus "'s four tasks" doesn't fit. Soft cap, ellipsis, or auto-shrink. Probably ellipsis since the user knows their own name and partial render is acceptable. Pre-Phase-5 polish, not blocking.
+[~] Marketing notes — running document.
 
-[ ] On-touch jitter tuning pass. Mouse testing makes the 8px DRAG_DEADZONE hard to evaluate. Tap-with-finger-jitter behaviour needs phone test. Constants `DRAG_DEADZONE` (App.gd) and `TAP_DRAG_THRESHOLD` (Layout.gd, used by TaskRow + DayCell) may need separate values for touch. Now that a debug APK installs on-device (session 23), this is testable.
+[ ] APPtrioc backend prep — design pass before 5b.3 (schema, bilateral-inside-unilateral special case, password gates, endpoint surface + write rules, rate limiting). Own doc in `pickle-moon-apptrioc` when repo exists.
 
-[ ] Group / triple expansion design conversation. NOT v1.0, NOT v1.x, possibly never. Open: star vs full mesh, pair_key extension for groups, UX (swipe breaks at three calendars), monetisation hook. See pair-key Section 17.
+[ ] APPtrioc-to-Four-Tasks keepsake export. Phase 5b or post-launch.
 
-[ ] Godot UID stability across machines. `.gitignore` ignores `.godot/` AND `*.import`, so fresh clones regenerate UIDs and throw resolution errors on first open (hit on the steez clone session 23 — fixed locally by deleting `.godot/`, resaving scenes, re-pointing the project font in Project Settings). Decide whether to track `*.import` + `*.uid` (remove from `.gitignore`), committed FROM THE ORIGINAL/CANONICAL machine (not a fresh clone, or you publish the clone's regenerated UIDs). Repo-hygiene item, do deliberately. NEVER delete project.godot — only the `.godot/` cache folder.
+[ ] Year-end keepsake export. `GET /pair/:key/year/:year`. First fires Jan 1 2027; launch by ~Nov 2026 (was "July" — date drifted; users need months of data, not all of them).
 
-[ ] Doc sync pass (session 12 + 14 + 22 + 23 batch):
-    - Partner reactions design doc → MOVE to `four-tasks/deferred/`.
-    - `pickle_moon_repo_index.md`: partner reactions out of Locked → into deferred; promo codes new entry pending design doc; schema.sql migration-files-deleted note; write_rules doc moved Locked → Background/Superseded.
-    - Project system prompt: drop "first feature with field-level write rules" reference.
-    - Terminology updates across design docs: `diary` → `motd`, `emoji` → `active_leader`.
-    - `four_tasks_timezone_and_sealing_design_notes.md`: add boot-only sync model note.
-    - `four_tasks_morning_sequence_design_notes.md`: MOTD framing (MOTD in onboarding per session 9). "Migration window" → "rotation window" terminology.
-    - `four_tasks_theme_design_notes.md`: `<id>_<role>.png` naming convention update; trigger-gated picker hint replacing day-7 scheduled. Z-order pipeline layer 3 says "stamp art (when claimed)" — actually means STICKER, not stamp. Cell stack is: bg → date/pips → sticker → theme overlay → (no stamp layer). Stamp lives on the tray, not the cell.
-    - `four_tasks_week_mode_design_notes.md`: status v1.x → v1.0.
-    - `four_tasks_stamp_tier_design_notes.md`: obsolete "nightly cron, tile 1.4" reference; ADD grey 0-task tier to the table + pool shape (`grey:` key) + size target + dry tone target; KILL the "0-task day gets no stamp / cell sits empty" line (superseded by accounted_for, server-shipped session 23).
-    - `four_tasks_onboarding_design_notes.md`: name confirmation modal displays typed value EXACTLY as typed (case-sensitive per session 10).
-    - `four_tasks_system_map.md`: §5.3 claim contract widened (app-open accounting); §10.5 + walkback `< local_date` invariant (now load-bearing); rest = same-day-only.
+[ ] Rate limiting — Cloudflare platform edge, per-IP, generous. All write endpoints + APPtrioc. Own conversation pre-Phase-5.
 
-[ ] Promo codes design doc. Schema landed in session 12 against ad-hoc decisions. Formalise as `four_tasks_promo_codes_design_notes.md` before subreddit outreach. Captures: single-code-per-user enforcement, code shape (FIFOFOUNDER20-style), founders_rate permanent once granted, redemption_attempts logs all attempts including failures.
+[ ] IANA timezone-name capture (v1.x). Includes the s29-parked `yesterday_iso` epoch−86400 DST edge (wrong ~1h around transitions for non-WA users) — same family, same fix window.
 
-[ ] identity.cfg backup hook — feasible with stable user_id (session 10). iOS Keychain / Android Keystore / iCloud / Google Drive could restore user_id on device replacement. NOT v1.0-blocking. Worth a focused conversation in Phase 4/5.
+[ ] Bonus pill two-sub ×1.5 display (s29 finding). Pill shows base multiplier only; server applies the sub boost invisibly. Lands with paywall/sub UI (5.s) — meaningless until subs exist.
 
-[ ] Update devlog AI Reading Guide for repo-fetching workflow. Current "ask Morgan to upload files" instruction is stale. Rewrite: "Ask Morgan which docs changed; fetch via raw GitHub URL using `pickle_moon_repo_index.md` as canonical map." Small laptop edit.
-
-[ ] Log Cloudflare domain receipt in ledger. `thepicklemoon.com` paid 11 May 2026, invoice IN-64839053, USD $10.46. AUD from card statement (~A$16-17). Files: `pickle-moon-ledger/receipts/2026-05-11_cloudflare_domain-registration_invoice.pdf` + `_paid-status.png`. Category: software_subscription. Renewal 10 May 2027.
-
-[~] Marketing notes — running document. Ongoing journal entries.
-
-[ ] Theme system implementation prep — remaining dimensions + retint pass. Session 8 progress: sticker canvas 32×32 locked, palette via sticker.png pixel-frequency. Open items: cell sticker render size (~100px), picker grid render size (~200px), cell variant source sizes, grid tile size, background slot dimensions, flourish + label bounding boxes, safe-area rules, retint mechanism choice (shader/pre-bake/indexed PNG), reference palette RGB values, default theme art design, themed-sticker marker style, context-menu icon vocabulary, `effects_active.tres` + `effects_ambient.tres` schemas, `theme_audio.tres` schema, effects coordinator architecture, audio playback architecture, locked-vs-unlocked picker rendering, preview timeout duration, exact "grey" definition for palette exclusion. Focused design conversation with Aseprite open. Blocks 4.14b, not 4.D.
-
-[ ] APPtrioc backend prep — focused design pass before 5b.3. APPtrioc D1 schema, atrioc/Ari special-case bilateral pairing inside unilateral model, password-gate flow, endpoint surface + write rules per endpoint, rate limiting. Own design doc in `pickle-moon-apptrioc` when repo exists.
-
-[ ] APPtrioc-to-Four-Tasks keepsake export. Downloadable keepsake image on request when migrating. Low engineering, high goodwill. Part of Phase 5b or post-launch.
-
-[ ] Year-end keepsake export. Calendar-year cap means old days stop being returned client-side on Jan 1 but stay in DB. New endpoint `GET /pair/:key/year/:year`. Image composed client-side. First fires Jan 1 2027. Launch by July 2026 latest so users have months of data.
-
-[ ] Rate limiting — Cloudflare Workers Rate Limiting API, per-IP at platform edge. Generous limits (real users hitting bugs may legitimately file three reports in five minutes). Applies to all write endpoints + APPtrioc. Own design conversation after a few more endpoints exist. Not blocking 1.3.
-
-[ ] IANA timezone-name capture (v1.x, NOT launch). Godot 4 has no tz database; capturing the real IANA name vs a raw offset needs a native plugin. Deferred to v1.x — `users.timezone` has no live v1.0 consumer until then. Reframed from the old 'must resolve before launch' framing: only the offset fix (now device-verified, session 23) was the launch item.
-
-[ ] DevKit mockable clock. Force `today_iso()`/`install_iso()` to a chosen date/time so gap-day and midnight-rollover bugs are reproducible without real IANA support. Unblocks date-boundary testing for the MOTD subtitle + morning sequence (4.6).
+[ ] Rotation/join TOCTOU returns 500 not 409 on a simultaneous-write race (s29 finding; pair_key UNIQUE keeps correctness). Cosmetic; note only — fix opportunistically if ever touching those handlers.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 PARKED — known, not blocking
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-[ ] Tasks tray resting size — too big. Currently fills the ~1100px leftover bottom slot (custom_minimum_size 970 + size_flags EXPAND in the Layout VBox). Want a smaller, more-square card with margin around it, not a full-width slab. Layout/scene change to tasks_tray.tscn + its dock placement. Independent of the morning-sequence lift (4.6) — the lift measures the tray rect at runtime so resizing later won't break it. Decide: square dimensions, dock position, how it centres in the leftover space, how slide-in changes. Own checkpoint with before/after test.
+[ ] Tasks tray resting size — smaller, more-square card. Independent of the lift (measures rect at runtime). Own checkpoint with before/after.
 
-[ ] Bump wrangler `compatibility_date` forward on next `npm update wrangler` (currently pinned 2026-01-01). Natural at Phase 5 prep.
+[ ] Bump wrangler `compatibility_date` (pinned 2026-01-01). Natural at Phase 5.
 
-[ ] Windows curl TLS handshake quirk. First request to new Worker URL can return `SEC_E_ILLEGAL_MESSAGE` for ~30min. Browsers work immediately. Workaround: browser-test first.
+[ ] GOTCHA (s29): wrangler.toml top-level now mirrors DEV — bare `wrangler deploy` lands on the dev worker; prod REQUIRES `--env production`. Inverted from the old layout deliberately (accidental-deploy-to-prod was the dangerous direction).
 
-[ ] `wrangler dev` drift to remote mode. Workaround: `npx wrangler dev --local` (explicit flag). Adopted as convention.
+[ ] Windows curl TLS quirk (SEC_E_ILLEGAL_MESSAGE ~30min on fresh Worker URLs). Browser-test first.
 
-[ ] Wrangler D1 token-refresh quirk. D1 import can fail with "Authentication error [code: 10000]" despite valid `wrangler whoami`. Fix: `npx wrangler logout` + `npx wrangler login`.
+[ ] `wrangler dev` drift to remote. Use `npx wrangler dev --local`.
 
-[ ] GOTCHA (session 23): autoload filename CASE must exactly match the autoload registration in project.godot (e.g. DevKit.gd, not devkit.gd). Mismatch loads fine in the Windows editor (case-insensitive FS) but fails "Can't open script" in the case-sensitive Android export PCK → autoload Nil → dependent scripts crash. Applies to every PascalCase autoload.
+[ ] Wrangler D1 token-refresh quirk. Fix: logout + login.
 
-[ ] GOTCHA (session 23): Android export needs INTERNET permission EXPLICITLY ticked (export preset → Permissions → Internet). Godot does not reliably auto-grant it; export_presets.cfg carries the setting (keep it tracked). Symptom: HTTPRequest result code 3 (CANT_CONNECT) on every request while a browser on the same device reaches the URL fine.
+[ ] GOTCHA: autoload filename CASE must match registration exactly (Android PCK case-sensitive).
 
-[ ] GOTCHA (session 23): test on-device via `adb install -r <path>` over USB, not email/download — removes ambiguity about which build actually landed (chased a phantom "stale build" because download/email obscured the real file). adb at C:\Users\steez\AppData\Local\Android\Sdk\platform-tools. USB debugging on the phone: Settings → About → tap Build number ×7, then Developer options → USB debugging.
+[ ] GOTCHA: Android export needs INTERNET permission explicitly ticked.
 
-[ ] DevKit seed lacks a disappointment-day scenario. To test the grey tier on-device you currently hand-insert an unsealed accounted_for=1 zero-task row. Add a scenario that seeds one. DevKit-only, not blocking.
+[ ] GOTCHA: device-test via `adb install -r`, not email/download.
 
-[x] ECONOMY REDESIGN — doc LOCKED session 27 (`four_tasks_economy_redesign_notes.md`, AUTHORITY; supersedes monetisation doc coin-tuning + pair-pricing + pair-shared-coins prose). Per-user model; partner multiplier 1.2-1.5; streak +1%/day two-sub-only; tier-1 sub = library only, tier-2 = streak + x1.5 bonus (2.25x cap); solo subbed = phantom 1.5x; rest 50k; stickers 20k-100k. OPEN TENSION logged (perpetual streak vs fixed sink, two-sub-contained).
+[x] ECONOMY REDESIGN — doc LOCKED s27 (AUTHORITY). Claim handler applies it in full as of s28.
 
-[ ] Coin economy balance pass — structure now LOCKED (economy redesign doc); remaining is on-device feel tuning of placeholder figures against real play. Not blocking.
+[ ] Coin economy balance pass — feel tuning of placeholder figures against real play. rest_cost now server-shipped (s29) so retunes are one server constant; extend the economy payload container as more numbers go live (reroll cost, sticker prices).
 
-[ ] Claim handler economy application. Server claim currently pays naive per-task 900-1400 sum only — no partner multiplier, sub bonus, or streak bonus applied to coins (streak tracked but doesn't touch payout). Apply per economy redesign doc: base x mult (x1.5 if two-sub) + streak (two-sub only). Reads both users' subscription_active + partner completion at claim time. Sealed-day payout immutable on later lapse.
+[ ] Founders cutoff date locks (before Phase 5). Flag cutoff = first TestFlight/internal-track deploy; rate expiry = 31 Dec year 2.
 
-[ ] Subscription infrastructure plumbing — Phase 5 prep. RevenueCat SDK + webhook endpoint to SET `users.subscription_active` (server-set only, already in v1.0 schema), library access entitlement check, lapse notification flow, paywall UI. NOTE: the claim-side economy (multiplier boost + streak bonus reading both users' subscription_active) is BUILT (session 28) — it reads the flag; this tile is only what WRITES it. Immutable-past already honoured: a sealed day's payout is baked at seal and never recomputes on lapse.
+[ ] Referral revenue-share (buddyware) design pass — own design note before build. Phase 5 commercial.
 
-[ ] Founders cutoff date locks (before Phase 5). Founders FLAG cutoff: "first TestFlight / internal Play track deployment." Hardcoded list ~20-30 people. Founders RATE expiry: "31 December year 2." Launch users eligible first 6-12 months.
+[ ] Pack drop content buffer — 3-4 packs queued before launch (half sub-only, half free). First sub-only ~2wk post-launch. Cadence under economy-doc review. (Delivery mechanism: server side LIVE as of s29 — tile 4.22; client popup + runtime art loading remain.)
 
-[ ] Day-21 subscription disclosure copy. VALUE SUMMARY against actual play history: coins earned, packs owned vs catalogue, days played, longest streak. "Subscribe to access [partner]'s library and grind faster." Lands Phase 5 with paywall UI.
+[ ] Same-person multi-device pairing. Design needed only if multi-device sync becomes v1.x.
 
-[ ] Referral revenue-share (buddyware) design pass — attribution mechanism, payout mechanism + cadence + tax/ledger consequences (sole trader), fraud/self-referral defence, qualifying-sub definition, 1-year window start/stop, interaction with founders rate + promo trials. Moves real money — needs its own design note (`four_tasks_referral_design_notes.md`) before build. Phase 5 commercial.
+[ ] Stamp messages real authoring — see roster-week content list (ACTIVE). Still bracket-stubs in prod.
 
-[ ] Pack drop content buffer — Phase 4 art prep. 3-4 packs queued before launch (half subscriber-only, half free-thank-you). First subscriber-only ~2 weeks post-launch, first free-thank-you ~4 weeks. Maintenance: 1-2 packs/fortnight. Honest skip-this-fortnight communication acceptable if buffer hits zero. NOTE: cadence/model under review in ECONOMY REDESIGN (possible curated-packs → weekly drip shift).
-
-[ ] Content drops pipeline — schema + read endpoint + in-app popup rendering pre-launch; authoring tool post-launch. See `four_tasks_content_authoring_tool_design_notes.md`. Blocked on morning sequence beat collision resolution.
-
-[ ] Theme slot catalogue gaps. Popup skin slot, meta mods definition. Theme design doc enumeration may be incomplete. Resolve before 4.14b.
-
-[ ] Streak semantics under week mode. Does opted-out weekday break streak, count as success, or not count? Resolve before 4.9.
-
-[ ] Same-person multi-device pairing. Distinct from group expansion. Architecture allows doppelgänger pair. Not currently a problem. Design needed if multi-device sync becomes v1.x.
-
-[ ] Stamp messages real authoring. Grey 0-task disappointment (dry tone), 5-10 per tier red/orange/yellow, 40+ green, 20 purple. Currently stubs in `stamp_messages.ts`. Content work, not v1.0-blocker.
-
-[ ] Achievement framework — speculative. `four_tasks_achievements_brainstorm.md` (session 7). May never ship.
+[ ] Achievement framework — speculative. May never ship.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 DEFERRED — v1.x or later
@@ -378,16 +419,22 @@ DEFERRED — v1.x or later
 
 [ ] Push notifications.
 [ ] Audio (silent v1, audio v1.1).
-[ ] Partner reactions (`four-tasks/deferred/four_tasks_partner_reactions_design_notes.md`, deferred session 12).
-[ ] Leaderboard (`four-tasks/deferred/four_tasks_leaderboard_design_notes.md`, session 8). Re-evaluate post-v1.0 with usage data.
-[ ] Coin name generator + reroll (`four-tasks/deferred/four_tasks_coin_name_design_notes.md`, session 9). Schema columns reserved.
-[ ] Per-user stat tracking. `four_tasks_tracking_design_notes.md` (session 8). Only lifetime_coins + longest_streak have committed UX.
+[ ] Partner reactions (deferred s12).
+[ ] Leaderboard — KILLED for v1.0 (2026-06-10), removed from Phase 4. Eternal-stats optionality PRESERVED: lifetime_coins + longest_streak live in schema now; `four_tasks_tracking_design_notes.md` covers richer per-user stats if revived for experience depth later. Design docs stay in `four-tasks/deferred/`.
+[ ] Coin name generator + reroll (schema columns reserved).
+[ ] Per-user stat tracking beyond lifetime_coins/longest_streak.
+[ ] TutorialCoordinator + staggered-disclosure reveals (was 4.19). v1.x. `users.tutorial_progress` column live.
+[ ] Group / triple expansion. Possibly never. Pair-key §17.
+[ ] Godot UID stability across machines (.gitignore vs *.import/*.uid, commit from canonical machine). Repo hygiene, do deliberately.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 COMPLETED LEDGER
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-See devlog v2 SUMMARY OF SESSIONS 1-9 block + v1 archive for full history with hours, commit hashes, and design rationale.
+Full history with hours, commits, rationale: devlog v3 SUMMARY + v1/v2 archives.
+Closed ad-hoc items through session 28 (separator change, accounted_for batch,
+offset fix, _dict_equal non-bug, DevKit bounce stack, beat-collision lock):
+see devlog — stripped from this file 2026-06-10 per lean-todo discipline.
 
 Running project total at session 17 close: ~88.75h.
 Running project total at session 23 close: ~108.75h.
@@ -395,3 +442,4 @@ Running project total at session 24 close: ~114.75h.
 Running project total at session 25 close: ~121.75h.
 Running project total at session 27 close: ~138.75h.
 Running project total at session 28 close: ~142.75h.
+Session 29 hours: pending test-ledger burn-down + devlog entry.

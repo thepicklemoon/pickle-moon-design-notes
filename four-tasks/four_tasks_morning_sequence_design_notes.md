@@ -1,6 +1,6 @@
 # Four Tasks — Morning Sequence Design Notes
 
-**Status:** LOCKED for v1.0. Implementation tile 4.6 (full coordinator). Related: 4.4 (slot machine), 4.5 (MOTD reroll cost), 4.7 (stamp slap), 4.8 (rest day), 4.9 (streak popup).
+**Status:** LOCKED for v1.0. Implementation tile 4.6 (full coordinator). Related: 4.4 (slot machine), 4.5 (MOTD reroll cost), 4.7 (stamp slap), 4.8 (rest day), 4.9 (streak popup). Interruption model rewritten session 29 (freeze/resume — see that section); trigger hardened to per-local-day semantics the same session. STREAK RESCUE GATE added 2026-06-11 (pre-sequence beat 0; two-phase claim + resolve endpoint — see that section); claim streak rule amended the same day (economy doc is authority).
 
 The claim endpoint this doc designed shipped in tile 1.3 (session 12) as `POST /users/:user_id/claim`. The endpoint contract below is corrected to match what shipped; see `four_tasks_system_map.md` §5.3 for the live contract.
 
@@ -50,6 +50,33 @@ Total: ~15-30s target. Tune timing at implementation against feel — long enoug
 
 ---
 
+## Streak rescue gate (beat 0 — ADDED 2026-06-11)
+
+The one interactive moment in the morning flow, and it sits **before the ceremony, not inside it**. The ceremony's lockout is load-bearing ("acknowledgement, not action"); a decision inside the no-input window would contradict the sequence's own design language. So the rescue is a gate the ceremony waits behind, over the flat calendar, before beat 1's lockout begins. The s28 placement constraint ("after the tier is known, before the stamp") is satisfied trivially — the tier is known at the claim response, before any animation.
+
+**When it fires.** The claim, instead of sealing, returns a PENDING response when ALL of:
+- the user's streak is ≥ 1 (something to protect), and
+- exactly ONE purchasable zero-task day stands between the streak and continuity. Two cases:
+  - **grey**: the walkback target itself would seal grey (accounted, 0 tasks, no rest) and no gap precedes it — buying converts THE target to a rest day;
+  - **gap**: the walkback target maintains the streak (≥1 task, or rest) but exactly one never-opened day sits between it and the last sealed day — buying creates that missing day as a rest day.
+- Anything else — a 2+ day gap, or a grey target WITH a gap in front of it — is unrescuable by one purchase, so no offer is made (no false hope for sale) and the claim seals immediately with the break applied.
+
+**The dialog.** A code-built modal on the `rest_confirm` pattern, over the flat calendar: streak at stake, the date being rescued, the cost (`economy.rescue_cost`, server-shipped, == rest cost for v1.0), yes/no. Below-balance shows shortfall copy + disabled yes (rest_confirm precedent) — the offer still appears so the user learns the mechanism exists. Copy carries the one-shot warning ("this is the only chance for this day") — a confirmation beat folded into the offer itself, not a second dialog.
+
+**Resolution — `POST /users/:user_id/claim/resolve`, body `{accept, local_date}`.** Re-entrant like every identity route: the server re-derives the walkback and the rescue evaluation from current state, never trusting the client's memory of the offer.
+- **Decline** → the pending day seals immediately, grey (or with the gap-break applied), via the exact same seal path as a normal claim. Declining IS the seal — the one-shot property is enforced by `sealed_at`, not by tracked state.
+- **Accept** → 409 `insufficient_coins` below cost (no partial action); otherwise one atomic batch: the rescue day becomes rest (grey case: target row converted; gap case: the missing row created already-sealed purple, silently — it gets no ceremony, it's a bought patch) + 50k debited (coins only; lifetime untouched, spends never count) + the target seals through the normal path with continuity intact. Streak holds through the rescue day per the rest rule, then the target's own tier applies.
+- **Situation changed / nothing pending** → behaves exactly like claim (seals what's sealable or returns `sealed_day: null`). Idempotent-shaped.
+- The resolve success response is the SAME shape as a claim success (`sealed_day` + `user`), so the ceremony consumes it identically.
+
+**Self-heal.** App dies mid-offer → nothing sealed → next open's claim re-evaluates and re-offers. "One chance" means one chance per presented offer; an unresolved offer never consumed it.
+
+**Ceremony impact: none.** The coordinator (`morning_sequence.gd`) is unchanged — by the time `run()` fires, the day is sealed and the response is a normal claim response. A grey-converted target plays the rest-day variant (Q6) like any rest day; its stamp draws from the rest pool (a bought rest is a rest — no separate bailout pool). The gap-case's silently-sealed rescue day reaches the calendar via the beat-12 poll merge like any other server-side change.
+
+**Client wiring (App, not the coordinator):** the claim handler routes a `pending_rescue` response to the rescue dialog instead of starting the ceremony; the dialog's choice fires resolve; resolve's response starts the ceremony. The per-local-day morning trigger stays armed until a seal actually lands, so a dismissed-without-answer dialog (back gesture, if permitted) re-offers on next focus-in like a failed claim.
+
+---
+
 ## MOTD structure (Q1)
 
 Four spinners: **adverb + verb + noun + emoji** (prototype: "eerily" + "ignored" + "the mind" + "👽").
@@ -84,7 +111,7 @@ Cleaner than "boot into morning-sequence mode if pending, else normal mode" — 
 Implications:
 - Loader (tile 2.1) handles identity + routes to App. Loader does NOT check for a pending payout.
 - App boots, calendar paints, then a separate check fires the claim. A sealed day in the response starts the sequence; a null `sealed_day` does nothing.
-- Mid-sequence backgrounding: the state machine decides resume/restart/skip (see Interruption model).
+- Mid-sequence backgrounding: the sequence freezes and resumes where it left off (see Interruption model).
 - Late-in-the-day opens: already claimed earlier → null `sealed_day` → standard calendar.
 
 ---
@@ -107,13 +134,15 @@ This "dead until claimed" property is good design, not a limitation — state mo
 
 "What if the user is away for a week?" — there is no backlog of payouts.
 
-The data model enforces this for free: a day is only sealable if it's **`accounted_for`** — a write-once boolean set the first time the user deliberately engages with that date (opening the app on it, ticking a task, saving a MOTD, or designating it a rest day). Days during an absence are never engaged with, so they're never `accounted_for`. So "away for a week" produces at most **one** pending payout: the most recent day the user actually showed up.
+The data model enforces this for free: a day is only sealable if it's **`accounted_for`** — a write-once boolean set the first time the user deliberately engages with that date (opening the app on it, ticking a task, saving a MOTD, or designating it a rest day — all four implemented server-side as of session 29: the claim's app-open upsert, writeDay's upsert (task tick / MOTD save; the gap closed session 29), the rest endpoint, and createUser's day-0 row). Days during an absence are never engaged with, so they're never `accounted_for`. So "away for a week" produces at most **one** pending payout: the most recent day the user actually showed up.
 
-**The walkback** (runs inside the claim transaction): from the request's `local_date`, find the most recent past day where `sealed_at IS NULL AND accounted_for = 1` (new `days.accounted_for` column — see schema). That's the day to seal. If none exists, no sequence fires. App-open semantics mean at most one such row exists at a time.
+**The walkback** (runs inside the claim transaction): from the request's `local_date`, find the most recent past day where `sealed_at IS NULL AND accounted_for = 1` (new `days.accounted_for` column — see schema). That's the day to seal. If none exists, no sequence fires.
+
+In normal use at most one such row exists at a time (the daily claim seals as it goes). The invariant is soft, not structural: an app kept focused across multiple midnights can account days by task-ticks alone without an intervening claim (no focus event → no trigger), accumulating more than one unsealed accounted row. The walkback drains them most-recent-first, one per claim — pathological, self-correcting, and each stranded day eventually gets its ceremony.
 
 This replaces the earlier `tasks_done != '[false,false,false,false]'` string-match. That predicate was fragile — it depended on the exact JSON serialisation of the array, so any drift in how `tasks_done` was written (spacing, ordering) would mis-seal or 500 — and it wrongly excluded legitimately-engaged days where the user ticked nothing. `accounted_for` is a boolean set once on first engagement and never cleared; **it is monotonic once the day has arrived** — you can untick every task, but you cannot un-account a day you showed up to. A day you open and complete nothing on still seals, as a **disappointment** (0-task tier). You can't dodge judgement for a day you turned up to; the only way to keep a day off the ledger is to not open the app on it at all.
 
-**Streak consequences:** empty days during an absence break the streak (no four-of-four). Rest days cover the gap only if pre-placed. The ceremony on return is for the *last actually-played day*; the user is dropped into today with the streak in whatever state the gap left it. No "you broke your streak" announcement — the dropped counter reveals it naturally.
+**Streak consequences (REWRITTEN 2026-06-11 — economy doc is authority):** under the amended streak rule, any day with ≥1 task maintains the streak, rest holds it, and only zero-task days break it — including never-opened gap days, detected at the next seal by date-adjacency against the last sealed day. (As originally implemented, gaps never broke streaks at all — unsealed days never ran the streak math; the amendment closes that hole.) A single rescuable breaker triggers the streak rescue gate (above); a multi-day absence breaks the streak unrescued. The ceremony on return is for the *last actually-played day*; the user is dropped into today with the streak in whatever state the gap left it. No "you broke your streak" announcement — the dropped counter reveals it naturally.
 
 **Push notifications** (a daily nudge) would partially solve absence. Deferred to v1.x. v1.0 ships "no open, no play" as a feature.
 
@@ -150,12 +179,13 @@ This supersedes the prototype's doubling-cost mechanic. Doubling was wrong here:
 
 Transaction:
 1. Walkback (above) finds the most recent unsealed `accounted_for` day for this user. If none, return 200 with `sealed_day: null` and the user row unchanged. No writes.
+1a. (ADDED 2026-06-11) Rescue evaluation — if the streak rescue gate's conditions hold (see that section), return 200 with `sealed_day: null` and a `pending_rescue` object (`target_date`, `target_tier`, `kind` grey|gap, `rescue_date`, `streak_at_stake`, `cost`) WITHOUT sealing. The seal then happens via `POST /users/:user_id/claim/resolve`, which runs steps 2-7 with the user's decision applied.
 2. Derive the stamp tier from the day's completed-task count — 0 → disappointment tier, 1 → red, 2 → orange, 3 → yellow, 4 → green — or purple if `rest_day = 1`. (0 tasks still seals; an `accounted_for` day with nothing completed gets the disappointment stamp, it is not skipped.)
 3. Pick a random message from the tier's server-held pool.
 4. Coin payout: 0 on rest days; otherwise each completed task rolls `[900, 1400]` and the rolls sum. Server-side randomness — the client can't predict it.
    - **Partner multiplier (BUILT, session 28).** The summed base payout is multiplied by a factor derived from the *partner's* engagement **on the same date as the day being sealed** — i.e. the sealed row's own `local_date`, read at that date. Graduated: partner 0 tasks → 1.0, 1 → 1.2, 2 → 1.3, 3 → 1.4, 4 → 1.5, **partner rest day → 1.5** (rest days impart the full bonus — a partner's rest must not penalise your earn; rest is sacred). **Guardrail: never hardcode "today" or "yesterday" here.** At seal time (the morning after) the sealed day is "yesterday," but the rule is "the partner's completion of *that day's date*," read against the row being sealed — not a fixed offset. The live preview pill on the client (tile 2.7) reads the partner's *current* day so it previews the multiplier the user is presently earning and flips when the partner completes; the server applies the final factor at seal against the sealed row's date. Same date, two read-points. **IMPLEMENTATION NOTE:** the pill (`Bonus.gd`) and the server handler MUST agree on every case, including partner-rest → 1.5 — they are the same rule at two read-points. (Session 28: handler's first cut read rest as 0 tasks → 1.0, contradicting this locked line and the pill; corrected to 1.5.)
    - **Subscription + streak (economy redesign doc, AUTHORITY).** Two-sub pairs (both `subscription_active`): the partner multiplier is boosted ×1.5 (1.5 → 2.25 cap), and a streak bonus of `+1%` per pre-claim streak day is added (`round(base × mult × streak × 0.01)`). One-sub pairs earn identically to free (tier-1 is library-only, economy-neutral). Subscribed-solo users get a phantom ×1.5 (no partner, no streak). See `four_tasks_economy_redesign_notes.md` for the full model and the order of application.
-5. Streak: green → +1; purple (rest) → unchanged; anything else → reset to 0. `longest_streak = max(longest_streak, new streak)`.
+5. Streak (AMENDED 2026-06-11 — economy doc is authority): first, gap check — if the sealed date is not adjacent to the last previously-sealed date, the streak zeroes (and the streak BONUS in step 4 reads the zeroed value); then ≥1 task → +1; purple (rest) → hold; grey → 0. `longest_streak = max(longest_streak, new streak)`.
 6. Theme snapshot: copy `users.active_theme` into the day's `day_theme_state` (immutable past — drives the historical theme renderer per monetisation v2.0).
 7. Single atomic batch updates the day row (`stamp`, `sealed_at`, `day_theme_state`) and the user row (`coins`, `lifetime_coins`, `streak`, `longest_streak`).
 
@@ -171,19 +201,23 @@ Transaction:
 
 So on a given day the header and that day's tray show the same string, but opening a *past* day's tray shows *that* day's sealed MOTD while the header keeps showing today's. The MOTD is NOT on the cell face — the cell shows the stamp; the MOTD is header + tray. Cell-vs-tray split locked session 14.
 
-**Client call timing — locked Option A:** the claim fires at the start of beat 3 (as yesterday's tile is auto-tapped). The server response is authoritative *before* any payout animation plays, so the client never animates something the server might disagree with. On network/500 failure the client retries on next open — nothing sealed, sequence replays. Finalise at tile 4.6.
+**Client call timing — locked Option A, finalised (4.6 + session 29):** the claim fires at the start of beat 3 (as yesterday's tile is auto-tapped). The server response is authoritative *before* any payout animation plays, so the client never animates something the server might disagree with. On network/500 failure the client re-arms and retries on the next app focus-in (not merely the next cold open) — nothing sealed, sequence replays.
+
+**Trigger semantics (hardened session 29):** "first app-open of the day" means first per **local date**, not per process. The client triggers on application focus-in whenever the local date has advanced past the last ceremonied date — so a process resumed from recents on a new day fires the ceremony without a restart. A per-process trigger was the original implementation and silently stopped the daily loop on any device that keeps the app alive overnight (most Android phones). Accepted limitation: an app that stays *focused* across midnight waits for its next focus event; the day stays sealable regardless (writeDay accounts engagement server-side).
 
 ---
 
-## Interruption model
+## Interruption model (rewritten session 29 — freeze/resume)
 
-If the user backgrounds mid-sequence, the claim-at-beat-3 timing makes it collapse cleanly:
-- **Claim already committed before backgrounding:** day is sealed. Foregrounding finds nothing eligible → no replay. The user sees the calendar with yesterday stamped and today's MOTD in place. Missed the moment, data correct.
-- **Claim not yet fired (opened then backgrounded within ~200ms):** nothing sealed. Foregrounding replays from the start.
+**Backgrounding mid-sequence freezes the ceremony; foregrounding resumes it exactly where it left off.** This is platform behaviour, not coordinator code: on Android, backgrounding suspends the engine's main loop — timers stop, tweens stop, the sequence coroutine freezes at its current await. Input stays blocked throughout (App's blocker persists), and the focus-in morning trigger is gated on the active ceremony, so the resume moment cannot double-fire a second run. The user doesn't miss the ceremony by glancing at a notification — they pause it.
 
-In practice the claim fires ~1s after open, so the "background before claim" window is tiny. Degradation: network/500 failure on claim → nothing sealed → replay on next open. Background during the pre-claim partial animation → cancel-and-replay or queue-and-finish (implementation choice, 4.6).
+**Process KILL while frozen** lands on the crash cases (Q2), which apply verbatim:
+- **Killed pre-claim:** nothing sealed → next open replays from the start.
+- **Killed post-claim:** day sealed, coins banked → next open finds nothing eligible → no replay; calendar shows yesterday stamped, today's MOTD in place. Missed the moment, data correct — the accepted small loss.
 
-No replay on a *completed* sequence. The morning sequence is a **daily** event — if the user backgrounds after the claim commits and misses the ceremony, that is a small, acceptable loss. We do not preserve or resume it. (Replay/preservation effort is reserved for rarer, higher-stakes moments — monthly/yearly keepsakes — not a thing that recurs every morning.)
+**There is no abort API.** The original coordinator shipped one ("background → App calls abort()"); session 29 established it could not actually stop a suspended GDScript coroutine — the "aborted" sequence would resume as a zombie at its next await and drive the tray over live input. Rather than harden it (a guard after every beat, defending against a scenario the platform already prevents by freezing), it was deleted. The earlier "cancel-and-replay or queue-and-finish" implementation choice resolves as **neither**: freeze/resume, for free, with zero added states.
+
+No replay on a *completed* sequence — unchanged. The morning sequence is a **daily** event; replay/preservation effort is reserved for rarer, higher-stakes moments (monthly/yearly keepsakes), not a thing that recurs every morning.
 
 ---
 

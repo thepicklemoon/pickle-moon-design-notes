@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-09 AWST
-Last updated: 2026-06-09 (session 28 — claim handler economy LIVE (multiplier/sub/streak); partner-rest ×1.5 fix; claim returns multiplier+motd; tray subtitle slot repurposed; morning-sequence bonus-line (5a) + diary-MOTD (7) beats; 4.8 same-day rest system (server + client, wire-tested, content+device-test deferred); both carried OWED items closed)
+Last edit: 2026-06-11 AWST
+Last updated: 2026-06-11 (session 30 — streak rule amended + streak rescue gate designed and built [server WIRE-VERIFIED W11-17, client UNVERIFIED], seal-day hero beat designed and built [UNVERIFIED], week-mode interaction fork resolved → Model B; s29 wire tests W1-W9 passed same day)
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -395,3 +395,252 @@ scattered across economy/morning-seq/system-map, deemed adequate).
 Session 28 time: ~4h.
 Running total: ~142.75h.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 29 — 2026-06-10
+Full-stack bug sweep · 20 fixes (UNVERIFIED) · forecast + todo restructure · doc sync
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NOTE: every code fix below is UNVERIFIED — Morgan was on-roster; the
+full wire + device test ledger lives at the top of the todo. Nothing
+here is closed until that ledger burns down. Commit this entry after
+the ledger passes (or annotate failures against it).
+
+BUG SWEEP — full stack against the locked docs: index.ts (all 16
+routes), schema.sql, wrangler.toml, every autoload + UI script. 27
+graded findings. Clean bills worth recording: walkback `<` invariant,
+both ceremony-suppression mechanisms, poll selective merge, glitch
+worker lifecycle, derived stamp tiers, calendar math (incl. negative
+month deltas + leap years), envelope/status discipline on all routes.
+
+FIXES SHIPPED:
+  #1  CRITICAL App.gd — claim trigger per-DAY not per-process.
+      _morning_triggered (session bool) → _morning_last_claim_date;
+      APPLICATION_FOCUS_IN re-triggers on a new local date (Poll's
+      proven mechanism); Backend.claim_failed re-arms so a failed
+      claim retries on next focus-in (previously never retried).
+      Android recents-resume silently stopped the daily loop —
+      no claim, no seal, no payout. DevKit always reboots through
+      Loader, which is why device testing never caught it.
+  #2  CRITICAL index.ts — writeDay upsert sets accounted_for=1 on
+      insert AND conflict. The doc's "ticking a task, saving a MOTD"
+      engagement triggers were unimplemented; combined with #1, a day
+      worked across midnight-in-session was PERMANENTLY unsealable.
+      The claim's false "Sole writer of accounted_for" comment fixed.
+  #3  HIGH index.ts — writeDay now 400s rest_day (was a silent free
+      rest day bypassing the 50k charge). Strict-not-silent per the
+      locked write-rules pattern; rest endpoint is the sole writer.
+  #4  HIGH morning_sequence.gd — abort() DELETED. It could not stop a
+      suspended coroutine (zombie resumes after "aborting"); nothing
+      called it; Android freezes the loop on background anyway, so
+      freeze/resume is the correct model for free. INTERRUPTION
+      header rewritten; design doc synced this session.
+  #5  HIGH State.gd — refresh_after_morning() routed through
+      poll_user (selective merge preserves the in-flight beat-10
+      set_motd write). load_user's full reset could stomp the
+      just-committed MOTD at settle; the coordinator comment claimed
+      a protection that did not exist.
+  #6  Backend.gd — 15s HTTPRequest timeout (default = none; a stalled
+      boot claim meant no ceremony, ever, with no failure signal).
+  #7  State.gd — rollback snapshots keyed per-operation (day|/rest|
+      namespaces). The single shared slot let any completing task-tap
+      wipe an in-flight rest toggle's rollback. Residual documented:
+      day_written responses carry no request identity, so the shared
+      flight FLAG can still clear a beat early (cosmetic only).
+  #8  index.ts — identity length caps enforced (name 49 / username 40
+      / active_leader 50, post-normalisation, pair-key doc §12) with
+      the doc-mandated value_too_long error code; all write paths
+      covered incl. the rotation route.
+  #9  index.ts — unpair notice RECIPIENT-only per tile 4.21; the
+      initiator's notice is NULLed (also clears stale notices from a
+      prior relationship).
+  #10 rest cost server-shipped — new `economy` container on GET
+      /users ({rest_cost}); State.rest_cost() with the sole permitted
+      client fallback; rest_confirm's duplicated constant deleted.
+      Economy retunes are now one server constant.
+  #11 App.gd — rest coin-anim ONE_SHOT tracked (_pending_rest_anim)
+      and torn down on rest_day_set_failed; State.toggle_rest_day →
+      bool so the anim only arms on a confirmed dispatch. (Phantom
+      count-up on the next poll was the failure mode.)
+  #12 index.ts — claim coin writes RELATIVE (coins = coins + ?),
+      matching the rest endpoint, so the two coin writers commute;
+      the read-modify-write window could swallow a concurrent rest
+      debit. Streak/longest stay absolute (no concurrent writer).
+  #13 tasks_tray.gd — open/close tween to ABSOLUTE dock targets
+      (_dock_y captured at first open). Relative offsets + callback
+      resets meant interrupted closes baked drift in permanently and
+      poisoned the ceremony lift's baseline.
+  Low tier: wrangler.toml INVERTED (top level mirrors DEV — bare
+  `wrangler deploy` lands on dev; prod requires --env production;
+  the old "accidental deploy goes to prod is safe" comment was
+  backwards risk thinking); Poll.gd debug prints stripped;
+  insertDaySql's stale "State.gd hardcodes UTC+8" comment corrected
+  (false since s23); header MOTD fallback walks back to the most
+  recent prior MOTD (yesterday-only broke the never-empty invariant
+  after one skipped day); lift dim sized from get_viewport_rect()
+  (keep_height varies logical width by aspect); fetch_motd_pool
+  concurrent-call coalescing (duplicate-connect error + double
+  fetch); bug_report cap 500 → 2000 per the write-rules doc.
+
+PARKED FINDINGS (recorded in todo): yesterday_iso epoch−86400 DST
+edge (IANA v1.x family); rotation/join TOCTOU returns 500 not 409 on
+a simultaneous race (pair_key UNIQUE keeps correctness — note only);
+bonus pill never shows the two-sub ×1.5 (lands with 5.s paywall);
+partner payload hands the partner your user_id = write credential
+(recorded as a decision in pair-key §9.1a, written this session);
+tile 4.14c appears ALREADY DONE (is_interactive blocks DEAD_FUTURE
+taps + long-presses) — device-verify and tick.
+
+FORECAST REVIEW → TODO RESTRUCTURED (full rewrite shipped):
+  - Remaining Phase-4 code ≈ 90-105h ≈ ~3 roster breaks to
+    code-complete; realistic store launch Sept-Oct 2026.
+  - Week mode STAYS v1.0 (Morgan's call, against deferral pressure).
+    Interaction fork documented in the week-mode doc: locked
+    two-gesture model vs Morgan's popup-with-radio-selectors
+    description — resolve at design sign-off before 4.D2.
+  - Streak-semantics PARKED item resolved MOOT (week mode is label
+    overrides only; every day still has four tasks) → 4.9 unblocked.
+  - Leaderboard KILLED for v1.0; eternal-stats optionality preserved
+    (lifetime_coins/longest_streak live; tracking doc deferred).
+  - Content-drops delivery promoted to tile 4.22 — the shipped
+    client's pack-delivery path is the enabler of the post-launch
+    "endlessly paint stickers" loop and was buried as a PARKED line.
+  - 5.10 Play Console setup pulled forward (verification lead time;
+    IAP products must exist before RevenueCat is testable); 5.s
+    subscription plumbing tiled out of PARKED.
+  - Rest-purchase ESCAPE HATCH endorsed for v1.0 design (coin sink
+    inside the open-app flow; welcomed because it protects the
+    growing streak bonus). Conflation with the seal-day HERO BEAT
+    flagged — two distinct items, one combined design conversation
+    (same ceremony surface).
+  - Android-first considered, NOT taken (store-spend at launch +
+    iOS adopters), kept as a conscious lever (tile 5.0).
+
+DOC SYNC (five full files shipped): morning_sequence (freeze/resume
+interruption model, per-local-day trigger semantics, soft walkback
+invariant, accounted_for triggers marked implemented); system_map
+(§5.3/§9.2/§9.4/§10.x rewritten to as-built s29; honest header
+currency note — §6-7 component inventory refresh still owed);
+week_mode (fork section + moot resolution + scope reconfirm);
+pair_key (§9.1a intra-pair credential decision); stamp_tier (grey
+tier row + pool key + stamp-lives-on-tray terminology fix).
+
+SECOND PASS — AUTONOMOUS RUN (same day, Morgan on-roster, explicit
+go-ahead to build without per-step device verification; scope line:
+server-side TypeScript, code-built dialogs on the rest_confirm
+precedent, DevKit tooling, docs/content — NOTHING ceremony-adjacent,
+nothing design-gated):
+
+  DEVKIT MOCK CLOCK [~, test D10] — State._mock_today_iso: feature-
+  gated setter (release builds no-op), today_iso/yesterday_iso mock-
+  aware, shift_iso_days pure-calendar arithmetic (no epoch, no DST),
+  cleared by clear(); flows through the claim's local_date so a mocked
+  tomorrow exercises the REAL seal path. DevKit menu "Mock clock"
+  section: status / Today +1 / Clear. Date-boundary testing no longer
+  needs Android settings.
+
+  4.22 SERVER RECEIVE-SIDE [~, tests W9/W10] — schema: content_drops /
+  content_drop_assets / content_drop_deliveries (comm_templates
+  deliberately publishing-stage). GET /users/:id/drops (server: live +
+  forward-only + undelivered; client: release-day local-time crossing,
+  consistent with client-owns-the-clock; subscriber_only returned NOT
+  filtered — sub-pack announcements are conversion pull). POST
+  delivered ack (explicit, idempotent, never implicit on read — the
+  decoupling principle). scheduled() Thursday cron promotes next
+  queued drop; wrangler [triggers] on all three configs. SURFACED:
+  runtime sticker-asset loading (client fetch/cache of R2 PNGs) is
+  UNDESIGNED — joined to the theme-prep conversation; until it lands,
+  drops deliver announcements + catalogue data, not new art.
+
+  4.5 SERVER HALF [~, test W8] — POST /users/:id/motd/reroll: relative
+  debit, 409 insufficient_coins, returns updated user + fresh roll.
+  REROLL_COST=100 placeholder via the economy payload ({rest_cost,
+  reroll_cost}). DECISION recorded at the constant: the fee is vent-
+  pricing on the legitimate flow, not resource protection — words are
+  free via /motd/roll, MOTD writes free via writeDay; bypass is
+  self-spoiling only. Client half (picker lock + confirm) remains.
+
+  4.12 MECHANISM [~, test D11] — bug_catcher.gd: code-built,
+  self-contained compose→sending→thanks/failed against the live
+  endpoint; 2000-cap live counter; ONE_SHOT teardown on every exit
+  path (the rest-anim leak family). Trigger hosted in DevKit →
+  Dialogs; real trigger is one line when 4.11's help menu lands;
+  confetti waits for 4.9's SHARED system. Caught in self-review:
+  two invented Palette constants → TEXT_HEADER/TEXT_WEEKDAY.
+
+  DRAFTS — terms_of_service_draft.md (5.9a [~]: plain-language, ACL
+  carve-out, store-billing refunds, pair-visibility honesty; needs
+  Morgan review + hosting). four_tasks_promo_codes_design_notes.md
+  (formalises s12 schema decisions: one-code-per-user-ever, permanent
+  founders rate, attempt logging incl. failures, codes never grant
+  coins, flag-vs-rate distinction).
+
+  SKIPPED deliberately: 4.9 (modifies the claim handler — the most-
+  changed unverified file), 4.14a/b (fork point + design-gated),
+  4.D2 (interaction fork is Morgan's call), all ceremony surfaces.
+
+Session 29 time: ~[FILL AT VERIFY]h.
+Running total: ~[142.75 + session]h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 30 — 2026-06-11
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Mobile design session (Morgan on roster) → same-day laptop wire pass.
+CLIENT CODE UNVERIFIED — device ledger D12-D15. Time: ~5h [FILL AT VERIFY].
+
+WEEK MODE FORK RESOLVED → MODEL B (popup editor). Long-press the tray
+heading's day name on ANY open day → popup, four fields + per-slot radios.
+Radio ON = override stored on selection; OFF = slot tracks the standard four,
+authored text dormant per-slot. Per-weekday toggle DIES (users.week_mode_
+weekdays retired-unused); override table reshapes at 4.D2 (per-slot text +
+active_slots bitmask; explicit drop-and-recreate — IF NOT EXISTS won't).
+Model A's epitaph + the seventh discovery-arc iteration recorded in the doc.
+
+STREAK RULE AMENDED (economy doc is authority): ≥1 task ADVANCES the streak,
+rest holds, ONLY zero-task days break — sealed grey or never-opened gap.
+Rationale: no paternalising; the bare minimum keeps the chain alive. Found
+in the live handler: gaps NEVER broke streaks as shipped (unsealed days never
+ran streak math) — closed via date-adjacency vs last sealed day (derived, no
+new column). Gap break zeroes the streak BEFORE the sealing day counts AND
+zeroes that payout's streak bonus.
+
+STREAK RESCUE GATE (the escape hatch, designed + built). All forks Morgan's:
+zero-task breakers only; RESCUE_COST = REST_COST = 50k (own constant,
+economy.rescue_cost shipped); NO frequency cap (price-only guard — econ-doc
+open-tension #2 rewritten: containment materially weakened, accepted twice);
+offer only when streak ≥ 1 AND exactly ONE purchasable day saves it (2+ day
+gaps are dead — no false hope for sale). Shape: claim returns pending_rescue
+instead of sealing; POST /users/:id/claim/resolve re-derives everything
+(re-entrant) — decline IS sealing grey, accept IS convert/create-rest + seal,
+both atomic, so the seal itself enforces one-shot (no tracked state; app-death
+mid-offer self-heals via re-offer). Beat 0, PRE-ceremony, over the flat
+calendar — the lockout stays acknowledgement-not-action. index.ts refactor:
+single sealTarget() shared by claim + resolve (one economy implementation,
+two doors); deriveTier/evaluateRescue/lastSealedDateBefore helpers; devkit
+scenarios morning_grey + morning_gap. WIRE-VERIFIED same day: W11-W17 all
+pass (incl. atomic-batch proof — rescue day + target share one sealed_at).
+
+CLIENT HALF (UNVERIFIED, D12-D14): rescue_confirm.gd — rest_confirm pattern
+with two deliberate deviations: scrim does NOT cancel (declining is
+irreversible) and every exit is an answer. State routes pending_rescue to a
+new signal; the ceremony coordinator's parked one-shot morning_claimed picks
+up the resolve's claim-shaped response — morning_sequence.gd UNCHANGED, as
+designed. Dialog mounts above the input blocker (later in tree + z 300).
+Resolve failure re-arms the per-day claim marker (self-heal).
+
+SEAL-DAY HERO BEAT (designed + built, UNVERIFIED, D15). Evening celebration:
+4th tick (or rest confirm) → cell PROXY flies up + enlarges (real cell never
+reparents), sticker pops (placeholder glyph until 4.D), card frames payout
+as arriving tomorrow. NO AMOUNT — the morning keeps the reveal, which
+dissolved the s29 "reshapes ceremony" worry: zero ceremony/server changes.
+Once per local date (Prefs.hero_shown_date), day-1, rest variant delays
+~0.8s for the coin tick-down. hero_beat.gd self-contained; App owns trigger
+policy off day_changed; 2 DevKit Dialogs rows bypass the gates for tuning.
+
+ALSO: s29 wire tests W1-W9 PASSED (this date, prior chat) + sweep-chat patch
+on getEligibleDrops (per-drop parse isolation) — index.ts s30 build carries
+it. New docs: four_tasks_hero_beat_design_notes.md, session_30_wire_tests.md.
+Amended: economy, morning-sequence, week-mode docs. Sync owed: system map
+§5.3/§4.x, staggered-disclosure cascade line, morning-seq blocker nuance.

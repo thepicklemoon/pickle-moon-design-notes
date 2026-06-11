@@ -1,6 +1,10 @@
 # Four Tasks — Economy Redesign Notes
 
-**Status:** LOCKED for v1.0 (session 27). This doc is the AUTHORITY for the coin
+**Status:** LOCKED for v1.0 (session 27). AMENDED 2026-06-11 (Morgan, mobile):
+streak rule softened (≥1 task advances; only zero-task days break — sealed grey
+or never-opened alike), gap days now break streaks at the next seal (closing the
+previously-unnoticed no-show hole), and the STREAK RESCUE sink added (the
+morning-sequence escape hatch). This doc is the AUTHORITY for the coin
 economy: earn rates, multipliers, subscription tiers, sinks, and the per-user
 ownership model. It SUPERSEDES the conflicting parts of
 `four_tasks_monetisation_position.md` (the COIN ECONOMY TUNING section, the
@@ -84,12 +88,46 @@ clearance #1.)
   100-day streak = +100% (double).
 - **TWO-SUB-ONLY.** This bonus is inert unless BOTH partners in the pair are
   subscribed. Free pairs and one-sub pairs never receive it.
-- Streak advances **only on green (4-task) days**, holds on purple (rest days),
-  and **resets to 0 on any other outcome** (1–3 tasks, or a missed/grey day).
-  This is the shipped streak rule and it self-limits the bonus: a single
-  non-perfect day zeroes the accumulated bonus. The compounding only runs while
-  perfect play is unbroken.
+- **Streak rule (AMENDED 2026-06-11 — supersedes the green-only rule below):**
+  the streak **advances (+1) on any day with ≥1 completed task**, **holds** on
+  purple (rest days), and **breaks only on zero-task days** — whether that day
+  sealed grey (opened, did nothing) or was never opened at all (a no-show gap).
+  Rationale: no paternalising in-app; the bare minimum keeps the chain alive.
+  Gap detection happens at the next seal — the day being sealed is checked for
+  date-adjacency against the most recent previously-sealed day (derived, no new
+  column). A gap zeroes the streak BEFORE that day's own contribution counts,
+  and the streak BONUS for that payout reads the post-break value (you are not
+  paid a bonus across a broken streak).
+  - SUPERSEDED original rule (session 27, recorded for history): advance on
+    green (4-task) only, hold on purple, reset on anything else. Also note: as
+    originally IMPLEMENTED, no-show gaps never broke streaks at all (unsealed
+    days never ran the streak math) — a hole found and closed with this
+    amendment.
 - Reads the **user's own** streak (per-user), not the partner's.
+
+### Streak rescue (the morning escape hatch — ADDED 2026-06-11)
+When the streak (≥1) is about to break and **exactly one purchasable day would
+save it**, the morning claim pauses before sealing and offers ONE chance to buy
+that day as a rest day. Locked decisions (Morgan, 2026-06-11):
+- **Eligible breakers:** zero-task days only — a sealed-grey day, or a single
+  no-show gap day in front of an otherwise streak-maintaining seal. Partial
+  days never need rescue under the amended rule (they maintain the streak
+  themselves, which is the point).
+- **Price: RESCUE_COST = REST_COST = 50,000.** Same as designation — "not
+  gamifying that hard." Shipped as its own server constant inside the economy
+  payload (`rescue_cost`) so a future premium is a one-constant change.
+- **No frequency cap.** Price is the only guard; users may rescue as often as
+  they can afford. Accepted with eyes open — see OPEN TENSION below.
+- **One-shot per breaker, enforced by the seal itself:** declining seals the
+  day grey immediately; accepting converts it to rest and seals purple. Both
+  paths end sealed, so there is nothing to re-offer and no state to track. An
+  unresolved offer (app died mid-dialog) leaves the day unsealed and the next
+  open re-offers — self-healing, not a loophole.
+- **Multi-day gaps are dead.** Two or more missing days cannot be bridged by
+  one purchase, so no offer is made — the streak breaks honestly rather than
+  selling false hope.
+Mechanism (two-phase claim + `POST /users/:id/claim/resolve`) is specified in
+`four_tasks_morning_sequence_design_notes.md` (STREAK RESCUE GATE).
 
 ---
 
@@ -138,6 +176,9 @@ shift, weighed against the conviction line and accepted.
 ## Sinks
 
 - **Rest day: 50,000 coins.** The anchor sink.
+- **Streak rescue: 50,000 coins** (`rescue_cost`, == rest cost for v1.0). The
+  coin sink that lives INSIDE the open-app flow — welcomed not resented because
+  it protects the growing streak. See the Streak rescue section above.
 - **Stickers/packs: 20,000–100,000 coins**, by the volume of UI/theme work that
   ships alongside each (a sticker that ships a full theme + chrome costs near
   100k; a minimal one near 20k). Single ramp, taste-driven, not tier-bucketed.
@@ -172,19 +213,19 @@ days). Under this model one-sub == free; only two-sub accelerates. Superseded.
 
 ## Shipped vs target (claim handler)
 
-The claim handler (`index.ts`, tile 1.3) currently does the **naive** payout
-only: per-task 900–1400 summed, rest = 0, stamp tier assigned, streak
-advanced/reset. It does **NOT** yet apply the partner multiplier, the sub
-bonus, or the streak bonus to coins. Streak is tracked but does not yet touch
-the coin math.
-
-This doc is the TARGET the handler grows into. The order of application at claim:
+HISTORICAL NOTE: the naive-handler gap this section described closed in session
+28 — the claim handler applies the full model below (partner multiplier,
+two-sub boost, streak bonus, immutable bake-in), device-verified. The
+2026-06-11 amendment (streak rule + rescue gate) ships on top of it. The order
+of application at claim:
 
 ```
 base      = sum of per-task 900–1400 (rest = 0)
 mult      = partner-completion multiplier (1.2–1.5), ×1.5 if two-sub
             (solo: 1.0, or 1.5 if subscribed-solo)
 streakAmt = (two-sub only) base*mult * (streak_days * 0.01)
+            — streak_days is the PRE-claim streak, ZEROED FIRST if a gap broke
+            continuity at this seal (no bonus across a broken streak)
 payout    = round(base * mult) + streakAmt
 ```
 
@@ -207,19 +248,29 @@ pair's earn outpaces the sink without bound, and coins eventually stop being
 scarce. This is the idle-clicker compounding the monetisation doc explicitly
 names as a NON-GOAL (line ~304).
 
-It is deliberately LEFT IN, with the blast radius minimised three ways:
+It is deliberately LEFT IN. The blast-radius picture, updated 2026-06-11:
 1. **Two-sub-gated** — only the most-committed paying cohort, a small fraction
    of the population, ever sees it. It does not define the currency's meaning
    for free/one-sub users.
-2. **Self-limiting via the streak rule** — streak resets to 0 on any
-   non-perfect, non-rest day, so the bonus only compounds during unbroken
-   perfect play and collapses the moment a streak breaks.
+2. **Self-limiting via the streak rule — MATERIALLY WEAKENED 2026-06-11.** The
+   original containment relied on harsh resets (any non-perfect day zeroed the
+   bonus). Under the amended rule (≥1 task maintains) plus the uncapped streak
+   rescue, an engaged two-sub user's streak is near-unbreakable: only an
+   unrescued zero-task day ends it, and zero-task days can be bought back at
+   50k indefinitely. Consequence, stated honestly: somewhere past streak ~300
+   the +1%/day compounding makes every current sink (rescue, rest, stickers at
+   20k–100k) trivial for that cohort, and coins stop being scarce for them.
+   ACCEPTED (Morgan, 2026-06-11, twice): "even at a 400-day streak it's still
+   not something you'd want to happen to you, and if someone stays subbed for a
+   year they've paid for the app." The advantage remains earn-RATE only; no
+   content or ownership is gated.
 3. **Marketing-positive** — free and long-streak players are loud about their
    progress; that visible progression is word-of-mouth advertising.
 
-If it bites at scale (a two-sub pair on a multi-hundred-day streak trivialising
-all sinks), the cap option is the fix: +1%/day up to a ceiling (e.g. +30% at 30
-days, then flat). Not applied now. Revisit with real usage data.
+If it bites at scale, the cap option remains the dormant lever: +1%/day up to a
+ceiling (e.g. +30% at 30 days, then flat). Not applied now. Revisit with real
+usage data — and note the rescue's purchase telemetry will show exactly which
+streak lengths are buying their way past resets.
 
 ---
 
