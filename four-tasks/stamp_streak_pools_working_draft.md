@@ -1,94 +1,71 @@
-# Stamp / Streak Message Pools — Working Draft (s34)
+# Stamp / Streak Message Pools — Working Draft (s34, red-penned s35)
 
-Extracted verbatim from the prototype (`index.html`). Organised
-against the v1.0 tier structure (authority: stamp_tier doc — grey
-is LATENT s34, no pool). Review, cut, and write into the gaps;
-this file becomes the constants update at the laptop.
+Extracted from the prototype s34; red-penned with Morgan s35
+(mobile). All four review flags RESOLVED. Pools below are the
+ACCEPTED entries — this file becomes the constants update at the
+laptop once green reaches 40+. (Authority: stamp_tier doc — grey
+is LATENT s34, no pool.)
 
-PROTO → v1.0 MAPPING:
-  STAMP_MESSAGES_*          → PURPLE (rest)
-  COMPLETE_STAMP_MESSAGES_* → GREEN (4 tasks)
-  PARTIAL_STAMP_1/2/3_*     → RED / ORANGE / YELLOW
-  STREAK_MESSAGES_*         → tile 4.9 streak popup (NOT stamps)
-  MONTH_STAMP_RAINBOW_*     → tile 4.10 month stamp
-
-THE AYSHI/DEFAULT SPLIT: the proto shipped two builds. v1.0 has
-ONE universal pool per tier (doc-locked: single pool, no
-sub-pools). Decide per message: promote into the universal pool,
-or cut. The Ayshi pools carry most of the actual app voice —
-"playful, varied, slightly absurd" is the doc's GREEN target and
-the default pools mostly don't hit it.
-
-REVIEW FLAGS (decisions while red-penning):
-  1. PROFANITY: 'FUCK IT LOL', 'NO FUCKIN WAY' — ToS carries a
-     13+ age line and these land in store builds. Cut or keep is
-     a rating/positioning call, make it deliberately.
-  2. YELLOW TONE VIOLATION: proto yellow is 'ALMOST' / 'SO CLOSE
-     THOUGH' — the locked tone target explicitly bans near-miss
-     framing ("no 'so close'"; yellow is its own result, not a
-     failed green). Both proto entries are out as-written.
-  3. PURPLE TONE: doc warns "'earned' without context lands as
-     moralising" — 'YOU EARNED IT' and 'DESERVED' sit right on
-     that line. Your call.
-  4. PERSONAL/GENDERED: 'GO OFF QUEEN!!!', 'WELL DONE PRINCESS'
-     can't go universal. If partner-flavoured pools are ever a
-     thing, that's a v1.x sticker-pack/content-drop idea, not
+FLAG RESOLUTIONS (s35):
+  1. PROFANITY: CUT everywhere (FUCK IT LOL, NO FUCKIN WAY).
+     Keeps the content-rating questionnaire clean.
+  2. YELLOW near-miss framing: confirmed banned. Proto entries +
+     Morgan's NEARLY / SO CLOSE / ALMOST THERE / 99% all cut.
+     Yellow is its own result, not a failed green.
+  3. EARNED/DESERVED: DESERVED + YOU EARNED IT cut. EARNED IT
+     kept in purple only — "earned rest" has context there.
+  4. GENDERED/IN-JOKE: all cut from universal pools (QUEEN /
+     PRINCESS / DARLING / SHE'S ON FIRE / CRAIMZY / RESTLINGTON /
+     SMASHLINGTON / SO SIMLY / YEET / TOO SPEEPY / WHOAH CRAIMZY).
+     Partner-flavoured pools remain a v1.x content-drop idea, not
      v1.0 server constants.
+
+Also cut s35: BE PROUD (instructional — tells the user what to
+feel), GOOD TRY (condescending), TRY AGAIN (game-over flavour).
 
 POOL SIZE TARGETS (doc): red/orange/yellow 5-10 each; green 40+;
 purple 20.
 
+PROTO → v1.0 MAPPING (reference): STAMP_* → purple,
+COMPLETE_STAMP_* → green, PARTIAL_1/2/3 → red/orange/yellow,
+STREAK_* → 4.9 (DEFERRED), MONTH_STAMP_* → 4.10. Proto's
+Ayshi/default split is dead — one universal pool per tier.
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PURPLE — rest day (target 20; proto has 12 + 10, overlapping)
+PURPLE — rest day (18 / target 20 — need ~2)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-From STAMP_MESSAGES_AYSHI:
-  LOL WHO CARES
-  LMAO NOPE
-  WOOPS MB
-  RESTLINGTON
-  OH WELL
-  ZZZZZZZZZZ
-  CHILL DAWG
-  TOO SPEEPY
   NO THANKS
+  NOPE
+  NAH IM GOOD
+  ZZZZZZZ
+  CHILL DAWG
   NOT TODAY
-  FUCK IT LOL          [flag 1]
-  DESERVED             [flag 3]
-
-From STAMP_MESSAGES_DEFAULT:
-  REST DAY
-  NO WORRIES
+  REST UP
+  NAAAAH
   TAKE IT EASY
   RECHARGE
-  YOU EARNED IT        [flag 3]
   CHILL OUT
   BREATHE
   RESET
-  NOT TODAY            (dupe)
-  DESERVED             (dupe) [flag 3]
-
-→ Unique usable base: ~18. Need ~2-5 more after cuts.
+  RELAX
+  EXHALE
+  EARNED IT
+  TOMORROW
+  DAY OFF
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GREEN — 4 tasks (target 40+; proto has 12 + 7)
+GREEN — 4 tasks (25 / target 40+ — need ~15)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-From COMPLETE_STAMP_MESSAGES_AYSHI:
-  HELL YEAH
+  HECK YEAH
   CRUSHED IT
   OMG WOW
   ABSOLUTELY
   NO DOUBT
   HOT DAWG
-  SMASHLINGTON
   PHWOAR
   SHEEEEESH
-  SO SIMLY
-  YEET
-  CRAIMZY              [flag 4? in-joke — your call]
-
-From COMPLETE_STAMP_MESSAGES_DEFAULT:
   GREAT WORK
   NAILED IT
   WELL DONE
@@ -96,61 +73,65 @@ From COMPLETE_STAMP_MESSAGES_DEFAULT:
   LETS GO
   SOLID DAY
   DONE DEAL
+  WOOOO
+  PHENOMENAL
+  BEAUTIFUL
+  INCREDIBLE
+  SENSATIONAL
+  IMMACULATE
+  YOU DID IT
+  AMAZING
+  FANTASTIC
+  PERFECT
 
-→ Unique base: 19. THE BIG GAP: ~21+ more to write. This is the
-  roster-writing centrepiece — each entry wants its own small
-  character (doc: "discoveries, not templates").
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RED — 1 task (target 5-10; proto has 2)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  ROUGH ONE            (default — on-target per doc)
-  NOT GREAT TBH        (ayshi)
-
-→ Write ~4-8 more. Tone: gentle, no shame, slightly
-  self-deprecating ("ouch", "we'll get 'em next time" band).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ORANGE — 2 tasks (target 5-10; proto has 2)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-  HALF WAY THERE       (default)
-  MID EFFORT TBH       (ayshi)
-
-→ Write ~4-8 more. Tone: neutral "got through it" — not failure,
-  not success, the honest middle.
+→ THE REMAINING GAP. ~15 more; doc target is "discoveries, not
+  templates" — each wants its own small character.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-YELLOW — 3 tasks (target 5-10; proto has 2, BOTH OUT per flag 2)
+YELLOW — 3 tasks (4 / target 5-10 — need 1+)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  ALMOST               [flag 2 — near-miss framing, banned]
-  SO CLOSE THOUGH      [flag 2 — near-miss framing, banned]
+  NOT BAD AT ALL
+  GOOD WORK
+  PRETTY GOOD
+  NICE ONE
 
-→ Effectively write ALL 5-10 fresh. Tone: light affirmation
-  ("nice", "solid effort", "good day") with zero reference to
-  the missing fourth.
+→ Tone: light affirmation, ZERO reference to the missing fourth.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TILE 4.9 — STREAK POPUP MESSAGES (separate from stamps)
+ORANGE — 2 tasks (3 / target 5-10 — need ~2-7)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-No locked pool-size target yet; proto fired every-5-days with
-~9 entries per build. Same universal-pool question applies.
+  HALF AINT BAD
+  50%
+  A-OK
 
-STREAK_MESSAGES_AYSHI:
-  GO OFF QUEEN!!!      [flag 4]
+→ Tone: neutral "got through it" — the honest middle.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RED — 1 task (3 / target 5-10 — need ~2-7)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  NEXT TIME
+  YOU CAN DO IT
+  DONT GIVE UP
+
+→ Tone: gentle, no shame, no game-over flavour.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TILE 4.9 — STREAK POPUP — DEFERRED v1.x (s35)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Tile 4.9 deferred whole (Morgan, s35): streak bar already shows
+the number; the milestone moment ships v1.x when the fuller
+milestone vision is designed, not as a popup for its own sake.
+Pool below is post-red-pen REFERENCE ONLY — not a v1.0 constant,
+do not include in the constants update.
+
   YOU'RE AMAZING
-  WELL DONE PRINCESS   [flag 4]
   PHWOAR WHAT A STREAK
-  AMAZING WORK DARLING [flag 4]
   HOLY SHEEEESH
-  OMGOSH SHE'S ON FIRE [flag 4]
   FIYAAAAAAA
-  WHOAH CRAIMZY
-
-STREAK_MESSAGES_DEFAULT:
   LETS GOOO!!!
   INCREDIBLE WORK
   WELL DONE
@@ -161,20 +142,20 @@ STREAK_MESSAGES_DEFAULT:
   UNSTOPPABLE
   THAT IS WILD
 
-Proto mechanics worth carrying to 4.9's build notes: emoji
-escalates 🎉 → 🏆 (20+) → 👑 (30+); streak bonus was a flat
-randInt(550, 750) with no multiplier — v1.0 bonus is a server-
-side payout component per the economy doc, so the proto figure
-is reference only, not authority.
+Proto mechanics, carried as reference for the v1.x revival:
+fired every-5-days; emoji escalates 🎉 → 🏆 (20+) → 👑 (30+);
+streak bonus was a flat randInt(550, 750) with no multiplier —
+any revived bonus is a server-side payout component per the
+economy doc, proto figure is reference only.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 TILE 4.10 — MONTH STAMP (rainbow / perfect month)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  NO FUCKIN WAY        [flag 1]
   PERFECT MONTH
 
-→ One message each in proto. Decide pool-or-single at 4.10.
+→ Proto's second entry cut (flag 1). Decide pool-or-single
+  at 4.10.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NOT EXTRACTED

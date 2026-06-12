@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-12 AWST (session 34, mobile/work — build-ahead authorised)
-Last updated: session 34 — DESIGN+BUILD-AHEAD SESSION, all code ★UNVERIFIED (s34 ledger in OPEN TESTS). 4.24 DECIDED + BUILT (dead-cell unification + off-month nav-delegate; authority NEW four_tasks_calendar_cells_design_notes.md; grey stamp tier LATENT — stamp_tier doc amended). 4.27 safe-area inset BUILT. 4.23 date-rollover watcher BUILT. morning_sequence sealed_day:null path now refreshes (span-era fix). 4.25 pass-2 items 1+2 RESOLVED BY TRACE (item 1 no-op — dialog copy already null-safe; item 2 wind-down verified in code) — 4.25 remains DEVICE PASS ONLY. Week-mode doc SYNCED to Model B + popup detail LOCKED (Morgan decisions 1-10) — 4.D2 doc debt cleared. Stamp/streak pools EXTRACTED from proto → stamp_streak_pools_working_draft.md (green gap ~21+, yellow all-fresh, 4 review flags pending). Rescue-then-worked double-payout worry traced + CLEARED (one ceremony by construction; W13r is the proof).
+Last edit: 2026-06-12 AWST (session 35, mobile/work)
+Last updated: session 35 — mobile content pass. Stamp pools RED-PENNED with Morgan: all 4 review flags RESOLVED (profanity cut everywhere; yellow near-miss ban upheld; DESERVED/YOU EARNED IT cut, EARNED IT kept purple-only; gendered/in-joke entries all cut — partner-flavoured pools stay a v1.x content-drop idea). Pool state: purple 18/20, green 25/40+, yellow 4/5-10, orange 3/5-10, red 3/5-10 — green gap is the remaining writing work, pools NOT yet locked. Tile 4.9 streak popup DEFERRED to v1.x (Morgan: streak bar shows the number; milestone moment ships with the fuller v1.x milestone vision, not as a popup for its own sake) — streak pool stays in the working draft as reference; 4.12's confetti garnish defers with it (bug catcher closes on the 4.11 real-UI trigger alone). Constants update now needs the five stamp tiers only. s34 UNVERIFIED ledger unchanged.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -166,10 +166,9 @@ before code). Realistic store launch: Sept-Oct 2026.
 [x] 4.6 [CODE] Morning sequence — coordinator. Sessions 26-28. ~11h + economy. OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold); cross-month verified-on-real-1st only. Interruption = freeze/resume (doc synced s32).
 [x] 4.7 [CODE] Stamp slap — folded into 4.6 beat 7. Session 26. Placeholder art; real stamps 4.C. Messages = content (PARKED).
 [~] 4.8 [CODE] Rest day system — MECHANISM DONE (s28) + session-29 hardening (free-rest hole closed, per-op rollback, server-shipped cost, anim-leak fix). Time: ~2h. Device test = S29 ledger D7/D8. DEFERRED: rest-day task-label content swap (~15-30 phrases; felt cheesy).
-[ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days — bonus is a PAYOUT component (server-side, economy doc applies; immutable at grant — proto's flat 550-750 is reference only). UNBLOCKED 2026-06-10 (streak semantics moot). Proto message pools + emoji escalation (🎉/🏆20+/👑30+) extracted s34 → stamp_streak_pools_working_draft.md. (~4-6h)
 [ ] 4.10 [CODE] Month stamp + month stats popup. Client-computable from days payload. (~3-5h)
 [ ] 4.11 [CODE] Help menu — two-tier, six subjects, [g]glitch[/g] markup (consumes 4.1). Copy = roster-week content list. (~4-6h)
-[~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: confetti (waits on 4.9's SHARED confetti system — no one-off particles) + real-UI trigger (one line, lands with 4.11's help menu). (~30min left, inside 4.9/4.11)
+[~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: real-UI trigger (one line, lands with 4.11's help menu). Confetti garnish DEFERRED with 4.9 (s35) — no one-off particles; rides the shared system if 4.9 revives. (~5min left, inside 4.11)
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h)
 [x] 4.14c [CODE] Future cells non-tappable. day_cell.is_interactive() rejects taps + long-presses on DEAD_FUTURE. Device-verified session 31. ~0h.
 [ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready-ish: `user_weekday_overrides` table needs the 4.D2 reshape (per-slot text + active bitmask; explicit drop-and-recreate — IF NOT EXISTS won't restructure) + its write endpoint; `week_mode_weekdays` bitmask RETIRED-UNUSED under Model B.
@@ -192,7 +191,8 @@ before code). Realistic store launch: Sept-Oct 2026.
 [~] 4.22 [CODE] Content-drops delivery pipeline — SERVER RECEIVE-SIDE DONE (s29): schema (content_drops / content_drop_assets / content_drop_deliveries), GET /users/:id/drops (live + forward-only + undelivered; release-day local-time gating is CLIENT-side per client-owns-the-clock; subscriber_only returned not filtered — sub-pack news is conversion pull), POST delivered ack (explicit, idempotent, never implicit on read), Thursday-release cron (wrangler [triggers] + scheduled handler). Tests = W9/W10. CLIENT HALF remains: presentation queue + drop popup (ceremony-adjacent — with Morgan). Publishing = manual SQL at launch; authoring tool post-launch. (~3h left)
 
 MOVED OUT OF PHASE 4: 4.13/4.13a leaderboard (KILLED for v1.0, 2026-06-10 —
-see DEFERRED; eternal-stats optionality preserved); 4.16 partner reactions,
+see DEFERRED; eternal-stats optionality preserved); 4.9 streak popup
+(DEFERRED v1.x, s35 — see DEFERRED); 4.16 partner reactions,
 4.17/4.18 coin names, 4.19 TutorialCoordinator (all v1.x, see DEFERRED).
 
 GATE: The daily loop is fully usable on stub art. Tick → seal → ceremony →
@@ -282,7 +282,7 @@ ACTIVE — ad-hoc items found during the port
 
 [x] DevKit disappointment-day scenario — superseded by s30 morning_grey scenario (device-verified s31).
 
-[ ] Roster-week content list — mobile-writable work for on-roster weeks (in progress on phone, 2026-06-10): stamp messages (proto pools EXTRACTED s34 → stamp_streak_pools_working_draft.md: purple ~18 usable, green 19/40+, red+orange 2 each, yellow 0 — both proto entries violate the locked no-near-miss tone; 4 review flags pending Morgan: profanity/13+, yellow rewrites, EARNED-DESERVED moralising line, gendered Ayshi entries can't go universal — partner-flavoured packs noted as v1.x content-drop idea; bracket-stubs still in PROD, ship visibly if claimed today), help-menu copy (six subjects), rest-day task-label phrases (~15-30), MOTD pool expansion, sticker/stamp concept lists, promo-codes doc draft.
+[ ] Roster-week content list — mobile-writable work for on-roster weeks: stamp messages (RED-PENNED s35, all 4 flags resolved — stamp_streak_pools_working_draft.md is current: purple 18/20, green 25/40+, yellow 4/5-10, orange 3/5-10, red 3/5-10; green gap ~15 is the centrepiece; bracket-stubs still in PROD, ship visibly if claimed today), help-menu copy (six subjects), rest-day task-label phrases (~15-30), MOTD pool expansion, sticker/stamp concept lists, promo-codes doc draft.
 
 [~] Doc sync pass — s29 shipped five docs; s32 shipped five more (economy, morning-seq — incl. the s30 rescue-gate section that never reached the repo, system map full refresh incl. the §6-7 inventory, timezone incl. boot-only clarification + rotation/MOTD wording, staggered-disclosure) + wire_regression_pack.md. REMAINING pile:
     - Partner reactions doc → `four-tasks/deferred/`.
@@ -364,6 +364,7 @@ DEFERRED — v1.x or later
 [ ] Audio (silent v1, audio v1.1).
 [ ] Partner reactions (deferred s12).
 [ ] Leaderboard — KILLED for v1.0 (2026-06-10), removed from Phase 4. Eternal-stats optionality PRESERVED: lifetime_coins + longest_streak live in schema now; `four_tasks_tracking_design_notes.md` covers richer per-user stats if revived for experience depth later. Design docs stay in `four-tasks/deferred/`.
+[ ] Streak popup + milestone bonuses (was 4.9; deferred s35). Streak bar number stays v1.0. Revive alongside the fuller milestone vision; red-penned message pool + proto mechanics (emoji escalation, every-5-days cadence) preserved as reference in stamp_streak_pools_working_draft.md; any bonus is a server-side payout component per the economy doc.
 [ ] Coin name generator + reroll (schema columns reserved).
 [ ] Per-user stat tracking beyond lifetime_coins/longest_streak.
 [ ] TutorialCoordinator + staggered-disclosure reveals (was 4.19). v1.x. `users.tutorial_progress` column live.
