@@ -23,8 +23,12 @@ FLAG RESOLUTIONS (s35):
 Also cut s35: BE PROUD (instructional — tells the user what to
 feel), GOOD TRY (condescending), TRY AGAIN (game-over flavour).
 
-POOL SIZE TARGETS (doc): red/orange/yellow 5-10 each; green 40+;
-purple 20.
+POOLS LOCKED FOR LAUNCH (Morgan, s35) at current counts — purple
+18, green 25, yellow 4, orange 3, red 3. The original doc targets
+(red/orange/yellow 5-10, green 40+, purple 20) are retired as
+gates: pools are server constants, appending later is a one-deploy
+job. Gradual additions welcome any roster week; nothing further
+gates the constants update.
 
 PROTO → v1.0 MAPPING (reference): STAMP_* → purple,
 COMPLETE_STAMP_* → green, PARTIAL_1/2/3 → red/orange/yellow,
@@ -32,7 +36,7 @@ STREAK_* → 4.9 (DEFERRED), MONTH_STAMP_* → 4.10. Proto's
 Ayshi/default split is dead — one universal pool per tier.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-PURPLE — rest day (18 / target 20 — need ~2)
+PURPLE — rest day (18 — LOCKED for launch)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   NO THANKS
@@ -55,7 +59,7 @@ PURPLE — rest day (18 / target 20 — need ~2)
   DAY OFF
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GREEN — 4 tasks (25 / target 40+ — need ~15)
+GREEN — 4 tasks (25 — LOCKED for launch)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   HECK YEAH
@@ -84,11 +88,11 @@ GREEN — 4 tasks (25 / target 40+ — need ~15)
   FANTASTIC
   PERFECT
 
-→ THE REMAINING GAP. ~15 more; doc target is "discoveries, not
-  templates" — each wants its own small character.
+→ Append over time; "discoveries, not templates" still the bar
+  for additions.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-YELLOW — 3 tasks (4 / target 5-10 — need 1+)
+YELLOW — 3 tasks (4 — LOCKED for launch)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   NOT BAD AT ALL
@@ -99,7 +103,7 @@ YELLOW — 3 tasks (4 / target 5-10 — need 1+)
 → Tone: light affirmation, ZERO reference to the missing fourth.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-ORANGE — 2 tasks (3 / target 5-10 — need ~2-7)
+ORANGE — 2 tasks (3 — LOCKED for launch)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   HALF AINT BAD
@@ -109,7 +113,7 @@ ORANGE — 2 tasks (3 / target 5-10 — need ~2-7)
 → Tone: neutral "got through it" — the honest middle.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-RED — 1 task (3 / target 5-10 — need ~2-7)
+RED — 1 task (3 — LOCKED for launch)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   NEXT TIME
@@ -149,13 +153,15 @@ any revived bonus is a server-side payout component per the
 economy doc, proto figure is reference only.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TILE 4.10 — MONTH STAMP (rainbow / perfect month)
+TILE 4.10 — MONTH STAMP — CUT (s35)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  PERFECT MONTH
-
-→ Proto's second entry cut (flag 1). Decide pool-or-single
-  at 4.10.
+Month stamp CUT s35 (visual downgrade vs the eternalised themed
+month — see four_tasks_month_stats_design_notes.md). The
+pool-or-single question is CLOSED: no pool. PERFECT MONTH
+survives as a single CLIENT constant — the stats popup's 100%
+flourish line — not a server pool; nothing from this section
+enters the constants update.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 NOT EXTRACTED

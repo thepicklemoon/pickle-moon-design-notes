@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-12 AWST (session 34, mobile/work)
-Last updated: 2026-06-12 (session 34 — design+build-ahead on roster: 4.24 DECIDED+BUILT, 4.27 + 4.23 BUILT, morning_sequence null-path refresh fix — ALL UNVERIFIED, D-S ledger in todo; 4.25 pass-2 resolved by trace, device pass only remains; week-mode doc SYNCED to Model B + popup detail locked; calendar cells doc NEW; stamp_tier amended grey-LATENT; stamp/streak pools extracted.)
+Last edit: 2026-06-12 AWST (session 35, mobile/work)
+Last updated: 2026-06-12 (session 35 — mobile content+design+build-ahead: pools red-penned + LOCKED for launch; 4.9 streak popup DEFERRED v1.x; 4.20 palette devtool BUILT + 4.10 reshaped (stamp CUT) w/ stats popup BUILT — both disjoint from s34 surfaces, ★UNVERIFIED D-S7/D-S8; completed-month chrome DESIGNED into theme doc v2; month-close disclosure registered; constants update UNGATED.)
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1083,3 +1083,100 @@ sync deliberately DEFERRED (Morgan — hardly used).
 Session 34 time: ~3h (ESTIMATE — correct at close; s32 ~6h and s33 ~7h
 corrections still owed).
 Running total: ~172.75h (THREE estimates pending correction).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 35 — 2026-06-12 (mobile/work — content, deferral,
+two disjoint build-aheads, month-chrome design)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+POOLS RED-PENNED + LOCKED FOR LAUNCH. All four s34 review flags
+resolved: profanity CUT everywhere (clean content-rating posture);
+yellow near-miss ban upheld (proto entries + four fresh near-miss
+candidates all out); DESERVED/YOU EARNED IT cut, EARNED IT kept
+purple-only (earned REST has context); gendered/in-joke entries all
+cut from universal pools (partner-flavoured packs stay a v1.x
+content-drop idea). Also cut: BE PROUD (instructional), GOOD TRY
+(condescending), TRY AGAIN (game-over flavour). Final counts: purple
+18 / green 25 / yellow 4 / orange 3 / red 3 — LOCKED at these
+(Morgan): targets retired as gates, pools are server constants,
+append-over-time. MOTD expansion likewise dropped from the roster
+list. CONSTANTS UPDATE + DEPLOY NOW UNGATED (laptop step; bracket-
+stubs remain in PROD until it lands).
+
+TILE 4.9 STREAK POPUP — DEFERRED v1.x (Morgan): streak bar already
+shows the number; the milestone moment ships with the fuller v1.x
+milestone vision, not as a popup for its own sake. Red-penned streak
+pool + proto mechanics preserved as reference in the pools draft.
+Ripples: 4.12's confetti garnish defers with it (bug catcher closes
+on the 4.11 trigger alone, ~5min); disclosure doc day-5 slot dormant.
+
+4.20 PALETTE DERIVATION DEVTOOL — BUILT (build-ahead AUTHORISED,
+deliberately disjoint from every s34 unverified surface: two NEW
+files + one devkit_menu section, zero server). palette_derive.gd
+(class_name PaletteDerive — `Palette` taken by the constants
+autoload): the SHARED implementation 4.14b's bake MUST consume —
+int-exact exclusion (a8<255 OR r8==g8==b8), derive() (role ranking,
+deterministic RGB tie-break, overflow ranks 5+, neutral audit w/
+canonical-ramp tags, alpha counts, compressed-import flag),
+role_color() accent→tertiary fallback. devkit_palette_tool.gd:
+code-built overlay; sources res://assets/stickers (CONST — adjust
+if the folder differs) + user://palette_inbox (drop PNGs via file
+manager/adb, no rebuild — the production-loop path); preview,
+swatches w/ hex+count+%, CLOSE adjacent-rank advisory (≥0.8,
+advisory only), overflow as the AA-violation surface, lossy-import
+warning. ★UNVERIFIED — D-S7.
+
+4.10 RESHAPED — MONTH STAMP CUT (Morgan: a stamp over the month is
+a visual downgrade vs the eternalised themed month itself). PERFECT
+MONTH demoted to a single client flourish at 100% — the pools-draft
+month-stamp pool question CLOSED, no pool. New authority doc:
+four_tasks_month_stats_design_notes.md — month-name tier colour on
+COMPLETED months (% = ticks / 4×non-rest days, rest excluded from
+the denominator; bands at per-day-average midpoints 87.5/62.5/
+37.5/12.5); long-press any month title → stats popup (both panels).
+POPUP HALF BUILT: month_stats_popup.gd (code-built, reads State
+only, pays nothing) — %, tasks X/Y, best run (within-month,
+purple-BRIDGED, labelled to never collide with the real streak),
+bounded in-popup month nav, coins STUBBED. ★UNVERIFIED — D-S8.
+COINS FINDING: per-day amounts don't exist (computed at seal, paid
+to balance, discarded; client recompute wrong by design — baked
+multipliers unknowable). Mechanism decided for next index.ts
+unfreeze: per-day coins column at seal (exact, earn-day attribution)
+over Morgan's lifetime-watermark diff (claim-time attribution puts a
+roster-gap span's coins in the wrong month); both recorded in the
+doc. REMAINS on 4.10: header tint + long-press wiring (few lines in
+calendar_grid AFTER D-S2/D-S3) + coins column (post-D-S6).
+
+COMPLETED-MONTH CHROME — DESIGNED (theme doc v2, new section;
+replaces the cut stamp as the month-end payoff). Cells freeze
+per-day already (IMMUTABLE PAST); the new rule covers SCREEN-LEVEL
+slots: a completed month renders background/cards/popup/border from
+the day_theme_state of its last SEALED ACCOUNTED day — last day the
+user showed up, the outfit they were last seen in. accounted_for=1
+anchoring deliberately skips span-sealed backfill greys (which bake
+CLAIM-era theme); pre-seal interim renders live and self-heals at
+the claim; '{}' → stock via the existing absent-key rule; current
+month always live; PARTNER MONTHS included via the existing
+partner-render rule. Pure render policy — ZERO new data, zero
+server work; builds as one selection rule inside 4.14b (build-time
+check: days payload ships accounted_for, else one-liner at
+unfreeze). Keepsake/image EXPORT stays v1.x. Month-close disclosure
+note registered trigger-gated (one-shot, last day or eve, copy TBD
+— "today's look seals the month"; freeze technically lands at next
+claim, so last-day copy stays actionable).
+
+DOC DE-STALE (while editing anyway): disclosure doc day-5 streak
+slot DORMANT (4.9 deferral), day-30 leaderboard REMOVED (killed
+2026-06-10, doc still said deferred) — schedule terminates day 21.
+
+DOCS SHIPPED: four_tasks_month_stats_design_notes.md (NEW), theme
+doc v2 (COMPLETED-MONTH CHROME section), disclosure doc (month-close
+entry + de-stale), stamp_streak_pools_working_draft.md (red-penned →
+locked), todo (4.9 out / 4.10 reshape / D-S7+D-S8 / pools-locked /
+roster trim). CODE SHIPPED (★UNVERIFIED): palette_derive.gd NEW,
+devkit_palette_tool.gd NEW, month_stats_popup.gd NEW, devkit_menu.gd
+(Tools section, both triggers).
+
+Session 35 time: ~3h (ESTIMATE — correct at close; s32 ~6h, s33
+~7h, s34 ~3h corrections still owed).
+Running total: ~175.75h (FOUR estimates pending correction).

@@ -1,6 +1,6 @@
 # Staggered Feature Disclosure — Design Principle
 
-**Status:** LOCKED as a design principle (session 2, refined session 5, substantial revisions session 8 to reflect onboarding scope expansion and week mode v1.0 inclusion, tutorial_progress merge semantics added session 12, week-mode cascade destination updated to Model B session 32 — recording the s30 fork resolution).
+**Status:** LOCKED as a design principle (session 2, refined session 5, substantial revisions session 8 to reflect onboarding scope expansion and week mode v1.0 inclusion, tutorial_progress merge semantics added session 12, week-mode cascade destination updated to Model B session 32 — recording the s30 fork resolution; s35: day-5 streak milestone dormant with tile 4.9's deferral, day-30 leaderboard removed with the kill, month-close theme note added trigger-gated).
 
 **Scope:** this is a *meta-principle* about how features are introduced to the user over time. It doesn't dictate which features exist; it governs *when* the user discovers them.
 
@@ -59,10 +59,10 @@ Day counts are absolute from install date, not pair-formation date. Some reveals
 | 2   | Long-press philosophy reveal — relays into week mode      |
 | 3   | Rest day intro                                            |
 | 4   | Partner reactions intro — DEFERRED to v1.x with the feature |
-| 5   | First streak milestone (trigger-gated, fires on 5-day)    |
+| 5   | First streak milestone — DORMANT (streak popup deferred to v1.x with tile 4.9, s35) |
 | 14  | Coin name personalisation (trigger-gated by affordability)|
 | 21  | Subscription disclosure                                   |
-| 30  | Leaderboard offer (if leaderboard ships at launch — see leaderboard design notes; currently deferred) |
+
 
 ### Day 1 — first morning sequence
 
@@ -100,9 +100,9 @@ Per existing design. Primary teaching moment for the partner reaction mechanic. 
 
 Solo-user framing: for users without a partner on day 4, the reveal frames the feature prospectively ("when you pair up, you'll be able to react to each other's days"). Acts as a soft recruitment nudge. No conditional cadence — day 4 fires regardless.
 
-### Day 5 — first streak milestone
+### Day 5 — first streak milestone — DORMANT (s35)
 
-Trigger-gated, not strictly time-gated. Fires when the user hits a 5-day streak. Typically lands around day 5 for engaged users.
+The streak popup (tile 4.9) is deferred to v1.x; this slot is dormant at launch, same as partner reactions. The original spec (trigger-gated on the first 5-day streak) revives with the feature.
 
 ### Day 14 — coin name personalisation
 
@@ -114,13 +114,19 @@ Per monetisation v2.0. Value summary against the user's actual play history at t
 
 The library-sharing concept was planted on day zero (onboarding screen 7, partner calendar reveal). The day-21 disclosure builds on that mental hook rather than introducing the concept cold.
 
-### Day 30 — leaderboard offer
+### Day 30 — leaderboard offer — REMOVED
 
-If leaderboard ships at launch (currently deferred per the leaderboard design notes — possibly not shipping at v1.0). If deferred, this entry is removed and the schedule terminates at day 21.
+Leaderboard was KILLED for v1.0 (2026-06-10). Entry removed; the schedule terminates at day 21.
 
 ## Trigger-gated reveals (not on the schedule)
 
 Some reveals fire on action, not on day count:
+
+### Month-close theme note (added s35)
+
+Calendar-date-gated, not install-day-gated: fires on the LAST DAY of a calendar month (or its eve — copy decision, open; copy itself TBD on the roster-week content list). One-shot — the first month-close after install teaches; the mechanic runs silently ever after (`tutorial_progress.month_close_note`).
+
+What it teaches: a completed month's chrome freezes to the last accounted day's theme — "today's look seals the month" framing. This is the deliberate dress-your-month ritual moment that replaces the CUT month stamp. Render rule authority: theme doc v2, COMPLETED-MONTH CHROME section. Accuracy note for the copy: the freeze technically lands at the NEXT morning's claim (seal time), so "today's look" is changeable right up to that claim — last-day copy is accurate and actionable; eve copy is a heads-up.
 
 ### Picker context menu hint
 

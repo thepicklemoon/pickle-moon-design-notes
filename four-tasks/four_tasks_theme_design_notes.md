@@ -493,6 +493,61 @@ monetisation doc remain the commercial authority)
     live; the user's own taste does the persuasion. No nag.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+COMPLETED-MONTH CHROME — THE MONTH WEARS ITS LAST OUTFIT
+(locked s35; replaces the CUT month stamp — see
+four_tasks_month_stats_design_notes.md for the cut rationale)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Cells freeze per-day (IMMUTABLE PAST), but the SCREEN-LEVEL slots
+(background, calendar card, tray card, popup skin, border) are not
+per-cell — without a rule, browsing a past month would dress it in
+the CURRENT theme, silently rewriting history. The rule:
+
+  A COMPLETED month (strictly before the current local month)
+  renders its screen-level slots from the `day_theme_state` of
+  the month's LAST SEALED ACCOUNTED day — the last day the user
+  actually showed up, in the outfit they were last seen in.
+
+  - ACCOUNTED (accounted_for = 1), not merely sealed: span-
+    sealing backfills never-opened gap days as sealed grey with
+    accounted_for = 0 and bakes the CLAIM-era theme into them; a
+    month abandoned in week two must wear week two's look, not
+    the look of the eventual return. Anchoring on accounted
+    days makes that automatic.
+  - PRE-SEAL INTERIM: the month's final accounted day freezes
+    its state only when the next claim seals it. Until then the
+    just-completed month renders live theme and SELF-HEALS at
+    the claim — no special case, re-derive-never-remember.
+  - FALLBACK: no sealed accounted day in the month (or '{}'
+    states from pre-theming history) → empty slot map → stock
+    render, by the existing absent-key rule. Honest, no code.
+  - CURRENT MONTH: always live theme — it's still being dressed.
+  - PARTNER MONTHS: identical rule against the PARTNER's day
+    states (you can see what combo they were running in April).
+    This is the existing PARTNER-RENDER RULE doing its job —
+    entitlement gates use, not sight; asset fetch by id covers
+    stickers the viewer doesn't own.
+  - CELLS are untouched by this section: they keep their own
+    per-day states. A mid-month theme swap patchworks the cells
+    inside a chrome frozen to the month's final look — that
+    patchwork is the record, not a bug.
+
+KEEPSAKE EXPORTING (image/share artefact) is a v1.x consideration
+and deliberately NOT designed here; this section is pure render
+policy, no new data, no server work.
+
+DISCLOSURE TIE-IN: a one-shot month-close note (last day of the
+month or its eve — "today's look seals the month" framing, copy
+TBD) is registered in the staggered-disclosure doc, trigger-gated.
+
+BUILD: lands inside tile 4.14b's theme-manager scope — the
+renderer already has to source per-day states for cells; month
+chrome adds "which day's state feeds the screen-level slots" as
+one selection rule. BUILD-TIME CHECK: confirm the days payload
+ships `accounted_for` to the client; if not, it's a one-line
+payload addition at the next index.ts unfreeze.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SCHEMA (shipped tile 1.3 — unchanged by s32)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
