@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-12 AWST (session 33, laptop)
-Last updated: 2026-06-12 (session 33 — 4.26 notifications BUILT + D-N1-4 device-green (ambient cases open); 4.25 SERVER HALF shipped + full wire pass on dev (W13r/W14r/W19/W20 + W11/W12 re-proven); gradle build enabled; W18 + DevKit.gd rename cleared.)
+Last edit: 2026-06-12 AWST (session 34, mobile/work)
+Last updated: 2026-06-12 (session 34 — design+build-ahead on roster: 4.24 DECIDED+BUILT, 4.27 + 4.23 BUILT, morning_sequence null-path refresh fix — ALL UNVERIFIED, D-S ledger in todo; 4.25 pass-2 resolved by trace, device pass only remains; week-mode doc SYNCED to Model B + popup detail locked; calendar cells doc NEW; stamp_tier amended grey-LATENT; stamp/streak pools extracted.)
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -962,3 +962,124 @@ Session 33 time: ~7h (ESTIMATE — correct at close; s32's ~6h estimate also
 still owed its correction).
 Running total: ~169.75h (BOTH estimates pending correction).
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 34 — 2026-06-12 (mobile/work; build-ahead authorised)
+4.24 DECIDED+BUILT · 4.27 + 4.23 BUILT · 4.25 traced to device-only · week-mode LOCKED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ALL s34 CODE ★UNVERIFIED — ledger D-S1-D-S6 in the todo OPEN TESTS
+block; clear next laptop session before anything ships further.
+
+TILE 4.27 — SAFE-AREA TOP INSET (status bar / camera cutout): BUILT.
+Time: ~30min (ESTIMATE — correct at close).
+  - Layout.safe_top_inset(): DisplayServer.get_display_safe_area() top
+    edge, physical→design via design-height/window-height, gated to 0
+    off-mobile (desktop safe-area = monitor geometry, meaningless here).
+  - App._apply_safe_area_inset(): inset onto each panel's Layout VBox
+    (backgrounds stay full-bleed under the translucent bar); SAME amount
+    off each tray's runtime custom_minimum_size — the Layout.gd tray
+    budget has 11px slack, an inset eats it, and TASKS_TRAY_MIN_HEIGHT
+    is the documented dial. Boot print "[App] safe_top_inset=".
+  - CAVEAT recorded: Godot's Android report is cutout-driven; a
+    barred-but-cutoutless device can report 0 (theoretical for the test
+    pool). Loader/onboarding eyeballed on the same device pass.
+
+TILE 4.24 — DEAD-CELL TREATMENT + OFF-MONTH NAV: DECIDED + BUILT.
+Time: ~1h (ESTIMATE — correct at close).
+  - Authority NEW: four_tasks_calendar_cells_design_notes.md (supersedes
+    the s14 comment-level lock). Decisions (Morgan): one flat dead-inert
+    treatment for pre-install + sealed-0-tick + off-month (deliberate
+    flattening — a worked May 31 and a skipped May 30 look identical in
+    June's grid; the nav-tap reveals truth); sealed skips UNINTERACTABLE
+    (no tray); off-month tap = navigate to home month then delegate as an
+    in-month tap (direction-agnostic; nav-only when the day is grey/
+    pre-install at home); GREY STAMP TIER LATENT — only positives are
+    memorialised, 0 falls silent; server untouched, stub forever, NO grey
+    pool authoring (stamp_tier doc amended; 4.C art drops to five tiers).
+  - Colour question DISSOLVED: under span-sealing only TODAY is ever
+    UNMARKED, and the existing dead treatment (muted date text + overlay)
+    is already the needed distinction. No new colour.
+  - Build: day_cell.gd (SEALED_GREY state; DEAD_HISTORICAL→OFF_MONTH;
+    desaturated historical variant RETIRED; is_interactive rejects
+    SEALED_GREY + DEAD_PRE_INSTALL, keeps OFF_MONTH) + calendar_grid.gd
+    (sealed_at!=null + 0 ticks + !rest → SEALED_GREY in
+    _derive_active_state — the rows that used to fall through to
+    UNMARKED; _navigate_home_if_off_month in the tap/long-press relays,
+    re-emitting only if the day is interactive at home). App UNTOUCHED —
+    the grid owns month display, so the delegate lives in its relays.
+
+TILE 4.23 — DATE-ROLLOVER WATCHER: BUILT. Time: ~30min (ESTIMATE —
+correct at close).
+  - App: _last_seen_date marker; _check_date_rollover() FIRST on every
+    FOCUS_IN — date moved either direction → both calendars
+    jump_to_today() (assumption flagged: "show today" over repaint-in-
+    place), open trays on now-future dates close. Skipped mid-ceremony
+    WITHOUT consuming the marker (retries next focus-in rather than
+    yanking the month from under beat 3).
+
+4.25 PASS 2 — RESOLVED BY TRACE; DEVICE PASS ONLY REMAINS.
+  - Item 1 (rescue_confirm null-target copy): NO-OP. The shipped dialog
+    reads only rescue_date/cost/streak_at_stake — all always present in
+    the s33 payload; target_date/target_tier (the nullables) are never
+    touched. Verified against a fresh upload (byte-identical). Decision:
+    leave the copy lean — the ceremony that follows IS the announcement.
+  - Item 2 (sealed_day:null wind-down): VERIFIED in code — resolve routes
+    through the same _on_claim_completed; null fails the dict guard →
+    morning_claimed.emit({}) → coordinator _finish(), no ceremony.
+  - FOUND + FIXED while tracing: the coordinator's empty branch skipped
+    refresh_after_morning() ("nothing changed visibly" — pre-span truth,
+    now false). A null-target resolve seals greys server-side that the
+    client has no rows for; with 4.24 live they'd sit looking untouched
+    until the next poll. Fix: empty branch now refreshes through the
+    poll merge (harmless extra poll on same-day second opens).
+    morning_sequence.gd, ★UNVERIFIED (D-S5).
+
+DESIGN TRACE (no change needed): rescue-then-worked double-payout worry
+CLEARED — the pre-scan seals NOTHING until resolve, so one claim-shaped
+response, one ceremony; bought days are excluded from presentation by
+construction (sealed_day = the worked day); beat-6 rewind =
+final − coins_earned, so the count-up shows exactly the presented payout
+and the rescue charge lands silently in the rewound baseline (the dialog
+already acknowledged it). W13r is the wire proof of this exact shape.
+
+WEEK MODE — MODEL B POPUP DETAIL LOCKED + DOC SYNCED (4.D2 doc debt
+cleared; build-only remains). Doc fully rewritten (791→~420 lines, Model
+A preserved as the superseded record per the doc's own decision rule).
+Morgan decisions 1-10: weekday-STRIP long-press trigger (strip currently
+inert, no collision); per-slot INDEPENDENT toggles + text (stock controls
+v1.0, richer treatment deferred); deactivate = pause-not-delete per slot;
+empty-on-blur reverts slot to inactive + ghosted standard-four
+placeholder (save normalises too — blank labels never render); inactive
+slots ghost the standard four; ONE whole-row save (PUT /users/:id/
+weekday_overrides/:weekday {task_labels[4], active_mask}, opening writes
+nothing); tick-greying — partial ticks lock ticked slots (one popup-
+opening = one semantics), ALL-four-ticked un-greys everything under a
+future-only copy line (the fourth tick unlocking the rest is correct: a
+finished day has nothing mid-flight to corrupt); subtle strip-label
+indicator when any slot active; cal-icon banner kept, copy reworked
+per-slot; week_mode_weekdays column RETIRED-DEAD (dropping a users
+column is a migration for zero benefit). Schema reshape at 4.D2:
+drop-and-recreate user_weekday_overrides with active_mask (no prod rows,
+nothing to migrate); overrides ship in self payload, EXCLUDED from
+partner payloads.
+
+CONTENT — STAMP/STREAK POOLS EXTRACTED from the prototype →
+stamp_streak_pools_working_draft.md (design-notes). Proto mapping:
+STAMP_MESSAGES=purple, COMPLETE=green, PARTIAL_1/2/3=red/orange/yellow,
+STREAK_MESSAGES=tile 4.9, MONTH_STAMP_RAINBOW=tile 4.10. Gap state:
+purple ~18 usable, green 19 of 40+, red+orange 2 each, yellow ZERO (both
+proto entries violate the locked no-near-miss tone target). Four review
+flags pending Morgan: profanity vs the 13+ line; yellow rewrites;
+EARNED/DESERVED on purple's moralising line; gendered Ayshi entries
+can't go universal — "partner-flavoured message packs" noted as a v1.x
+content-drop idea.
+
+DOCS SHIPPED: four_tasks_calendar_cells_design_notes.md (NEW),
+four_tasks_stamp_tier_design_notes.md (grey LATENT), week-mode doc
+(Model B rewrite), stamp_streak_pools_working_draft.md (NEW). Repo index
+sync deliberately DEFERRED (Morgan — hardly used).
+
+Session 34 time: ~3h (ESTIMATE — correct at close; s32 ~6h and s33 ~7h
+corrections still owed).
+Running total: ~172.75h (THREE estimates pending correction).

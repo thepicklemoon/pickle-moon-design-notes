@@ -1,24 +1,26 @@
 # Four Tasks — Week Mode Design Notes
 
-Status: DESIGN LOCKED (session 8 mobile, session 12 cascade flow added)
-        — EXCEPT the interaction model, REOPENED 2026-06-10 (see
-        "INTERACTION MODEL — OPEN FORK" below). Resolve at design
-        sign-off before tile 4.D2 builds.
+Status: DESIGN LOCKED. Feature shape s8, day-2 cascade s12,
+        interaction model RESOLVED to MODEL B 2026-06-10, popup
+        detail design LOCKED session 34 (Morgan decisions 1-10).
         v1.0 SCOPE (promoted from v1.x at session 9; reconfirmed
         2026-06-10 against forecast-review pressure to defer —
         Morgan's call, stays in).
-        Schema shipped in the v1.0 wholesale rewrite (session 12).
         Implementation tile 4.D2 (Phase 4).
         Streak question RESOLVED 2026-06-10: moot — week mode is
         label-overrides only; every day still has exactly four
         tasks, so streaks, sealing, payout, and stamps are
         untouched (consistent with the "single clock" reasoning
-        below). The old PARKED "streak semantics under week mode"
-        item is closed.
+        below).
 
-Schema implications: one new optional table (user_weekday_overrides).
-Reveal: day-2 cascade from long-press philosophy reveal (per staggered
-disclosure design notes). See "DAY-2 CASCADE FLOW" below.
+Schema: the s12-shipped shape needs the 4.D2 RESHAPE (per-slot
+text + active bitmask; explicit drop-and-recreate — IF NOT EXISTS
+won't restructure) + a write endpoint. `users.week_mode_weekdays`
+is RETIRED-UNUSED under Model B. See SCHEMA SUMMARY.
+
+Reveal: day-2 long-press reveal relays into the popup with a
+one-time intro line (staggered-disclosure doc, synced s32). See
+REVEAL TIMING.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ORIGIN — A REQUEST AND A REJECTION
@@ -57,81 +59,84 @@ of how some people actually live. That friction shaped a different
 feature.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE FEATURE — WEEK MODE
+THE FEATURE — WEEK MODE (MODEL B SHAPE)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Week mode is a per-weekday opt-in toggle that lets the user
-maintain a separate task template for any specific weekday,
-diverging from their standard four.
+Week mode lets the user override individual task slots for any
+specific weekday, diverging per-slot from their standard four.
 
-Off by default for everyone. Off by default for every weekday
-of every user.
-
-Toggled per-weekday: a user might have week mode on for Tuesday
-and Sunday, off for the rest. Each weekday is independent. The
-granularity matches how people actually live — most users have
-a few anchored days and the rest is free.
+Off by default for everyone. No overrides exist until authored.
 
 THE SHAPE:
-  - User long-presses the day name in the task tray heading
-    (e.g. "Tuesday") to toggle week mode for that weekday.
-  - Toggle ON does nothing visible at first. The day still
-    renders the standard four. The toggle just enables long-press
-    on individual task labels.
-  - To diverge from the standard four, the user long-presses a
-    specific task label and edits it. THAT'S when a Tuesday-
-    specific template begins existing.
-  - Once any task is changed, that change applies to all not-yet-
-    completed Tuesdays (today included if not sealed).
-  - Toggle OFF makes future Tuesdays render the standard four
-    again. The diverged template is preserved in the background.
-  - Toggle ON again restores the diverged template silently.
+  - Long-press a weekday label in the WEEKDAY STRIP (MON TUE
+    WED … above the calendar grid) to open that weekday's
+    override POPUP.
+  - The popup shows four slots. Each slot has an independent
+    activation control + a text field. Inactive slots show the
+    current standard four ghosted as placeholders — the user
+    sees exactly what they'd be overriding.
+  - Activating a slot and writing a task overrides THAT SLOT
+    for that weekday. Slots are independent: a Tuesday can
+    render two override slots and two standard slots.
+  - One save on popup confirm/close writes the whole weekday
+    row. Overrides apply to every not-yet-sealed matching
+    weekday (today included if unsealed, unticked slots only).
+  - Deactivating a slot reverts it to the standard four. The
+    override text is PRESERVED in the row (the "paused"
+    behaviour, now per-slot) — reactivating restores it.
 
-PERSONAL, NOT SHARED. Each user's week mode state is their own.
-Partners do not see or sync each other's week mode toggles.
+PERSONAL, NOT SHARED. Each user's overrides are their own.
+Partners do not see or sync each other's week mode state.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-INTERACTION MODEL — OPEN FORK (2026-06-10, resolve before 4.D2)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-Two candidate interaction models exist and they are not the same.
-Both share the data model (per-weekday label overrides, propagation
-to all not-yet-sealed matching weekdays, personal-not-shared); they
-differ in surface and gesture grammar.
-
-MODEL A — the locked two-gesture model (THE SHAPE above):
-  Long-press the day name in the TRAY HEADING to silently toggle
-  the weekday; then long-press an individual task LABEL to edit it.
-  No popup, no confirmation. The discovery arc below argued for
-  this explicitly and rejected prompt/popup flows as "two-beat
-  where one would do."
-
-MODEL B — Morgan's description, 2026-06-10 (likely the prototype's
-behaviour):
-  Long-press the weekday header (Mon/Tue/Wed…) to open a POPUP
-  showing the four tasks, each with a radio selector on the left;
-  activating a selector lets the user write a task for that slot,
-  which propagates to every matching weekday. One surface, explicit
-  UI, everything visible at once.
-
-The tension: Model A is gesture-minimal but invisible (toggle ON
-"does nothing visible at first" — discoverability rests entirely
-on the day-2 cascade reveal). Model B is discoverable and
-self-explaining but reintroduces the popup the discovery arc
-rejected — though it rejected a CONFIRMATION prompt, which is not
-the same thing as an EDITING surface; the original rejection may
-not actually apply to Model B.
-
-DECISION RULE: resolve with the prototype in one hand and the
-discovery arc in the other, not from memory. Whichever wins, the
-loser's reasoning gets a line here so this isn't re-litigated.
+GRANULARITY: per-slot per-weekday matches how people actually
+live — most users have a few anchored commitments on a few
+anchored days, not whole alternate days.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE DISCOVERY ARC — HOW THIS MODEL EMERGED
+INTERACTION MODEL — RESOLVED (2026-06-10; detail locked s34)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Captured for future-Morgan because the back-and-forth itself
-shows why the final model is what it is.
+Two candidate models existed. MODEL B WON.
+
+MODEL B (the shape above, and the prototype's behaviour):
+  Long-press the weekday strip label → a popup with four slots,
+  per-slot activation + text. One surface, explicit UI,
+  everything visible at once, per-SLOT overrides.
+
+MODEL A (superseded — the loser's reasoning, recorded per this
+doc's own decision rule so it isn't re-litigated):
+  Two silent gestures — long-press the day name in the tray
+  heading to toggle a weekday-level permission state, then
+  long-press individual task labels to author a whole-day
+  template. Gesture-minimal, zero chrome. It lost because it
+  was INVISIBLE (toggle-on "does nothing visible at first";
+  discoverability rested entirely on the day-2 reveal), and
+  because its popup-rejection rationale didn't actually apply:
+  the discovery arc rejected a CONFIRMATION prompt (a two-beat
+  interaction where one would do), not an EDITING surface.
+  Model B's popup IS the editor — one gesture opens the whole
+  feature, self-explaining, nothing latent.
+
+  Model A machinery that dies with it: the weekday-level toggle
+  (and `users.week_mode_weekdays`), toggle-as-permission-state,
+  divergence-on-edit, whole-template pause/restore (replaced by
+  per-slot pause/restore), the task-label long-press gesture,
+  the today-only edit rule (the popup is WEEKDAY-scoped, not
+  day-scoped — there is no "edit this Tuesday vs next Tuesday"
+  ambiguity to defend against), and the cal-icon bypass bonus
+  (the popup provides the equivalent: template edits are
+  available regardless of tick state — see greying rules).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+THE DISCOVERY ARC — HOW THE DATA MODEL EMERGED (HISTORY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Captured for future-Morgan. NOTE (s34): the arc produced MODEL A's
+gesture grammar, which is superseded — but its data-model
+conclusions SURVIVE into Model B: per-weekday opt-in (not a
+universal default), overrides paused-not-deleted on deactivation,
+personal-not-shared, rest-days-answer-the-sick-day case, and
+edits-never-touch-sealed-days. Read it for the WHY of those.
 
 INITIAL PROPOSAL: same-weekday inheritance default.
   Original idea: change the default so that opening Monday
@@ -143,548 +148,280 @@ INITIAL PROPOSAL: same-weekday inheritance default.
   often than right for some user populations.
 
 SECOND PROPOSAL: per-weekday opt-in toggle with prompts.
-  Move from default-for-everyone to opt-in-per-weekday. Long-
-  press the day heading → prompt asking "propagate Tuesdays?"
-  → user confirms or cancels.
-
-  Rejected the prompt. Long-press-then-confirm is a two-beat
-  interaction where one would do. Toggles should be direct —
-  long-press toggles, visual indicator changes, done. If the
-  user toggled by accident, they long-press again to undo. The
-  first time a weekday gets toggled on, a one-time tooltip
-  could explain the behaviour, but that's a teaching moment
-  not a confirmation.
+  Move from default-for-everyone to opt-in-per-weekday, gated
+  by a confirmation prompt. The PROMPT was rejected: long-press-
+  then-confirm is a two-beat interaction where one would do.
+  (s34 note: this is the rejection Model A over-read as
+  "no popups ever" — it forbids confirmation theatre, not an
+  editing surface.)
 
 THIRD ITERATION: long-press task label edits "this task forever."
-  Once week mode is on for Tuesday, long-press a task label
-  edits that task across all future Tuesdays. This part
-  survived. But the version of the model at this stage had the
-  cal-icon (top-right calendar menu) greyed out on week-mode
-  days, with redirect copy saying "edit from task labels for
-  today."
+  The per-task edit gesture (superseded by the popup's slots).
+  The surviving piece: the cal-icon (top-right calendar menu)
+  must NOT be greyed out on override days — it's the universal
+  editor for the STANDARD FOUR, separate from any weekday
+  templating. It stays live, with a warning that edits there
+  won't affect overridden slots today. (See cal-icon banner.)
 
-  Wrong. The cal-icon menu is the universal editor for the
-  user's STANDARD FOUR tasks, separate from any weekday
-  templating. Greying it out on week-mode days would prevent
-  the user from editing their standard four while ON a templated
-  day, which is overreach. The cal-icon must stay live, but
-  with a warning communicating that edits there won't affect
-  today (because today is on a template).
+FOURTH ITERATION: override-just-today UX. Rejected — wrong
+  scope. Rest days already exist as the system-level "ignore
+  today's tasks" mechanism. If a sick Tuesday is bad enough to
+  want different tasks, it's bad enough to be a rest day.
 
-FOURTH ITERATION: override-just-today UX.
-  Spent design time on "user is sick on a templated Tuesday,
-  wants today different without changing the template."
-  Proposed indicator + tap-to-detach mechanic.
+FIFTH ITERATION: deactivation-deletes-template? Settled: PAUSED.
+  Deactivating preserves the authored text silently; reactivating
+  restores it. No popup, no theatre, no lost work for
+  experimenting. (Now per-slot under Model B.)
 
-  Wrong scope. Rest days already exist as the system-level
-  "ignore today's tasks" mechanism. If a sick Tuesday is bad
-  enough to want different tasks, it's bad enough to be a rest
-  day. If it's not bad enough to be a rest day, just tick what
-  you can of the template and accept the slight friction. The
-  override-today problem doesn't need its own UX because rest
-  days are already the answer.
-
-FIFTH ITERATION: toggle-off-deletes-template?
-  Open question: when the user toggles week mode off, does the
-  template get deleted, paused, or prompted ("keep or discard?").
-
-  Settled: paused. Toggling off makes future Tuesdays render
-  the standard four. The diverged template is preserved
-  silently. Toggling on restores it. No popup, no theatre, no
-  state confusion — the friendliest behaviour is also the
-  simplest. The user doesn't lose work for experimenting with
-  the toggle.
-
-SIXTH ITERATION: divergence-on-edit, not on-toggle.
-  The key clarification. Toggling week mode ON for Tuesday does
-  NOT create a template. It just enables the long-press-task-
-  label gesture for that weekday. The day continues to render
-  the standard four until the user actually changes a task.
-
-  The first edit creates the divergence. From that point on,
-  Tuesdays render the diverged template instead of the standard
-  four.
-
-  This means the toggle is incredibly cheap. No template to
-  create on toggle-on, none to destroy on toggle-off. Toggle is
-  pure permission-state: "can I long-press task labels on this
-  weekday or not." Templates exist as a byproduct of editing,
-  not toggling.
+SIXTH ITERATION: divergence-on-edit, not on-toggle. Model A's
+  cheap-toggle insight. Superseded as a mechanism (there is no
+  toggle), but the spirit survives: opening the popup writes
+  NOTHING — no row exists until the user saves an activation.
+  Looking is free.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE FINAL MODEL — INTERACTION TABLE
+THE POPUP — DETAIL DESIGN (LOCKED s34)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-| Day state          | Long-press cal-icon            | Long-press task label   |
-|--------------------|--------------------------------|-------------------------|
-| Non-week-mode      | Opens standard-four editor     | Inert (no behaviour)    |
-| Week-mode, today   | Opens standard-four editor     | Edits that task for the |
-|                    | with inline warning banner     | weekday template;       |
-|                    | (red, persistent for duration  | applies to today (if    |
-|                    | of editor session) explaining  | not sealed) and future  |
-|                    | today is templated and edits   | instances of weekday    |
-|                    | here won't apply to today      |                         |
-| Week-mode, future  | (Same as today's behaviour     | INERT — gesture is not  |
-|                    | when navigated to that day)    | available on navigated  |
-|                    |                                | future days. See        |
-|                    |                                | "Today-only edit rule"  |
-|                    |                                | below.                  |
-| Sealed past day    | Read-only — past is immutable | Inert                  |
+TRIGGER:
+  Long-press a weekday strip label (MON/TUE/…). The strip is
+  currently inert, so there is no gesture collision. Tap stays
+  inert. Works from any displayed month — the strip is
+  month-agnostic, the popup is weekday-scoped.
 
-WARNING BANNER ON CAL-ICON (week-mode days):
-  Not a separate popup. The standard-four editor opens as
-  normal; a high-contrast inline banner (likely red) is
-  superimposed at the top of the editor modal explaining that
-  today is on a [weekday] template, so edits here apply to
-  non-templated days only.
-  The banner is persistent for the duration of the editor
-  session — it doesn't dismiss until the user closes the
-  editor. No "don't show again" toggle; the warning fires
-  every time because the state it warns about is per-session
-  ambiguous (user might forget which weekdays are templated).
-  The banner doubles as a pointer: it tells the user the
-  correct path for editing today (long-press a task label
-  below).
+LAYOUT:
+  Modal popup titled for the weekday ("TUESDAYS" or similar —
+  copy at implementation). Four slot rows, each:
+    [activation control] [text field]
+  Save/confirm + close. v1.0 ships stock controls; a richer
+  control treatment is deferred to the UI-chrome art pass /
+  v1.x (Morgan, s34 — "normie ones in there for now").
 
-TODAY-ONLY EDIT RULE:
-  Long-press-task-label is live ONLY on the day the user is
-  currently viewing as today. Navigating to a future Tuesday and
-  long-pressing a task label does nothing — even if week mode is
-  on for Tuesdays. The gesture remains inert on past sealed
-  Tuesdays for obvious immutability reasons; it ALSO remains
-  inert on future Tuesdays despite them being editable in
-  principle.
+SLOT SEMANTICS:
+  - Controls are INDEPENDENT per-slot toggles (checkbox
+    semantics, not radio one-of-four), despite the prototype's
+    "radio selector" framing.
+  - Inactive slot: control off, text field shows the current
+    standard-four task for that slot as a GREYED PLACEHOLDER.
+  - Activating: control on, field becomes editable (placeholder
+    as starting context, user writes the override).
+  - Deactivating: control off, field returns to the greyed
+    standard-four placeholder. The previously authored text is
+    preserved in the row (pause, not delete) and returns on
+    reactivation.
+  - EMPTY-ON-BLUR REVERT: clearing an active slot's field and
+    unfocusing (tap out, etc.) reverts the slot to inactive +
+    greyed placeholder. Save additionally normalises any
+    empty-text active slot to inactive — blank task labels
+    never render, ever.
 
-  Reasoning:
-    - There is one moment, one place, where template edits
-      happen: today, on the day the user is currently living
-      through. This keeps the edit point unambiguous.
-    - If the gesture were live on a navigated future Tuesday,
-      the user could edit it. The template propagation rule
-      would push that change forward to all subsequent Tuesdays
-      but NOT back to today's Tuesday (today is "past" relative
-      to the edited day). Result: today renders the OLD template,
-      next Tuesday renders the NEW template, and the user has no
-      clear sense of where the cutover happened. Bad UX.
-    - Allowing the gesture on past Tuesdays would suggest
-      historical edits are possible, which is a wrong affordance
-      under the immutable-past principle.
-    - There is no legitimate use case for editing a non-today
-      Tuesday. Future Tuesdays render the template; they don't
-      author it. Past Tuesdays are sealed. The edit always wants
-      to happen today.
+TICK-STATE GREYING (only when the popup's weekday IS today's
+weekday and today is unsealed):
+  - PARTIAL TICKS: today's ticked slots render with their
+    activation control DISABLED (greyed). Rationale: within one
+    popup-opening, edits should mean ONE thing — unticked-slot
+    edits apply today + future; a ticked-slot edit could only
+    apply future. Mixing both semantics in one surface is
+    confusing, so the future-only ones lock.
+  - ALL FOUR TICKED (or today sealed / rest day): EVERY slot
+    un-greys, and a single copy line states that changes apply
+    from the next [weekday]. Uniform future-only semantics =
+    one banner, no per-slot locks. Yes, the fourth tick
+    UNLOCKS the other three — that is correct, not a bug: a
+    finished day has nothing mid-flight to corrupt. (This also
+    inherits Model A's "edit your template even when today's
+    done" bonus.)
 
-  Implementation note: the long-press handler on task labels
-  must check (a) week mode is on for the current weekday AND
-  (b) the day currently being rendered is today's day. Both
-  must be true for the gesture to fire. "Today" here means
-  "the day matching system clock in user's IANA timezone,"
-  NOT "the most recently selected day-cell that happens to be
-  today's date."
+COMMIT MODEL:
+  One save on confirm/close — whole-row write, optimistic with
+  per-operation rollback snapshot (house pattern). No
+  per-keystroke writes. Opening and closing without saving
+  writes nothing.
 
-CAL-ICON BYPASS BONUS:
-  In the prototype, the cal-icon menu has a "completed tasks
-  become uneditable" rule, and when all four are ticked the
-  menu greys out entirely. That rule was a small frustration
-  worth flagging — sometimes users want to revise their
-  standard four even when today's done.
-
-  Week mode unintentionally solves this. On a week-mode day,
-  the user has access to the long-press-task-label gesture
-  regardless of whether tasks are ticked. They can edit their
-  template even mid-day with all four tasks complete. The
-  template-edit path bypasses the cal-icon's tick-locks
-  entirely.
-
-  This wasn't designed in. It's a happy emergent property of
-  the model. Recorded here so future-Morgan recognises that
-  the cal-icon's locking rules and the task-label edit path
-  are deliberately decoupled.
+COPY:
+  No tutorial text lives in the popup beyond (a) the one-time
+  day-2 intro line (staggered-disclosure relay) and (b) the
+  all-ticked future-only line when applicable. Reference copy
+  lives in the help menu (tile 4.11 obligation).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-DAY-2 CASCADE FLOW (session 12)
+INTERACTION TABLE (MODEL B)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-The staggered disclosure design notes specify a day-2 long-press
-philosophy reveal that cascades into the week mode tutorial. This
-section locks how that cascade interacts with the toggle gesture
-without breaking either feature's design.
+| Surface                  | Gesture     | Behaviour                          |
+|--------------------------|-------------|------------------------------------|
+| Weekday strip label      | Long-press  | Opens that weekday's override popup|
+| Weekday strip label      | Tap         | Inert                              |
+| Cal-icon (standard four) | Open        | Standard-four editor as normal; if |
+|                          |             | today's weekday has any ACTIVE     |
+|                          |             | override, an inline warning banner |
+|                          |             | (persistent for the session) notes |
+|                          |             | edits here change only today's     |
+|                          |             | non-overridden slots, and points   |
+|                          |             | at the weekday popup for the rest  |
+| Task labels (tray)       | Long-press  | Inert (Model A gesture removed)    |
+| Sealed past day          | —           | Read-only; overrides never         |
+|                          |             | back-propagate                     |
 
-THE COLLISION:
-  The day-2 philosophy reveal dismisses when the user performs
-  the taught gesture (long-press on a day name). The week mode
-  feature uses the same gesture to toggle week mode on for that
-  weekday. The dismissal IS the toggle. Side-effect of a
-  tutorial gesture is normally a smell, but in this case the
-  cascade is designed to make it the lesson — the user finds
-  out what they just did by being told.
-
-THE FLOW:
-  1. Day 2 fires. Long-press philosophy reveal appears
-     (per staggered disclosure doc).
-  2. User long-presses a day name. The philosophy reveal
-     dismisses. week_mode_weekdays bit for that weekday is
-     set to ON.
-  3. The week mode tutorial reveal fires immediately with copy
-     along these lines:
-
-     > You've turned week mode on for [weekday]. From now on,
-     > your [weekday]s can have their own four. Long-press a
-     > task label to give it a go, or long-press [weekday]
-     > again to toggle it off — if you're happy with your
-     > tasks being the same every day.
-
-  4. EITHER user action clears the tutorial and cedes control
-     back to the app:
-       a. Long-press a task label → opens the task label editor
-          for the user to author divergence (this is the
-          "give it a go" path).
-       b. Long-press the day name again → toggles week mode
-          OFF for that weekday and dismisses the tutorial
-          (this is the "happy with tasks being the same"
-          path).
-  5. Both paths set tutorial_progress.week_mode_intro to a
-     timestamp. The reveal never fires again, per the
-     server-as-source-of-truth merge semantics in the
-     staggered disclosure doc.
-
-EITHER ACTION IS A VALID DISMISSAL:
-  The tutorial does not have a "Got it" button. The dismissal
-  pattern follows the staggered disclosure doc's gesture-
-  teaching language — the act of using the feature (or
-  rejecting it) is the dismissal. This matches the day-2
-  philosophy reveal pattern that immediately preceded it.
-
-NO BACK-OUT:
-  Once the user long-presses a day name and the toggle fires,
-  the week_mode_weekdays bit stays set unless the user
-  explicitly toggles off via path (b). If the user closes the
-  app mid-tutorial, the bit stays set and the tutorial reveal
-  re-fires on next app boot until one of the two paths is
-  taken. This is fine — week mode is on but no template
-  exists, so rendering falls through to standard four (rule 3
-  in the render logic). No visible behaviour change until the
-  user engages with the gesture properly.
-
-USERS WHO NEVER ENGAGE AGAIN:
-  A user who long-presses a day name to dismiss the philosophy
-  reveal, then ignores the week mode tutorial and never
-  returns to it, leaves the app with one weekday toggled on
-  and no template. Render rules handle this fine — no visible
-  difference from non-templated rendering. The subtle day-
-  heading indicator (see VISUAL INDICATORS section) flags the
-  state for anyone who looks at it later.
-
-  This was considered as a potential issue worth fixing (auto-
-  toggle-off if the user disengages from the tutorial). Decided
-  not to fix: invisible-state cost is zero, and the latent
-  toggle means a user who returns to the feature months later
-  already has a starting point. Cost is harmless; benefit is
-  real for re-discovery.
-
-WHICH WEEKDAY GETS TOGGLED:
-  Whichever day the user happens to long-press during the
-  philosophy reveal. There is no guidance in the philosophy
-  reveal copy steering the user toward any specific day. The
-  user picks whatever day name is most visible to them in the
-  moment. If they pick poorly (today is Sunday, they long-
-  press Wednesday for no particular reason), the path (b)
-  off-ramp is the recovery.
-
-  Acceptable randomness in feature onboarding. Forcing the
-  user to pick a "correct" day before the reveal completes
-  would over-engineer the tutorial and break the gesture-
-  dismissal language.
+CAL-ICON BANNER NOTES:
+  Inline banner inside the editor modal, not a separate popup.
+  Persistent for the editor session; no "don't show again" —
+  the state it warns about is per-session ambiguous. Copy
+  reworked per-slot, without scolding; refine at implementation.
+  The cal-icon's existing tick-locking rules for the standard
+  four are unchanged and deliberately decoupled from the
+  override popup's greying rules.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-THE STANDARD FOUR — CLARIFYING WHAT IT IS
+THE STANDARD FOUR vs WEEKDAY OVERRIDES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-This was implicit in the prototype but worth documenting
-explicitly now that there's a second concept (per-weekday
-templates) sitting alongside it.
 
 THE STANDARD FOUR:
-  The user's universal default — the four task names they use
-  across all non-templated days. Maintained via the cal-icon
-  menu (top-right of the main screen). When edited, propagates
-  to all not-yet-completed days that aren't on a weekday
-  template.
+  The user's universal default — the four task names used on
+  every slot that isn't overridden. Maintained via the cal-icon
+  menu. Edits propagate to all not-yet-completed days' slots
+  that aren't overridden. Schema: `users.task_labels` (JSON
+  array of four strings, shipped v1.0). Unchanged.
 
-  The cal-icon's existing tick-locking rule still applies for
-  non-templated days: tasks completed today are uneditable from
-  the cal-icon for the rest of the day, to prevent retroactive
-  ambiguity.
+WEEKDAY OVERRIDES (per-slot):
+  Optional per-user, per-weekday, PER-SLOT overrides. A row per
+  weekday the user has ever saved an activation for, holding
+  four slot texts + a 4-bit active mask. Absence of a row = the
+  user never authored that weekday.
 
-  Schema: the standard four live in `users.task_labels` (a JSON
-  array of four strings, shipped v1.0). No new columns needed for
-  this concept; it already exists.
+WHAT RENDERS, per slot i (0-3) of a given day:
+  1. Day sealed → frozen seal state. Stop.
+  2. Override row exists for (user, weekday) AND active bit i
+     set AND slot text non-empty → the override text.
+  3. Otherwise → standard four [i].
 
-WEEKDAY TEMPLATES (NEW):
-  Optional per-user per-weekday overrides of the standard four.
-  Each template has four task names. Exists only when the user
-  has changed at least one task while on a week-mode day for
-  that weekday.
+  A row with mask 0 (everything deactivated) renders identically
+  to no row — the texts are just paused, waiting.
 
-  Schema (shipped): table `user_weekday_overrides`, keyed on
-  `(user_id, weekday)` where weekday is ISO 1-7. One
-  `task_labels` JSON-array column holds the four. Rows exist only
-  for weekdays where the user has authored divergence. Absence of
-  a row = no template = render the standard four.
-
-WEEK MODE TOGGLE STATE:
-  Whether the long-press-task-label gesture is enabled for a
-  given user × weekday. Independent of whether a template
-  exists.
-
-  Schema (SHIPPED, session 12): stored on the users table as a
-  single INTEGER bitmask, `week_mode_weekdays` (default 0). Bit N
-  set = ISO 8601 weekday N is in week mode (ISO: 1 = Monday ...
-  7 = Sunday). The earlier open choice between seven boolean
-  columns and one bitmask was resolved in favour of the bitmask
-  at the v1.0 schema lock — read sites do bitshift math
-  (`(week_mode_weekdays >> (iso_weekday - 1)) & 1`). One column,
-  trivially forward-compatible.
-
-  Possible (forward-compatible) cleanup at implementation time:
-  consider whether to fold this into the user_weekday_overrides
-  table by treating "row exists" as "week mode on." But that
-  conflates two things — toggle state (permission to edit) and
-  divergence (actual template). Keep them separate.
-
-WHAT RENDERS ON A GIVEN DAY:
-  Logic (in order):
-    1. If the day is sealed, render the frozen seal state.
-       Stop.
-    2. If a template exists for this user × weekday AND week
-       mode is on for this weekday, render the template.
-    3. Otherwise, render the standard four.
-
-  Note: a template can exist while week mode is off (the user
-  authored it then toggled off). In that case, rule 3 applies
-  — standard four. Rule 2 requires BOTH conditions.
-
-  MID-DAY TOGGLE BEHAVIOUR:
-  If the user toggles week mode ON for today's weekday mid-day
-  AND a template already exists for that weekday, today's
-  display switches from standard four to template immediately
-  per rule 2. Already-ticked tasks remain ticked under their
-  original labels (immutable per the partial-tick rule), but
-  unticked task slots re-render with template labels. This is
-  consistent but may surprise users; the day-2 cascade flow
-  largely sidesteps the issue because the toggle's first
-  encounter is gesture-paired with the tutorial.
+MID-DAY ACTIVATION:
+  Saving an activation when today is that weekday: today's
+  UNTICKED matching slots re-render immediately; ticked slots
+  keep their original labels (immutable history) and pick up
+  the override from the next instance. Consistent with the
+  popup's greying rules — the surface the user just used told
+  them exactly this.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EDITING PROPAGATION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 CAL-ICON EDITS (standard four):
-  Apply to all not-yet-completed days that AREN'T currently
-  rendering a template. A week-mode day with a divergent
-  template ignores cal-icon edits for its task display, but
-  the standard four is still updated for non-templated days.
+  Apply to all not-yet-completed days, on slots that aren't
+  actively overridden. An overridden slot ignores standard-four
+  edits while its bit is on, and reflects the latest standard
+  four whenever it's deactivated.
 
-  On a week-mode day, the cal-icon menu opens with an inline
-  warning banner (red, persistent for the duration of the
-  editor session) at the top of the editor modal explaining
-  that today's task display is templated and that edits to
-  the standard four won't affect today. The banner is the
-  redirect — it points the user at the task-label long-press
-  path for editing the template.
+POPUP SAVES (overrides):
+  Apply to today (if that weekday, unsealed, unticked slots
+  only) and all future instances of the weekday. Never
+  back-propagate to sealed days.
 
-  The banner copy should communicate clearly without scolding.
-  Something like: "This is your standard four. Today's Tuesday
-  is on its own template — edits here won't change today's
-  tasks. To edit today's Tuesday template, long-press the
-  task labels below." Refine at implementation.
-
-LONG-PRESS TASK LABEL EDITS (template):
-  Available ONLY on today's day view, when week mode is on for
-  today's weekday (see "Today-only edit rule" in the interaction
-  table). Inert on all other day views.
-
-  An edit applies to today's day (if unsealed) and all future
-  instances of the same weekday. Never back-propagates to sealed
-  past days.
-
-  If today's tasks are partially ticked when the edit happens,
-  only unticked tasks update. Ticked tasks are immutable
-  history and stay as they were.
-
-THE TOGGLE ITSELF:
-  Doesn't propagate to anything. It's permission-state for the
-  long-press gesture. Toggling on enables the gesture for that
-  weekday; toggling off disables it.
-
-  No prompt, no confirmation, no propagation warning. Just an
-  immediate visual state change on the day heading.
+There is no toggle and nothing else propagates.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 VISUAL INDICATORS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-DAY-HEADING WHEN WEEK MODE IS ON:
-  Subtle visual change to the day name (e.g. "Tuesday") to
-  signal that long-press is now meaningful. Highlight, underline,
-  small typographic shift — something at the threshold of
-  noticeability.
+WEEKDAY STRIP LABEL with any ACTIVE override:
+  Subtle treatment — highlight, bold, or a small underline
+  (Morgan s34: "doesn't have to be huge, just a reminder, and
+  reassurance it's in effect"). Specifically NOT a badge or a
+  "WEEKLY" label. Must be subtle enough that non-users never
+  wonder about it, consistent enough to read at a glance.
+  Exact treatment at implementation.
 
-  Specifically NOT a loud indicator. No badge, no "WEEKLY"
-  label, no slashed-across-the-word treatment. The user
-  toggled it on, they know it's on; the indicator's job is
-  to remind, not announce.
+DAY-CELL CALENDAR INDICATOR: still not shipped (s8 reasoning
+  stands — the divergent tasks are visible whenever the day is
+  opened, and the cal-icon banner covers the editing confusion
+  case). Revisit only if real usage shows confusion.
 
-  Defer the exact visual treatment to implementation. Constraint:
-  must be subtle enough that non-week-mode users don't notice
-  or wonder about it, but consistent enough that a week-mode
-  user can glance at any day heading and read its state at a
-  glance.
-
-TASK LABELS WHEN WEEK MODE IS ON FOR TODAY:
-  Subtle persistent visual indicator on each task label,
-  hinting that long-press is available. Even more subtle than
-  the day-heading indicator — task labels are the densest text
-  area in the app and any indicator competes with the task
-  content itself.
-
-  Defer exact treatment to implementation. Note for the
-  designer: this indicator may not be needed at all if the
-  introductory copy / help-menu explanation is sufficient.
-  Listed here because it might prove useful, but flagged as
-  optional rather than required.
-
-  Constraint for the UI designer: this area is high-density
-  and prone to collision with other future features. Be
-  defensive when designing what sits next to / around task
-  labels.
-
-DAY-CELL CALENDAR INDICATOR (on the month grid):
-  Deferred and possibly unnecessary. The argument: a user
-  might toggle week mode on for Tuesday months ago, forget,
-  and not realise their Tuesdays are diverging.
-
-  Counter-argument: the divergent tasks are visible whenever
-  they look at a Tuesday. The cal-icon warning fires whenever
-  they try to edit standard-four from a templated day. The
-  user has feedback channels. A calendar-grid indicator would
-  be over-engineering for a problem the existing surfaces
-  already handle.
-
-  Conclusion: don't ship this in v1 of the feature. If user
-  testing reveals confusion in practice, add a calendar-level
-  indicator later.
+(Model A's task-label indicator is dead with the gesture.)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 REVEAL TIMING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-LOCKED (session 12): Day 2, cascaded from the long-press
-philosophy reveal. See DAY-2 CASCADE FLOW above for the full
-interaction sequence and the staggered disclosure design
-notes for the philosophy reveal that precedes it.
+LOCKED: Day 2, relayed from the long-press philosophy reveal —
+authority is the staggered-disclosure doc (SYNCED s32 to Model B:
+the taught long-press lands on a weekday strip label, the reveal
+dismisses, the popup opens carrying a ONE-TIME intro line; the
+old multi-step tutorial flow and its toggle side-effect are
+gone — opening the popup writes nothing, so there is no latent
+state for a user who looks and leaves).
 
-Help menu coverage: the help menu (tile 4.11) must include
-reference copy for week mode, per the staggered disclosure
-doc's session 12 scope obligation on the help menu. Reveals
-never re-fire; users who want to revisit the explanation go
-to help.
+`users.tutorial_progress.week_mode_intro` semantics per the
+staggered-disclosure doc. Reveals never re-fire; reference copy
+lives in the help menu (tile 4.11).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SCHEMA SUMMARY
+SCHEMA SUMMARY (4.D2 RESHAPE — supersedes the s12 shape)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Schema (SHIPPED in the v1.0 wholesale rewrite, session 12 — both
-already present in `schema.sql`, no migration to apply):
+TARGET SHAPE (build at 4.D2):
 
-  -- On users: bitmask of weekdays in week mode for this user.
-  -- Bit N set = ISO 8601 weekday N (1 = Monday ... 7 = Sunday).
-  week_mode_weekdays  INTEGER NOT NULL DEFAULT 0
-
-  -- Per-user, per-weekday divergent task labels.
-  -- Row exists only when the user has authored divergence.
+  -- Per-user, per-weekday, per-slot divergent task labels.
+  -- Row exists only once the user has SAVED an activation for
+  -- that weekday; mask 0 = all paused (texts preserved).
   CREATE TABLE user_weekday_overrides (
     user_id      TEXT NOT NULL REFERENCES users(user_id),
-    weekday      INTEGER NOT NULL,          -- ISO weekday 1-7
-    task_labels  TEXT NOT NULL,             -- JSON array of 4 strings
+    weekday      INTEGER NOT NULL,   -- ISO 8601, 1=Mon … 7=Sun
+    task_labels  TEXT NOT NULL,      -- JSON array of 4 strings
+    active_mask  INTEGER NOT NULL DEFAULT 0,  -- bit i = slot i active
     PRIMARY KEY (user_id, weekday)
   );
 
-Notes:
-  - The override table is keyed on `user_id` (the shipped identity
-    model — personal data attaches to the person, not the pair),
-    not the old `(pair_key, name)` composite.
-  - `task_labels` is a single JSON-array column per the
-    JSON-in-a-column convention, not four separate task columns.
-  - A row exists only when the user has authored divergence
-    (changed at least one task while on a week-mode day for that
-    weekday). Absence = no template.
-  - The week mode toggle state (`week_mode_weekdays`) is
-    independent of the override rows. A template can exist while
-    that weekday's bit is off (user authored, then toggled off).
-    The render logic combines both.
-  - Self-write only. Partners cannot read or write each other's
-    week mode state or overrides.
-    Write rules at implementation time treat these as private
-    user fields.
-  - Foreign key shape assumes pair_key + name as the user
-    identity convention. Confirm against the canonical users
-    table at implementation time.
+MIGRATION NOTE: the s12-shipped table lacks `active_mask` —
+explicit DROP TABLE + CREATE (IF NOT EXISTS won't restructure).
+No production rows exist; nothing to migrate.
+
+RETIRED: `users.week_mode_weekdays` (the Model A weekday-level
+toggle bitmask). Left in place as a DEAD column — dropping a
+users-table column is a migration for zero benefit; nothing
+reads or writes it. Note RETIRED in the system map at the 4.D2
+schema pass.
+
+WRITE ENDPOINT (4.D2 server half):
+  PUT /users/:user_id/weekday_overrides/:weekday
+  Body: { task_labels: [4 strings], active_mask: 0-15 }
+  Standard envelope; self-write only; validation: weekday 1-7,
+  exactly four labels, mask 0-15, label length caps + the `|`
+  ban per the identity-field policy; empty-text active slots
+  normalised inactive server-side too (belt and braces with the
+  client rule). Whole-row write, idempotent.
+  Overrides ship in the GET /users/:user_id payload so render
+  logic has them on load — and across the pair boundary they do
+  NOT ship: partner payloads exclude them (personal data).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-EDGE CASES AND OPEN QUESTIONS
+EDGE CASES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-These are flagged for revisit at implementation time, NOT now.
+  - OVERRIDE TEXT IDENTICAL TO THE STANDARD FOUR: allowed; the
+    row keeps it and rule 2 still wins. Functionally identical
+    output. No auto-deactivation — that would surprise the user
+    when the standard four later changes out from under them.
 
-  - WHAT HAPPENS WHEN THE STANDARD FOUR HAVE FEWER THAN FOUR
-    NAMES? The prototype currently always has four tasks set.
-    If a future feature ever permits fewer than four standard
-    tasks, the template logic needs to align — does a templated
-    day still need four tasks? Probably yes (the app is called
-    Four Tasks), but flag for confirmation.
+  - DST / TIMEZONE NEAR MIDNIGHT: weekday-of-today uses the
+    user's local clock per the timezone+sealing doc. Overrides
+    are private state; no partner-timezone interaction.
 
-  - WHAT IF THE USER EDITS THE STANDARD FOUR WHILE A WEEK-MODE
-    DAY IS DISPLAYED? The cal-icon banner fires. The user
-    confirms the edit. Standard four updates. Today's templated
-    day display remains unchanged (it's on its template).
-    Tomorrow (if non-templated) reflects the new standard four.
-    This is correct behaviour but might surprise users on first
-    encounter — flagged for clear banner copy.
+  - PARTNER INFERENCE: a partner can infer a template from
+    identical Tuesdays. Fine — the system promises overrides
+    aren't synchronised, not that they're secret.
 
-  - WHAT IF A TEMPLATE'S TASKS BECOME THE SAME AS THE STANDARD
-    FOUR AGAIN? The user edits the template back to match the
-    standard four. The template row still exists in the
-    database. The render logic still pulls from it (rule 2 wins
-    over rule 3 when week mode is on). Functionally identical
-    output to non-templated rendering. Probably fine. Doesn't
-    auto-delete the row because that would surprise the user
-    next time they toggled week mode off and back on (they'd
-    expect the template to come back).
+  - REST DAY ON AN OVERRIDDEN WEEKDAY: rest UI overrides the
+    task tray entirely; the overrides are untouched and return
+    next instance. The popup remains reachable from the strip
+    (future-only banner case).
 
-  - DAYLIGHT SAVING / TIMEZONE CHANGES NEAR MIDNIGHT? The
-    weekday-of-today calculation uses the user's IANA timezone
-    (per the timezone+sealing doc). Standard rules apply. Week
-    mode templates are user-private state, so they don't
-    interact with partner timezone differences.
-
-  - PARTNER ANALYTICS LEAKAGE? Could partner observe that user
-    is on week mode (e.g. via inferring from task patterns)?
-    Yes — partner sees their partner's tasks each day. If
-    Tuesday tasks are always identical, the partner can infer
-    a template. This is fine; the system doesn't promise
-    secrecy of templates, just that they're not synchronised.
-
-  - REST DAY ON A TEMPLATED WEEKDAY? Rest days override the
-    daily task tray entirely (per existing prototype behaviour).
-    A rest-day Tuesday doesn't show the Tuesday template; it
-    shows the rest-day UI. The template is preserved and
-    returns next Tuesday.
-
-  - MULTIPLE USERS ON SHARED DEVICE? Not a current scenario —
-    one user per device per identity. If multi-user-per-device
-    ever ships, week mode state is per-user and switches with
-    the active user. Not a concern for v1.0.
+  - FEWER THAN FOUR STANDARD TASKS: not currently possible. If
+    a future feature permits it, slots stay four (the app is
+    called Four Tasks); flag for confirmation then.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 WHAT THIS FEATURE IS NOT
@@ -706,86 +443,43 @@ Worth stating explicitly to prevent feature creep:
   ticks once a day if and when they do them.
 
   NOT a partner-shared concept. Each user's week mode state
-  is their own. Partners don't see toggles, don't sync
-  templates, don't even know whether their partner is using
-  the feature.
+  is their own. Partners don't see overrides, don't sync them,
+  don't even know whether their partner is using the feature.
 
-  NOT default-on for anyone. Off by default for every user,
-  every weekday. Has to be deliberately discovered or revealed.
+  NOT default-on for anyone. No overrides exist for any user,
+  any weekday, until deliberately authored.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RELATED DOCS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   - four_tasks_staggered_disclosure_design_notes.md
-    Day-2 long-press philosophy reveal cascades into the week
-    mode tutorial per this doc's DAY-2 CASCADE FLOW section.
-    Help menu obligation: reference copy for week mode lives
-    in tile 4.11.
+    AUTHORITY for the day-2 reveal → popup relay + one-time
+    intro line (synced to Model B, s32). Help menu obligation:
+    reference copy in tile 4.11.
 
   - four_tasks_timezone_and_sealing_design_notes.md
-    Weekday-of-today calculation uses the user's IANA timezone.
-    Sealed past days are immutable, which constrains template
-    propagation rules.
+    Weekday-of-today uses the user's local clock. Sealed past
+    days are immutable, which constrains propagation.
 
   - four_tasks_system_map.md
-    Live schema for `week_mode_weekdays` and the
-    `user_weekday_overrides` table (§4.2, §4.3). Week mode columns
-    are self-write only; partner cannot read or write either.
+    Live schema. Update at the 4.D2 pass: override table
+    reshape, week_mode_weekdays RETIRED, new write endpoint.
+    Overrides are self-write only, excluded from partner reads.
 
   - four_tasks_pair_key_design_notes.md
-    Neither week mode columns nor user_weekday_overrides
-    participates in pair-key hashing. They're private user
-    state, freely changeable without pair-key rotation.
+    Overrides don't participate in pair-key hashing — private
+    user state, freely changeable without rotation.
 
   - four_tasks_architectural_preference.md
-    Clarity over cleverness informed the divergence-on-edit
-    model. The cheaper alternatives (toggle creates a template
-    immediately, or toggle and edit happen as separate actions)
-    were rejected for being slightly more complex without being
-    any clearer. (Note: the schema choice went the other way —
-    the bitmask won over seven booleans at the v1.0 lock, because
-    one forward-compatible column beat seven for a feature whose
-    read sites are few.)
+    Clarity over cleverness: the popup is the legible surface;
+    whole-row writes over per-field patching; pause-not-delete
+    over state cleverness.
 
   - four_tasks_tracking_design_notes.md
-    Not directly related, but the same conversation produced
-    both. Week mode is a counter-example to scope creep — a
-    feature request was reshaped into something that fits the
-    app's positioning rather than rejected outright OR added
-    wholesale.
+    Same originating conversation; week mode as the
+    counter-example to scope creep.
 
   - four_tasks_godot_devlog.txt
-    Session 8 captures the discovery conversation that produced
-    this doc. Session 12 adds the day-2 cascade flow.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 12 CHANGES SUMMARY
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-- DAY-2 CASCADE FLOW section added. Resolves the design
-  collision between the staggered disclosure day-2 long-press
-  philosophy reveal and the week mode toggle gesture. Locks
-  the flow: dismissal IS the toggle, the tutorial reveal
-  explains what just happened, either user action (long-press
-  task label OR long-press day name again to off) clears the
-  tutorial and cedes control.
-- Reveal timing section updated from "deferred" to locked at
-  day 2.
-- Cal-icon warning clarified as inline banner inside the
-  editor modal, not a separate popup. Interaction table
-  updated accordingly.
-- Today-only edit rule implementation note clarified: "today"
-  means system-clock-today in user timezone, NOT
-  most-recently-tapped-day-cell-that-happens-to-be-today.
-- Mid-day toggle behaviour explicitly documented in render
-  logic section.
-- Schema note (corrected): the v1.0 schema lock chose the bitmask
-  column `week_mode_weekdays` (INTEGER), NOT the seven-boolean
-  layout an earlier draft of this doc preferred. The override
-  table shipped keyed on `(user_id, weekday)` with a single
-  `task_labels` JSON column — not the old `(pair_key, name)` /
-  `task_1..4` shape. See the SCHEMA SUMMARY above for the live
-  shape.
-- Cross-references updated to point to the staggered
-  disclosure doc's day-2 cascade and help menu obligations.
+    s8 discovery conversation, s12 cascade flow, 2026-06-10
+    fork resolution, s34 popup detail decisions.

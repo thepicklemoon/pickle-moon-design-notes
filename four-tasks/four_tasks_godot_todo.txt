@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-12 AWST (session 33, laptop)
-Last updated: session 33 — BIG CODE SESSION. s32 push verified on origin (fa78a24); DevKit.gd case rename committed (core.ignorecase trap closed); W18 PASSED. Tile 4.26 NOTIFICATIONS BUILT: gradle build template + Use Gradle Build enabled (laptop; one-time per machine, android/ stays git-ignored), godot-notification-scheduler plugin installed, Notifications.gd autoload shipped (self-contained, zero existing-file edits; design doc NEW: four_tasks_notifications_design_notes.md). D-N1-D-N4 device GREEN; D-N5/6/7 + swipe-kill deferred to ambient (open tests). Tile 4.25 SERVER HALF SHIPPED + FULLY WIRE-VERIFIED on dev: span walk + pre-scan + sealSpan replace the single-target machinery; W13r (accept+decline), W14r, W19 (accept+decline), W20 ALL PASSED, W11/W12 re-proven under span code. 4.25 remains: client deltas (null-target dialog copy; resolve sealed_day:null path) + device pass.
+Last edit: 2026-06-12 AWST (session 34, mobile/work — build-ahead authorised)
+Last updated: session 34 — DESIGN+BUILD-AHEAD SESSION, all code ★UNVERIFIED (s34 ledger in OPEN TESTS). 4.24 DECIDED + BUILT (dead-cell unification + off-month nav-delegate; authority NEW four_tasks_calendar_cells_design_notes.md; grey stamp tier LATENT — stamp_tier doc amended). 4.27 safe-area inset BUILT. 4.23 date-rollover watcher BUILT. morning_sequence sealed_day:null path now refreshes (span-era fix). 4.25 pass-2 items 1+2 RESOLVED BY TRACE (item 1 no-op — dialog copy already null-safe; item 2 wind-down verified in code) — 4.25 remains DEVICE PASS ONLY. Week-mode doc SYNCED to Model B + popup detail LOCKED (Morgan decisions 1-10) — 4.D2 doc debt cleared. Stamp/streak pools EXTRACTED from proto → stamp_streak_pools_working_draft.md (green gap ~21+, yellow all-fresh, 4 review flags pending). Rescue-then-worked double-payout worry traced + CLEARED (one ceremony by construction; W13r is the proof).
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -33,6 +33,25 @@ Device ledger D1-D15 CLEARED s31; W18 + git case-rename CLEARED s33. Remaining:
   [ ] Strip the devkit feature tag from the daily-driver/prod build
       (devkit entry point + prod DB is a fat-finger risk; dev builds
       keep it).
+
+  ── s34 UNVERIFIED LEDGER (build-ahead; clear next laptop session) ──
+  [ ] D-S1 (4.27) Title clear of status bar/cutout, BOTH phones; read
+      "[App] safe_top_inset=" boot print per device; open-tray internals
+      fit at reduced minimum; eyeball Loader/onboarding tops.
+  [ ] D-S2 (4.24) Sealed-skip days render dead + refuse taps, both
+      panels (DevKit morning_grey / mock clock manufactures them).
+  [ ] D-S3 (4.24) Off-month tap on a WORKED day navigates home + opens
+      its tray; on a GREY day navigates only; trailing overflow on a
+      past month navigates FORWARD; today-as-overflow long-press edge.
+  [ ] D-S4 (4.23) Mock-clock forward AND backward across focus-out/in:
+      both calendars jump to today, stale paint gone; open tray on a
+      now-future date closes.
+  [ ] D-S5 (morning_sequence fix) W19-decline on device: null-target
+      resolve paints the new grey cells AT wind-down, not next poll.
+  [ ] D-S6 (4.25) Device pass proper — affordability dance recipe in
+      wire_regression_pack.md. CLOSES 4.25.
+  [ ] Time-log corrections owed at close: s32 ~6h, s33 ~7h, s34 ~3h
+      (all ESTIMATES).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APPTRIOC FORK ARCHITECTURE (locked session 5)
@@ -147,18 +166,19 @@ before code). Realistic store launch: Sept-Oct 2026.
 [x] 4.6 [CODE] Morning sequence — coordinator. Sessions 26-28. ~11h + economy. OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold); cross-month verified-on-real-1st only. Interruption = freeze/resume (doc synced s32).
 [x] 4.7 [CODE] Stamp slap — folded into 4.6 beat 7. Session 26. Placeholder art; real stamps 4.C. Messages = content (PARKED).
 [~] 4.8 [CODE] Rest day system — MECHANISM DONE (s28) + session-29 hardening (free-rest hole closed, per-op rollback, server-shipped cost, anim-leak fix). Time: ~2h. Device test = S29 ledger D7/D8. DEFERRED: rest-day task-label content swap (~15-30 phrases; felt cheesy).
-[ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days — bonus is a PAYOUT component (server-side, economy doc applies; immutable at grant). UNBLOCKED 2026-06-10: streak-semantics question was moot (week mode is label-overrides only — every day still has four tasks; streaks untouched). (~4-6h)
+[ ] 4.9 [CODE] Streak popup with confetti. Milestone bonuses every 5 days — bonus is a PAYOUT component (server-side, economy doc applies; immutable at grant — proto's flat 550-750 is reference only). UNBLOCKED 2026-06-10 (streak semantics moot). Proto message pools + emoji escalation (🎉/🏆20+/👑30+) extracted s34 → stamp_streak_pools_working_draft.md. (~4-6h)
 [ ] 4.10 [CODE] Month stamp + month stats popup. Client-computable from days payload. (~3-5h)
 [ ] 4.11 [CODE] Help menu — two-tier, six subjects, [g]glitch[/g] markup (consumes 4.1). Copy = roster-week content list. (~4-6h)
 [~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: confetti (waits on 4.9's SHARED confetti system — no one-off particles) + real-UI trigger (one line, lands with 4.11's help menu). (~30min left, inside 4.9/4.11)
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h)
 [x] 4.14c [CODE] Future cells non-tappable. day_cell.is_interactive() rejects taps + long-presses on DEAD_FUTURE. Device-verified session 31. ~0h.
 [ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready-ish: `user_weekday_overrides` table needs the 4.D2 reshape (per-slot text + active bitmask; explicit drop-and-recreate — IF NOT EXISTS won't restructure) + its write endpoint; `week_mode_weekdays` bitmask RETIRED-UNUSED under Model B.
-    Interaction-model fork RESOLVED: Model B — single POPUP off the weekday header, four task slots with per-slot override controls (Morgan 2026-06-10; staggered-disclosure doc synced s32: day-2 long-press relays into the popup, one-time intro line replaces the tutorial flow). REMAINS BEFORE BUILD: sync the week-mode doc itself to Model B (it still carries the rejected two-silent-gestures model) + popup detail design. (~8-12h + doc sync)
-[ ] 4.23 [CODE] App local-date-change watcher — on focus-in, if today_iso moved in EITHER direction: repaint both calendars, close any open tray whose date is now future. Backwards clock moves currently leave stale paint (s31); forward already claim-handled. Designed s31. (~1h)
-[ ] 4.24 [DECIDE] Sealed-grey cell colour. A sealed zero-task day renders UNMARKED — indistinguishable from an untouched day. Grey cell tier vs stamp-only grey. (s31; pressure rises with 4.25 — silently-sealed never-opened days become common.)
-[~] 4.25 [CODE] Walkback span-sealing — SERVER HALF DONE s33 (doc pass s32; direction s31). index.ts: buildSpan + evaluateSpanRescue (pre-scan) + sealSpan (+per-day computeDayPayout) replace the single-target walkback; per-day streak walk oldest-first; never-opened rows created sealed grey accounted_for=0; one shared sealed_at per batch; pending target_date/tier nullable; streak_at_stake = running streak AT the breaker. Deployed dev; WIRE PASSED s33: W13r both halves, W14r, W19 both halves, W20, W11/W12 re-proven under span code. REMAINS: client deltas (rescue_confirm null-target copy; resolve sealed_day:null no-ceremony path) + device pass. (~1-2h left)
+    Interaction-model fork RESOLVED: Model B — single POPUP off the weekday header, four task slots with per-slot override controls (Morgan 2026-06-10; staggered-disclosure doc synced s32: day-2 long-press relays into the popup, one-time intro line replaces the tutorial flow). Doc sync + popup detail DONE s34 (week-mode doc fully rewritten to Model B; Morgan decisions 1-10 locked: per-slot independent toggles + text, empty-on-blur revert, ghost placeholders, tick-greying w/ all-ticked-unlocks rule, one whole-row save, PUT /users/:id/weekday_overrides/:weekday, week_mode_weekdays column retired-dead). REMAINS: the build. (~8-12h)
+[~] 4.23 [CODE] App local-date-change watcher — BUILT s34, ★UNVERIFIED (D-S4). _last_seen_date marker + _check_date_rollover() first on every FOCUS_IN: date moved EITHER direction → both calendars jump_to_today() (assumption: date moved ⇒ show today beats preserving a browsed month — flag if s31 design said repaint-in-place), open trays on now-future dates close. Skipped mid-ceremony WITHOUT consuming the marker (retries next focus-in). Time: ~30min (ESTIMATE — correct at close).
+[~] 4.24 [CODE] Dead-cell treatment + off-month nav — DECIDED + BUILT s34, ★UNVERIFIED. Authority: four_tasks_calendar_cells_design_notes.md (NEW). Sealed 0-tick days → dead-inert, uninteractable, no tray (fixes sealed-renders-UNMARKED); pre-install identical; off-month flattened to same treatment, tap = grid navigates to home month then delegates as an in-month tap (direction-agnostic; navigation-only when the day is grey/pre-install at home); grey stamp tier LATENT (stamp_tier doc amended — server untouched, no grey authoring). Build: day_cell.gd (SEALED_GREY state, DEAD_HISTORICAL→OFF_MONTH, flattened dead visual) + calendar_grid.gd (sealed branch in _derive_active_state, nav-delegate in tap/long-press relays). App.gd untouched. Device: grey skips dead on both panels; overflow tap opens worked-day tray after nav / nav-only on grey; today-as-overflow edge. Time: ~1h (ESTIMATE — correct at close).
+[~] 4.25 [CODE] Walkback span-sealing — SERVER HALF DONE s33 (doc pass s32; direction s31). index.ts: buildSpan + evaluateSpanRescue (pre-scan) + sealSpan (+per-day computeDayPayout) replace the single-target walkback; per-day streak walk oldest-first; never-opened rows created sealed grey accounted_for=0; one shared sealed_at per batch; pending target_date/tier nullable; streak_at_stake = running streak AT the breaker. Deployed dev; WIRE PASSED s33: W13r both halves, W14r, W19 both halves, W20, W11/W12 re-proven under span code. REMAINS: DEVICE PASS ONLY (D-S6) — pass-2 items resolved s34 by trace: rescue_confirm copy already null-safe (reads rescue_date/cost/streak_at_stake only — verified against fresh upload, byte-identical); coordinator sealed_day:null wind-down verified in code AND hardened: the empty branch now calls refresh_after_morning() so silently-sealed greys paint at wind-down (morning_sequence.gd, ★UNVERIFIED D-S5). (~30min device)
 [~] 4.26 [CODE] Notifications — BUILT s33, DEVICE-PARTIAL. Design authority: four_tasks_notifications_design_notes.md (times 6:30am/8pm fixed v1.0; lowercase copy; boot permission; structural suppression — day-0 morning never scheduled, evening skips 4/4 + rest day; lapse decay daily*7 then gap+1/nudge then weekly, horizon 56; mock clock = silent). Plugin godot-mobile-plugins/godot-notification-scheduler; gradle build now ON (laptop). Notifications.gd autoload, zero existing-file edits. D-N1-D-N4 GREEN; tile closes when the ambient cases (open tests block) go green on both phones. Time: ~3h (ESTIMATE — correct at close).
+[~] 4.27 [CODE] Safe-area top inset (status bar / camera cutout) — BUILT s34, ★UNVERIFIED. Layout.safe_top_inset(): DisplayServer.get_display_safe_area top edge, physical→design conversion via design-height/window-height, mobile-gated to 0 elsewhere. App._apply_safe_area_inset(): inset onto each panel's Layout VBox (panel backgrounds stay full-bleed under the translucent bar), same amount off each tray's runtime minimum (the Layout.gd budget dial). Boot print "[App] safe_top_inset=". Device: title clear of the bar on both phones; open-tray internals fit at reduced minimum (next dial if not: calendar-card headroom). CAVEAT: Godot's Android report is cutout-driven — a barred-but-cutoutless device can report 0 (theoretical for the test pool, real for 2017-era users). Loader/onboarding: eyeball same pass, apply the one-liner pattern if any screen hugs the top. Time: ~30min (ESTIMATE — correct at close).
 
 ━━━ FORK POINT ━━━ APPtrioc launches from snapshot after 4.14a. See PHASE 5b. ━━━
 
@@ -186,7 +206,7 @@ PHASE 4b — Art & feel (PAINTING ONLY, at the easel)
 
 [ ] 4.A [ART] Coin sprite.
 [ ] 4.B [ART] Frog mascot.
-[ ] 4.C [ART] Stamp set. Six tiers: grey/red/orange/yellow/green/purple.
+[ ] 4.C [ART] Stamp set. Five tiers: red/orange/yellow/green/purple (grey LATENT s34 — never surfaced, paint nothing).
 [ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png`. Palette from sticker.png pixel-frequency (≤4 non-neutral + free neutral ramp — doc v2). 32×32 RGBA. Maximal pack = sticker + background 360×800 + three 48×48 9-slices + 1-4 border corners 96×96. Launch set + 3-4 pack buffer (see PARKED pack-drop item). Reference: theme doc v2.
 [ ] 4.E [ART] UI chrome (buttons, popups, dividers, util bar).
 [ ] 4.F [ART] Onboarding example calendar screenshots (real build, post-theming).
@@ -262,10 +282,9 @@ ACTIVE — ad-hoc items found during the port
 
 [x] DevKit disappointment-day scenario — superseded by s30 morning_grey scenario (device-verified s31).
 
-[ ] Roster-week content list — mobile-writable work for on-roster weeks (in progress on phone, 2026-06-10): stamp messages (grey dry-tone pool, 5-10 each red/orange/yellow, 40+ green, 20 purple — currently bracket-stubs in PROD, would ship visibly if claimed today), help-menu copy (six subjects), rest-day task-label phrases (~15-30), MOTD pool expansion, sticker/stamp concept lists, promo-codes doc draft.
+[ ] Roster-week content list — mobile-writable work for on-roster weeks (in progress on phone, 2026-06-10): stamp messages (proto pools EXTRACTED s34 → stamp_streak_pools_working_draft.md: purple ~18 usable, green 19/40+, red+orange 2 each, yellow 0 — both proto entries violate the locked no-near-miss tone; 4 review flags pending Morgan: profanity/13+, yellow rewrites, EARNED-DESERVED moralising line, gendered Ayshi entries can't go universal — partner-flavoured packs noted as v1.x content-drop idea; bracket-stubs still in PROD, ship visibly if claimed today), help-menu copy (six subjects), rest-day task-label phrases (~15-30), MOTD pool expansion, sticker/stamp concept lists, promo-codes doc draft.
 
 [~] Doc sync pass — s29 shipped five docs; s32 shipped five more (economy, morning-seq — incl. the s30 rescue-gate section that never reached the repo, system map full refresh incl. the §6-7 inventory, timezone incl. boot-only clarification + rotation/MOTD wording, staggered-disclosure) + wire_regression_pack.md. REMAINING pile:
-    - Week-mode doc → Model B (popup) — lands with 4.D2's design pass.
     - Partner reactions doc → `four-tasks/deferred/`.
     - `pickle_moon_repo_index.md`: reactions → deferred; promo codes doc ADDED (s29); ToS draft ADDED; wire_regression_pack.md ADDED + session wire-test files REMOVED (s32); theme doc → v2 (s32); schema migration-files-deleted note; write_rules → Background/Superseded.
     - Project system prompt: drop "first feature with field-level write rules".

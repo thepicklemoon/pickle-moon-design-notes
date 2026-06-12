@@ -1,10 +1,12 @@
 # Stamp Tier — Design Notes
 
-Last edit: 2026-05-15 21:45 AWST
+Last edit: 2026-06-12 AWST (session 34)
 
 **Status:** LOCKED for v1.0 (session 6). Structural design closed.
-Content authoring (the actual message strings in each pool) is a
-separate later task that happens against this spec.
+AMENDED session 34: grey tier is LATENT — written at seal, never
+surfaced (see the grey paragraph below). Content authoring (the
+actual message strings in each pool) is a separate later task that
+happens against this spec; grey requires no authoring.
 
 **Implementation timing:** consumed by the claim endpoint (designed
 in `four_tasks_morning_sequence_design_notes.md`, shipped in tile 1.3
@@ -54,16 +56,23 @@ The tier is derived from the day's completion state:
 | Green  | 4 tasks completed                    | Green         |
 | Purple | Day marked as a rest day             | Purple        |
 
-The grey tier (added session 22, server-shipped session 23) is the
-**disappointment stamp**: a day the user engaged with (`accounted_for`
-— opened the app, or as of session 29 ticked-then-unticked a task or
-saved a MOTD) but completed nothing on still seals and still gets
-judged. Tone target: dry, not cruel — the absence of celebration IS
-the message. Pool size target: 5-10, same band as red/orange/yellow.
-(The earlier rule — "a 0-task day gets no stamp, the cell sits
-empty" — is DEAD, superseded by `accounted_for`: you can't dodge
-judgement for a day you turned up to; the only way to keep a day off
-the ledger is to never engage with it at all.)
+The grey tier (added session 22, server-shipped session 23) is
+**LATENT as of session 34**: the server still seals 0-task days at
+grey tier and writes a stamp message (the seal mechanism is
+untouched — span-sealing depends on every day ending terminal), but
+**no client surface ever displays it**. Sealed 0-tick days — skips,
+declined rescue targets, first-contact holes — render with the
+dead-cell treatment and are uninteractable: no tray, no stamp view.
+Decision: the app only memorialises positives — encouragement at
+1-3 tasks, excitement at 4, rest as a valid choice; 0 falls silent.
+The dead gap in the calendar and the streak reset already carry the
+consequence; a stamp on top of that is rubbing it in. (The earlier
+"disappointment stamp" concept — dry-toned grey pool, 5-10 entries —
+is SUPERSEDED. So is the still-earlier "a 0-task day gets no stamp,
+the cell sits empty" rule, superseded at session 29 by
+`accounted_for` sealing. Cell treatment authority:
+`four_tasks_calendar_cells_design_notes.md`.) The stub string in
+the grey pool suffices indefinitely; write no grey content.
 
 The stamp message is a short string (typically 1-4 words) drawn from
 the tier's pool. It appears in the morning sequence as the stamp
@@ -86,7 +95,7 @@ Shape:
 
 ```typescript
 export const STAMP_MESSAGES = {
-  grey:   ["...", "...", ...],   // 5-10 entries (dry disappointment)
+  grey:   ["[grey stamp]"],      // stub forever — LATENT, never surfaced (s34)
   red:    ["...", "...", ...],   // 5-10 entries
   orange: ["...", "...", ...],   // 5-10 entries
   yellow: ["...", "...", ...],   // 5-10 entries
@@ -256,7 +265,7 @@ decision.
 - Tier-to-task-count mapping.
 - Pool structure (server-side TypeScript constants).
 - Random-pick selection mechanism.
-- Pool size targets per tier.
+- Pool size targets per tier (grey: stub only — latent, s34).
 - Tone targets per tier.
 
 ### Deferred — not blocking
