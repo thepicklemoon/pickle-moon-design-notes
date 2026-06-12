@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-06-12 AWST (session 35, mobile/work)
-Last updated: session 35 — mobile content pass. Stamp pools RED-PENNED with Morgan: all 4 review flags RESOLVED (profanity cut everywhere; yellow near-miss ban upheld; DESERVED/YOU EARNED IT cut, EARNED IT kept purple-only; gendered/in-joke entries all cut — partner-flavoured pools stay a v1.x content-drop idea). Pool state: purple 18/20, green 25/40+, yellow 4/5-10, orange 3/5-10, red 3/5-10 — green gap is the remaining writing work, pools NOT yet locked. Tile 4.9 streak popup DEFERRED to v1.x (Morgan: streak bar shows the number; milestone moment ships with the fuller v1.x milestone vision, not as a popup for its own sake) — streak pool stays in the working draft as reference; 4.12's confetti garnish defers with it (bug catcher closes on the 4.11 real-UI trigger alone). Constants update now needs the five stamp tiers only. s34 UNVERIFIED ledger unchanged.
+Last updated: session 35 — mobile content pass. Stamp pools RED-PENNED with Morgan: all 4 review flags RESOLVED (profanity cut everywhere; yellow near-miss ban upheld; DESERVED/YOU EARNED IT cut, EARNED IT kept purple-only; gendered/in-joke entries all cut — partner-flavoured pools stay a v1.x content-drop idea). Pool state: purple 18/20, green 25/40+, yellow 4/5-10, orange 3/5-10, red 3/5-10 — green gap is the remaining writing work, pools NOT yet locked. Tile 4.9 streak popup DEFERRED to v1.x (Morgan: streak bar shows the number; milestone moment ships with the fuller v1.x milestone vision, not as a popup for its own sake) — streak pool stays in the working draft as reference; 4.12's confetti garnish defers with it (bug catcher closes on the 4.11 real-UI trigger alone). Constants update now needs the five stamp tiers only. 4.20 palette devtool BUILT (mobile build-ahead, AUTHORISED — deliberately disjoint from every s34 unverified surface: two NEW files + one devkit_menu section, no server), ★UNVERIFIED (D-S7). s34 UNVERIFIED ledger otherwise unchanged.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -50,6 +50,14 @@ Device ledger D1-D15 CLEARED s31; W18 + git case-rename CLEARED s33. Remaining:
       resolve paints the new grey cells AT wind-down, not next poll.
   [ ] D-S6 (4.25) Device pass proper — affordability dance recipe in
       wire_regression_pack.md. CLOSES 4.25.
+  [ ] D-S7 (4.20) Palette tool: opens from DevKit → Tools; res scan
+      lists existing stickers (fix RES_SCAN_DIR const if list is empty);
+      drop a PNG into user://palette_inbox via file manager → appears +
+      analyses; role ranks match eyeballed pixel areas on a known
+      sticker; neutrals land in the audit not the roles; a deliberately
+      AA'd test PNG shows overflow pollution. CLOSES 4.20. (Disjoint
+      from D-S1-D-S6 — a failure here implicates only the two new
+      files.)
   [ ] Time-log corrections owed at close: s32 ~6h, s33 ~7h, s34 ~3h
       (all ESTIMATES).
 
@@ -186,7 +194,7 @@ before code). Realistic store launch: Sept-Oct 2026.
 [ ] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration). Unlocked menu: per-slot icons, instant application + APPLY ALL. Locked menu: PREVIEW (~30s revert). Rotation fires on active_leader change ONLY.
     Design authority: theme doc v2 (THEME PREP resolved s32 — colour system, 7-slot catalogue, pre-bake retint, preview/marker rules). Build machinery against placeholder art. Owed at this tile per doc: icon art, marker style, 9-slice centre-mode convention, partner-render asset endpoint shape. (~10-15h)
 [ ] 4.15 [CODE] Username + icon edit. Settings → triggers rotation. "Changes may take a minute" popup. (~3-4h)
-[ ] 4.20 [CODE] Palette derivation devtool — DevKit sub-screen. Loads sticker.png, shows derived swatches (incl. role-accent) + RGB + counts + neutral audit (doc v2). Exclusion rule (R==G==B exact + alpha) MUST share the runtime renderer's function. DIRECTLY SUPPORTS the endless-sticker production loop — build before the first big 4.D batch. (~2-3h)
+[~] 4.20 [CODE] Palette derivation devtool — BUILT s35 (mobile build-ahead, disjoint from all s34 unverified surfaces), ★UNVERIFIED (D-S7). palette_derive.gd NEW (class_name PaletteDerive — `Palette` taken by the colour-constants autoload): the SHARED derivation implementation 4.14b's renderer MUST consume — int-exact exclusion rule (a8<255 OR r8==g8==b8), derive() (role ranking by pixel count, deterministic RGB tie-break, overflow ranks 5+, neutral audit w/ canonical-ramp tags, alpha counts, compressed-import flag), role_color() accent→tertiary fallback. devkit_palette_tool.gd NEW: code-built overlay (bug_catcher pattern), two sources — res://assets/stickers recursive (CONST AT TOP — adjust if the real folder differs; .import-strip for exported PCKs) + user://palette_inbox (drop PNGs via file manager/adb, no rebuild — the production-loop path); nearest preview, role swatches w/ hex+count+%, CLOSE adjacent-rank advisory (ratio ≥0.8 — arbitrary, advisory only per doc's discipline-not-validation), overflow list as the AA-violation surface, neutral + alpha audits, lossy-import warning. devkit_menu.gd: Tools section, one-line trigger. Time: ~2h (ESTIMATE — correct at close).
 [ ] 4.21 [CODE] Un-pair flow — client UI (server endpoints done 1.3; initiator-notice fix s29). Initiator: long-press partner header → menu → Un-pair → confirm → change-username follow-up. Recipient: dismissable banner (one-shot, server-tracked). Reference: pair-key doc §17. (~3-4h)
 [~] 4.22 [CODE] Content-drops delivery pipeline — SERVER RECEIVE-SIDE DONE (s29): schema (content_drops / content_drop_assets / content_drop_deliveries), GET /users/:id/drops (live + forward-only + undelivered; release-day local-time gating is CLIENT-side per client-owns-the-clock; subscriber_only returned not filtered — sub-pack news is conversion pull), POST delivered ack (explicit, idempotent, never implicit on read), Thursday-release cron (wrangler [triggers] + scheduled handler). Tests = W9/W10. CLIENT HALF remains: presentation queue + drop popup (ceremony-adjacent — with Morgan). Publishing = manual SQL at launch; authoring tool post-launch. (~3h left)
 
