@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-12 AWST (session 33 — s32 commit verified on origin/main, bookkeeping block stripped)
-Last updated: session 32 — 4.25 DOC PASS DONE (doc-locked, build owed): economy + morning-seq + system map + timezone docs amended; wire_regression_pack.md created (folds s29/s30 packs, adds W18 commands + the 4.25 W13r/W14r/W19/W20 re-spec). The s31 bookkeeping syncs were found STRANDED — none had reached the repo (and the s30 morning-seq rescue-gate section was never pushed at all); all written fresh this session, folded into the same files. Repo finding: the s31 DevKit.gd case rename never landed in git (Windows core.ignorecase ignores case-only renames — fix below). Project files refreshed (clean slate: todo + devlog + .gd scripts + server zip; all carry the s31 finals). LATER SAME SESSION: ★THEME PREP design conversation RESOLVED — theme doc v2 written (colour system: 4 weighted roles + neutral ramp; v1.0 = 7 slots; pre-bake retint; R2 delivery; cell treatments deferred to v1.x). Tile 4.26 (notifications, crude/local) ADDED for the daily-driver switch. NO CODE this session — at work, doc-only. Last code: session 31.
+Last edit: 2026-06-12 AWST (session 33, laptop)
+Last updated: session 33 — BIG CODE SESSION. s32 push verified on origin (fa78a24); DevKit.gd case rename committed (core.ignorecase trap closed); W18 PASSED. Tile 4.26 NOTIFICATIONS BUILT: gradle build template + Use Gradle Build enabled (laptop; one-time per machine, android/ stays git-ignored), godot-notification-scheduler plugin installed, Notifications.gd autoload shipped (self-contained, zero existing-file edits; design doc NEW: four_tasks_notifications_design_notes.md). D-N1-D-N4 device GREEN; D-N5/6/7 + swipe-kill deferred to ambient (open tests). Tile 4.25 SERVER HALF SHIPPED + FULLY WIRE-VERIFIED on dev: span walk + pre-scan + sealSpan replace the single-target machinery; W13r (accept+decline), W14r, W19 (accept+decline), W20 ALL PASSED, W11/W12 re-proven under span code. 4.25 remains: client deltas (null-target dialog copy; resolve sealed_day:null path) + device pass.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -16,20 +16,23 @@ Tiers (for items outside phase structure): ACTIVE / PARKED / DEFERRED.
 OPEN TESTS (post-ledger, s31)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Device ledger D1-D15 CLEARED session 31; s29+s30 code verified. Remaining:
+Device ledger D1-D15 CLEARED s31; W18 + git case-rename CLEARED s33. Remaining:
 
-  [ ] W18 coin-source bound: far-date claim → 400 bad_date; real date → 200.
-      Commands: wire_regression_pack.md. Also proves the s31 index.ts
-      deploy landed on dev.
   [ ] W10 (optional) Thursday cron — commands in wire_regression_pack.md,
       or let a real Thursday prove it on dev.
   [ ] Emoji glyphs missing on work-laptop Android export (🔥/🟡 streak bar
       + CoinFX flights invisible; ★ fine). Check Godot version/export
       parity vs home PC BEFORE any release build from the laptop.
-  [ ] git case-rename fix (laptop): `git mv devkit.gd DevKit.gd` + commit.
-      The s31 rename never registered (core.ignorecase swallows case-only
-      renames); the repo still carries lowercase, so any fresh clone or an
-      export built from one resurrects the dead-autoload-on-Android bug.
+  [ ] 4.26 ambient device cases (code GREEN D-N1-D-N4 s33; full pass spec
+      in four_tasks_notifications_design_notes.md):
+        D-N5 overnight morning nudge + no stale morning after open
+        D-N6 permission denied → silence; re-grant → return
+        D-N7 reboot with app closed → scheduled nudge survives
+        swipe-kill variant — Morgan's phone AND Ayshe's (OEM battery
+        managers differ; her D-N1 permission flow rides her first build)
+  [ ] Strip the devkit feature tag from the daily-driver/prod build
+      (devkit entry point + prod DB is a fat-finger risk; dev builds
+      keep it).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APPTRIOC FORK ARCHITECTURE (locked session 5)
@@ -154,8 +157,8 @@ before code). Realistic store launch: Sept-Oct 2026.
     Interaction-model fork RESOLVED: Model B — single POPUP off the weekday header, four task slots with per-slot override controls (Morgan 2026-06-10; staggered-disclosure doc synced s32: day-2 long-press relays into the popup, one-time intro line replaces the tutorial flow). REMAINS BEFORE BUILD: sync the week-mode doc itself to Model B (it still carries the rejected two-silent-gestures model) + popup detail design. (~8-12h + doc sync)
 [ ] 4.23 [CODE] App local-date-change watcher — on focus-in, if today_iso moved in EITHER direction: repaint both calendars, close any open tray whose date is now future. Backwards clock moves currently leave stale paint (s31); forward already claim-handled. Designed s31. (~1h)
 [ ] 4.24 [DECIDE] Sealed-grey cell colour. A sealed zero-task day renders UNMARKED — indistinguishable from an untouched day. Grey cell tier vs stamp-only grey. (s31; pressure rises with 4.25 — silently-sealed never-opened days become common.)
-[~] 4.25 [CODE] Walkback span-sealing — DOC PASS DONE s32 (direction locked s31). Authority now in the docs: economy (streak/rescue rules incl. exactly-one PRE-SCAN — gap+grey combos are dead, no chained offers; shadowed accounted days pay silently), morning-seq Q5 + STREAK RESCUE GATE (span walk oldest-first; never-opened seal grey accounted_for=0, silent, no ceremony; pending seals NOTHING; pending_rescue.target_date/tier nullable — rescue can fire with no payout target), system map + timezone forward notes, wire pack W13r/W14r/W19/W20 re-spec. REMAINS: BUILD — server span walk + pre-scan in sealTarget path (~3-5h), client deltas (null-target dialog copy; verify resolve→sealed_day:null path), run the re-spec wire rows, device pass. (~3-5h + verify)
-[ ] 4.26 [CODE] Notifications — CRUDE PASS for the daily-driver APK. LOCAL only (no FCM; server push = v1.x, DEFERRED line). DESIGN LOCKED s32, two daily notifications, tap opens app: (1) morning "your coins are waiting"; (2) ~8pm "you haven't ticked your tasks today, want to do that before bed?". Fixed times + fixed copy v1.0; customisation v1.x. Build details: exact times; suppress evening nudge when 4/4 already done IF the plugin does cancel-by-id cheaply, else fire unconditionally (crude is acceptable). Android notification plugin into the export — laptop/home-PC work. (~3-5h incl. plugin wrangling)
+[~] 4.25 [CODE] Walkback span-sealing — SERVER HALF DONE s33 (doc pass s32; direction s31). index.ts: buildSpan + evaluateSpanRescue (pre-scan) + sealSpan (+per-day computeDayPayout) replace the single-target walkback; per-day streak walk oldest-first; never-opened rows created sealed grey accounted_for=0; one shared sealed_at per batch; pending target_date/tier nullable; streak_at_stake = running streak AT the breaker. Deployed dev; WIRE PASSED s33: W13r both halves, W14r, W19 both halves, W20, W11/W12 re-proven under span code. REMAINS: client deltas (rescue_confirm null-target copy; resolve sealed_day:null no-ceremony path) + device pass. (~1-2h left)
+[~] 4.26 [CODE] Notifications — BUILT s33, DEVICE-PARTIAL. Design authority: four_tasks_notifications_design_notes.md (times 6:30am/8pm fixed v1.0; lowercase copy; boot permission; structural suppression — day-0 morning never scheduled, evening skips 4/4 + rest day; lapse decay daily*7 then gap+1/nudge then weekly, horizon 56; mock clock = silent). Plugin godot-mobile-plugins/godot-notification-scheduler; gradle build now ON (laptop). Notifications.gd autoload, zero existing-file edits. D-N1-D-N4 GREEN; tile closes when the ambient cases (open tests block) go green on both phones. Time: ~3h (ESTIMATE — correct at close).
 
 ━━━ FORK POINT ━━━ APPtrioc launches from snapshot after 4.14a. See PHASE 5b. ━━━
 

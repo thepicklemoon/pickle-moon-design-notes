@@ -40,6 +40,9 @@ PowerShell, from inside `server/`.
       npx wrangler d1 execute four-tasks-dev --remote --command "UPDATE users SET coins = 60000 WHERE user_id = 'aaaaaaaa-0000-4000-8000-000000000001'"
 - Backslash-escaped quotes inside PS double-quoted SQL sometimes mangle —
   if a payload rejects, write the SQL to a file and use --file.
+- sealed_at diagnostic: CLAIM-sealed rows share ONE identical sealed_at
+  (the atomicity marker); SEED-sealed rows step by exactly 86,400. Instant
+  tell for "did the scenario reseed actually run before this SELECT".
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SCHEMA APPLY (safe to re-run)
@@ -142,7 +145,7 @@ Local emulator:
   curl.exe -s "http://localhost:8787/__scheduled?cron=0+0+*+*+4"
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-W11-W17 — streak rescue + amended streak rule (PASSED s31)
+W11-W17 — streak rescue + amended streak rule (PASSED s31; W11/W12 RE-PROVEN s33 under span code)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 W11 — GREY rescue: pending → 409 floor → accept:
@@ -188,7 +191,7 @@ Real date; EXPECT 200 (normal claim behaviour, whatever the seed state):
 these REPLACE the W13/W14 rows above.)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-W13r — gap rescue, span shape:
+W13r — gap rescue, span shape (PASSED s33):
   accept  → bought -2 day sealed purple + target sealed orange in ONE batch
             (shared sealed_at — SELECT both rows, compare); streak 4.
   decline → the -2 day gets a row CREATED sealed GREY with accounted_for=0
@@ -196,26 +199,29 @@ W13r — gap rescue, span shape:
             (zeroed at the gap, +1 at the target); no charge.
             (Old W13 had no decline row-creation — gaps just broke.)
 
-W14r — 2+ day gap, span shape:
+W14r — 2+ day gap, span shape (PASSED s33):
+  Seed: scenario morning_gap, then widen the hole:
+    npx wrangler d1 execute four-tasks-dev --remote --command "DELETE FROM days WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001' AND date = DATE('now','+8 hours','-3 days')"
   claim → NO pending; EVERY missing day gets a grey row (accounted_for=0,
   sealed_at set, coins 0) + target seals; streak 1. SELECT the span —
   contiguous rows from last-seal to target, no holes. (Old W14 left the
   holes rowless.)
 
-W19 — first-contact hole, no payout target:
-  Seed: default scenario, then delete TestUser's TODAY row and yesterday's
-  row if present so yesterday is a pure hole behind a live streak
-  (or use the morning_gap seed minus the worked target — exact SQL at
-  build time). Claim with $TODAY:
+W19 — first-contact hole, no payout target (PASSED s33):
+  Seed: scenario morning_grey, then make yesterday a pure hole:
+    npx wrangler d1 execute four-tasks-dev --remote --command "DELETE FROM days WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001' AND date = DATE('now','+8 hours','-1 days')"
+  Claim with $TODAY:
   EXPECT pending_rescue { kind="gap", rescue_date = yesterday,
   target_date = null, target_tier = null }.
   decline → 200, sealed_day = null (no ceremony), yesterday sealed grey,
   streak 0. accept → yesterday sealed purple rest, streak held,
   sealed_day = null.
 
-W20 — multi-deficit suppression (gap + grey target):
+W20 — multi-deficit suppression (gap + grey target) (PASSED s33):
   Seed: morning_grey, then delete the -2 sealed day (one hole + a grey
-  target = two zero-task days in the span). Claim:
+  target = two zero-task days in the span):
+    npx wrangler d1 execute four-tasks-dev --remote --command "DELETE FROM days WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001' AND date = DATE('now','+8 hours','-2 days')"
+  Claim:
   EXPECT NO pending (pre-scan counts 2); hole seals grey + target seals
   grey, one batch; streak 0. No chained offers, no two-purchase saves.
 
