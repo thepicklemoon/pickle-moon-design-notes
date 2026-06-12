@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-11 AWST (session 32, mobile)
-Last updated: 2026-06-11 (session 32 — 4.25 span-sealing DOC-LOCKED; stranded s30/s31 syncs written fresh; wire_regression_pack.md created; DevKit.gd rename found missing from git; ★THEME PREP RESOLVED same session — theme doc v2; tile 4.26 notifications added. Doc-only, no code.)
+Last edit: 2026-06-12 AWST (session 33, laptop)
+Last updated: 2026-06-12 (session 33 — 4.26 notifications BUILT + D-N1-4 device-green (ambient cases open); 4.25 SERVER HALF shipped + full wire pass on dev (W13r/W14r/W19/W20 + W11/W12 re-proven); gradle build enabled; W18 + DevKit.gd rename cleared.)
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -866,4 +866,99 @@ doc v2; checklist in todo). Then 4.25 build → daily-driver switch (with
 Session 32 time: ~6h (ESTIMATE — doc-only incl. THEME PREP; correct at
 close).
 Running total: ~162.75h.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 33 — 2026-06-12 (laptop)
+4.26 notifications BUILT · 4.25 SERVER SHIPPED + wire pass · bookkeeping cleared
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+BOOKKEEPING CLEARED (start of session):
+  - s32 push verified on origin/main (fa78a24) — independently re-cloned and
+    checked: wire pack present, session wire-test files deleted, theme v2 in.
+    Todo commit block stripped.
+  - DevKit.gd case rename committed + pushed (git mv on laptop; the
+    core.ignorecase fresh-clone trap from s31/s32 is closed).
+  - W18 PASSED: far-date claim → 400 bad_date, real date → 200. Proves the
+    s31 dev deploy. (TestUser coins > lifetime on dev = SQL top-up artefact,
+    not a bug — top-ups don't touch lifetime.)
+
+TILE 4.26 — NOTIFICATIONS (crude/local): BUILT, DEVICE-PARTIAL. Time: ~3h
+(ESTIMATE — correct at close).
+  - Design doc NEW + AUTHORITY: four_tasks_notifications_design_notes.md.
+    Morgan decisions locked: 6:30am morning / 8:00pm evening (fixed v1.0;
+    constants are the v1.x customisation seam); lowercase copy drafted;
+    permission requested at boot; suppression conditional everywhere; lapse
+    decay daily×7 → gap grows +1/nudge (9,12,16,21,27,34) → weekly (41,48,
+    55), horizon 56, both notifications fire on lapse days.
+  - Plugin: godot-mobile-plugins/godot-notification-scheduler (Godot-4
+    cengiz-pz lineage). Unified Android/iOS interface (iOS = Phase 5 export
+    job), cancel-by-id, permission signals, reboot persistence, default
+    icon shipped, auto-falls-back to inexact alarms (no scary permissions).
+  - Gradle: Android Build Template installed + Use Gradle Build ON (laptop;
+    ONE-TIME PER MACHINE — home PC needs the same click before its first
+    gradle export). android/ stays git-ignored: editor-generated,
+    version-tied, nothing hand-authored lives in it (earlier commit advice
+    this session was wrong and withdrawn).
+  - Notifications.gd autoload shipped — fully self-contained, ZERO edits to
+    existing files (hooks State signals + FOCUS_IN directly). Model:
+    re-derive, never remember — every relevant change cancels the
+    deterministic id range (bases 1000/2000 + day offset, sweep 0-60) and
+    reschedules the full forward window from State. Suppression is
+    STRUCTURAL: day-0 morning is never scheduled at all (app open IS the
+    claim); evening skips 4/4, rest day, past-8pm; mock clock = schedule
+    nothing (DevKit clock games stay silent). Fingerprint-gated rebuilds
+    keep repeat focus-ins free.
+  - DEVICE: D-N1 (permission), D-N2 (evening fired 8:02 — inexact window,
+    in spec), D-N3 (4/4 suppression), D-N4 (rest-day suppression) GREEN.
+    D-N5/6/7 + swipe-kill (both phones) deferred to AMBIENT testing — leaf
+    subsystem, nothing downstream depends on results; tracked in the todo
+    open-tests block. Two of three self-test in normal daily-driver use.
+
+TILE 4.25 — WALKBACK SPAN-SEALING, SERVER HALF: SHIPPED + FULLY
+WIRE-VERIFIED. Time: ~2.5h (ESTIMATE — correct at close).
+  - index.ts: single-target walkback + evaluateRescue + sealTarget REPLACED
+    by buildSpan (anchor = last sealed day, or oldest row on fresh installs;
+    strict date < local_date invariant preserved) + evaluateSpanRescue (the
+    exactly-one pre-scan) + sealSpan (per-day streak walk oldest-first, one
+    atomic batch, ONE shared sealed_at across every row it seals) +
+    computeDayPayout (payout extracted per-day so target and shadowed
+    accounted days share one implementation — same single-derivation
+    principle as deriveTier).
+  - Behaviour deltas vs s30/s31 wire: never-opened days get rows CREATED
+    sealed grey accounted_for=0 (declined gaps included — old code left
+    holes rowless); pending_rescue.target_date/tier nullable (first-contact
+    hole); streak_at_stake = running streak AT the breaker (refinement:
+    accounted partials earlier in the span advance it first); bought gap
+    days write accounted_for=1 but never present as sealed_day.
+  - Pre-flight before deploy: untouched regions verified byte-identical to
+    the uploaded source; typecheck added zero new error kinds; pre-scan +
+    streak walk extracted and run against all five wire scenarios in node.
+  - WIRE (dev, all PASSED s33): W13r accept (streak 4, shared sealed_at,
+    bought day purple/accounted=1, payout maths exact) + decline (grey row
+    created accounted=0, streak 1, no charge); W14r (no offer at 2 holes,
+    contiguous grey fill, streak 1); W19 decline (sealed_day null, streak 0,
+    zero coin movement) + accept (sealed_day null, streak HELD 3, coins
+    10,000, lifetime untouched); W20 (pre-scan suppresses at gap+grey, both
+    seal grey one batch, streak 0); W11/W12 RE-PROVEN under span code (grey
+    convert presents purple, streak held / decline presents grey, streak 0).
+    Wire pack amended: W19/W20 seed SQL filled in (was "exact at build
+    time"), rows marked passed.
+  - Diagnostic worth keeping: claim-sealed rows share ONE sealed_at;
+    seed-sealed rows step by exactly 86,400. Instant tell for "did the
+    scenario reseed actually run".
+  - REMAINS (pass 2): client deltas — rescue_confirm copy without the "and
+    yesterday seals as X" framing when target is null; verify the
+    coordinator's resolve → sealed_day:null path winds down with no
+    ceremony. Then device pass.
+
+DESIGN NOTE (no change needed): partner multiplier across absences —
+already settled by the same-date-read model. Grey days have 0 base so the
+multiplier question never arises; the first worked day back reads the
+partner's REAL same-date completion. Nobody is disadvantaged by absence;
+nothing to exploit.
+
+Session 33 time: ~7h (ESTIMATE — correct at close; s32's ~6h estimate also
+still owed its correction).
+Running total: ~169.75h (BOTH estimates pending correction).
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
