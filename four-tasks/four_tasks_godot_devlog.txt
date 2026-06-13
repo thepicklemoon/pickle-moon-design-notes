@@ -1180,3 +1180,76 @@ devkit_palette_tool.gd NEW, month_stats_popup.gd NEW, devkit_menu.gd
 Session 35 time: ~3h (ESTIMATE — correct at close; s32 ~6h, s33
 ~7h, s34 ~3h corrections still owed).
 Running total: ~175.75h (FOUR estimates pending correction).
+
+═══════════════════════════════════════════════════════════
+DEVLOG — paste as new session block (above the s35 block, or
+wherever newest goes in your file)
+═══════════════════════════════════════════════════════════
+ 
+SESSION 36 (2026-06-14, post-night-shift, laptop) — DEPLOY +
+FIRST PROD BOOT.
+ 
+LEDGER CLEARED (device, single phone — south-phone repeats still
+owed): D-S1 safe-area PASS (inset 172, tray fits). D-S4 rollover
+PASS (payout ceremony one-shot, consumed at accounting; 2nd mock
+day re-rolls MOTD only — correct). D-S5 wind-down greys PASS. D-S6
+affordability dance PASS (grey rescue dialog: broke disarms SAVE
+button, LET IT GO seals missed + pays — CLOSES 4.25 client side).
+D-S7 palette tool PASS after RES_SCAN_DIR fix (res://assets/icons)
++ globalize_path wrap on inbox load — CLOSES 4.20. CLOSE flag +
+AA-smell flag both fired correctly on placeholder stickers.
+PARKED (calendar-shape / seed-gated, not faults): D-S2 partner
+skip immutability (no partner skip seed), D-S3 backward off-month
+nav + today-overflow (June 1 = Mon, no leading dead cells — needs
+July, 1st is Wed), D-S8 long-press stats (verify at first real
+month seal; gate = title tier-recolour, sealed-only confirmed
+correct, DevKit in-progress view is dev convenience only).
+ 
+CONSTANTS: stamp_messages.ts authored from locked pools (purple 18
+green 25 yellow 4 orange 3 red 3; grey silent placeholder). Dev +
+PROD deployed. Dev spot-check PASS (claim → "HALF AINT BAD", real
+string not stub). Prod devkit gating verified fail-closed (POST
+/devkit → 404). pickStampMessage untouched.
+ 
+PROD BUILD: store preset (no devkit feature) → _base_url() returns
+PROD, [DEV] stripped, Internet perm on. First prod APK built +
+installed.
+ 
+BLOCKER CHAIN (the session's real work — first-run path had NEVER
+executed against a real DB; devkit seeds bypass createUser
+entirely, so this was all invisible pre-prod):
+ 1. Stale user_id from prior testing → user_not_found fatal on
+    empty prod. Cleared app data. (Latent bug: loader collapses
+    user_not_found into "couldn't reach server" — should route to
+    onboarding. TODO.)
+ 2. createUser 500 — prod D1 had no schema. Applied schema.sql.
+ 3. STILL failed: POST /users returned (tail "Ok" = handled
+    return, incl. 500) but 0 rows in users+pairs. ROOT CAUSE:
+    prod `days` table was a STALE pre-accounted_for version;
+    CREATE TABLE IF NOT EXISTS skipped it (wire-pack's own
+    warning, lived). createUser day-0 insert names accounted_for
+    → "no such column" → batch rollback → user row dies with it →
+    500 masked as "Failed to create user". Prod empty so DROP
+    TABLE days + re-apply from current file. Verified column
+    present, curl smoke create → ok:true + row persists. Smoke
+    user deleted, prod clean.
+ 4. FIRST REAL PROD BOOT: onboarded past account creation,
+    reached app (safe_top_inset print). MILESTONE.
+ 
+SCHEMA DRIFT FOUND: dev `days` has accounted_for appended at table
+END (hand-run ALTER in an old session, never folded to file) vs
+file's documented mid-table position. Functionally equal (named
+inserts), but schema-of-record was unreliable until prod's clean
+rebuild tonight. Pre-launch: adopt numbered migrations + one-time
+dev/file reconciliation. Once prod has a paying user, drop+reapply
+is gone.
+ 
+OPEN (non-fatal): stickers don't render in MOTD picker +
+onboarding companions, BOTH builds, always have (water_bottle
+warning + spinner shows words). onboarding_companions.gd:185
+_load_sticker_texture — check constructed path vs real filenames
+(palette tool lists fine because it scans; loaders build exact
+path strings). Separate ticket.
+ 
+Session 36 time: ~5h ESTIMATE (long debug haul, correct at close).
+Running total: ~180.75h (FIVE estimates pending correction).

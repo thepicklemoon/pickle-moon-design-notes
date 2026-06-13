@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-12 AWST (session 35, mobile/work)
-Last updated: session 35 — mobile content pass. Stamp pools RED-PENNED with Morgan: all 4 review flags RESOLVED (profanity cut everywhere; yellow near-miss ban upheld; DESERVED/YOU EARNED IT cut, EARNED IT kept purple-only; gendered/in-joke entries all cut — partner-flavoured pools stay a v1.x content-drop idea). Pool state: purple 18/20, green 25/40+, yellow 4/5-10, orange 3/5-10, red 3/5-10 — green gap is the remaining writing work, pools NOT yet locked. Tile 4.9 streak popup DEFERRED to v1.x (Morgan: streak bar shows the number; milestone moment ships with the fuller v1.x milestone vision, not as a popup for its own sake) — streak pool stays in the working draft as reference; 4.12's confetti garnish defers with it (bug catcher closes on the 4.11 real-UI trigger alone). Constants update now needs the five stamp tiers only. 4.20 palette devtool BUILT (mobile build-ahead, AUTHORISED — deliberately disjoint from every s34 unverified surface: two NEW files + one devkit_menu section, no server), ★UNVERIFIED (D-S7). 4.10 RESHAPED + popup half BUILT (same night, same isolation): month STAMP CUT (Morgan — a stamp is a visual downgrade vs the eternalised themed month; month-end UI capture = NEW design item, own pass required), design doc NEW four_tasks_month_stats_design_notes.md, month_stats_popup.gd ★UNVERIFIED (D-S8), coins-earned stat STUBBED (per-day coins don't exist server-side; per-day column at next index.ts unfreeze — doc records mechanism A/B). POOLS LOCKED for launch at current counts (Morgan — append-over-time, targets retired as gates; MOTD expansion likewise dropped from the roster list): constants update + deploy is now UNGATED, laptop step. COMPLETED-MONTH CHROME designed (theme doc v2 new section — last sealed ACCOUNTED day's day_theme_state dresses a completed month's screen-level slots; pure render policy, builds inside 4.14b; partner months included; keepsake export stays v1.x) + month-close disclosure note registered trigger-gated (disclosure doc also de-staled: day-5 dormant w/ 4.9, day-30 removed w/ leaderboard kill). s34 UNVERIFIED ledger otherwise unchanged. STATIC SWEEP (s35, late): s34 code reviewed cold against fresh uploads + full repaint/claim chain traced — F1 FIXED in day_cell.gd (DeadOverlay default MOUSE_FILTER_STOP would swallow all OFF_MONTH taps, masking the entire 4.24 nav-delegate; forced IGNORE in _ready, dead refresh() stub also removed — rides D-S2/D-S3); F2 PARKED (payload day-window Jan-1-last-year vs install-month nav floor — year-2 class, see ACTIVE); wind-down repaint chain PROVEN in code (refresh_after_morning → poll merge → per-day day_changed → cell reclassify); bonus_pill ceremony-gate exemption noted as accepted (off-screen + input-blocked during ceremony, nothing banked).
+Last edit: 2026-06-14 AWST (session 36, laptop, post-night-shift)
+Last updated: session 36 — DEPLOY + FIRST PROD BOOT. Device ledger largely cleared; stamp pools authored + deployed dev/prod; first real account now exists on the prod build. CLOSED s36: 4.20 (palette tool device-verified, D-S7) · 4.25 (affordability dance, D-S6) · stamp_messages.ts authored from locked pools (purple 18 / green 25 / yellow 4 / orange 3 / red 3; grey silent) + deployed dev AND prod, real strings confirmed via claim ("HALF AINT BAD"). Device PASS: D-S1 (inset 172), D-S4 (rollover, ceremony one-shot correct), D-S5 (wind-down greys), D-S6, D-S7. PARKED (calendar-shape / seed / seal gated, NOT faults): D-S2 (no partner skip seed), D-S3 (June 1 = Mon, no leading dead cells — needs July, 1st is Wed), D-S8 (verify at first real month seal; sealed-only gate via title tier-recolour confirmed correct). PROD BUILD: store preset (no devkit feature) → _base_url() returns PROD, [DEV] stripped, INTERNET perm on — first prod APK built + installed + booted past onboarding. BLOCKER CHAIN (the session's real work, all root-caused + fixed): (1) stale device user_id → user_not_found fatal on empty prod, cleared app data [latent bug filed: loader collapses user_not_found into reach-server error, should route to onboarding]; (2) createUser 500 — prod D1 had no schema, applied schema.sql; (3) STILL failing — POST /users returned but 0 rows: prod `days` table was a STALE pre-accounted_for version that survived CREATE TABLE IF NOT EXISTS (wire-pack's own warning, lived); createUser day-0 insert names accounted_for → no-such-column → batch rollback → user row died with it → 500 masked as "Failed to create user". Prod empty so DROP TABLE days + reapply from current file (schema.sql itself was already correct, no file change). Verified column present, curl smoke create → ok:true + row persists, smoke user deleted. (4) FIRST REAL PROD BOOT — onboarded, reached app (safe_top_inset print). MILESTONE. SCHEMA DRIFT FOUND: dev `days` has accounted_for appended at table END (hand-run ALTER in an old session, never folded to file) vs file's mid-table position — functionally equal (named inserts) but schema-of-record was unreliable until prod's clean rebuild; PROD is now the canonical schema, dev is the hand-patched one. DEEP LESSON: the entire first-run path (createUser / first-pair / day-0 seed) had NEVER executed against a real DB in 35 sessions because devkit seeds bypass it — dogfooding surfaced it on day one. Expect more first-contact bugs as Morgan + Ayshe use it. Session 36 time: ~5h (ESTIMATE — long debug haul, correct at close).
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -16,7 +16,9 @@ Tiers (for items outside phase structure): ACTIVE / PARKED / DEFERRED.
 OPEN TESTS (post-ledger, s31)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Device ledger D1-D15 CLEARED s31; W18 + git case-rename CLEARED s33. Remaining:
+Device ledger D1-D15 CLEARED s31; W18 + git case-rename CLEARED s33.
+s34 UNVERIFIED LEDGER mostly CLEARED s36 (D-S1/D-S4/D-S5/D-S6/D-S7 PASS;
+D-S2/D-S3/D-S8 PARKED — see below). Remaining:
 
   [ ] W10 (optional) Thursday cron — commands in wire_regression_pack.md,
       or let a real Thursday prove it on dev.
@@ -32,44 +34,30 @@ Device ledger D1-D15 CLEARED s31; W18 + git case-rename CLEARED s33. Remaining:
         managers differ; her D-N1 permission flow rides her first build)
   [ ] Strip the devkit feature tag from the daily-driver/prod build
       (devkit entry point + prod DB is a fat-finger risk; dev builds
-      keep it).
+      keep it). NOTE: store preset is devkit-clean as of s36 (verified
+      via [Loader] devkit=false on the prod APK); this stays open as the
+      standing per-build reminder.
 
-  ── s34 UNVERIFIED LEDGER (build-ahead; clear next laptop session) ──
-  [ ] D-S1 (4.27) Title clear of status bar/cutout, BOTH phones; read
-      "[App] safe_top_inset=" boot print per device; open-tray internals
-      fit at reduced minimum; eyeball Loader/onboarding tops.
-  [ ] D-S2 (4.24) Sealed-skip days render dead + refuse taps, both
-      panels (DevKit morning_grey / mock clock manufactures them).
-  [ ] D-S3 (4.24) Off-month tap on a WORKED day navigates home + opens
-      its tray; on a GREY day navigates only; trailing overflow on a
-      past month navigates FORWARD; today-as-overflow long-press edge.
-      INCLUDES the s35 F1 fix (day_cell.gd: DeadOverlay forced to
-      MOUSE_FILTER_IGNORE — without it every off-month tap dies at the
-      overlay and this whole test fails at step one).
-  [ ] D-S4 (4.23) Mock-clock forward AND backward across focus-out/in:
-      both calendars jump to today, stale paint gone; open tray on a
-      now-future date closes.
-  [ ] D-S5 (morning_sequence fix) W19-decline on device: null-target
-      resolve paints the new grey cells AT wind-down, not next poll.
-  [ ] D-S6 (4.25) Device pass proper — affordability dance recipe in
-      wire_regression_pack.md. CLOSES 4.25.
-  [ ] D-S7 (4.20) Palette tool: opens from DevKit → Tools; res scan
-      lists existing stickers (fix RES_SCAN_DIR const if list is empty);
-      drop a PNG into user://palette_inbox via file manager → appears +
-      analyses; role ranks match eyeballed pixel areas on a known
-      sticker; neutrals land in the audit not the roles; a deliberately
-      AA'd test PNG shows overflow pollution. CLOSES 4.20. (Disjoint
-      from D-S1-D-S6 — a failure here implicates only the two new
-      files.)
-  [ ] D-S8 (4.10) Month stats popup from DevKit → Tools: current month
-      shows progress-to-date (elapsed-days denominator + in-progress
-      hint); nav < bounds at install month, > bounds at current; a past
-      seeded month shows tier-coloured title + correct X/Y with rest
-      days out of the denominator; best run bridges a rest day; coins
-      row renders '—'. (Disjoint from D-S1-D-S7 — implicates only
-      month_stats_popup.gd.)
-  [ ] Time-log corrections owed at close: s32 ~6h, s33 ~7h, s34 ~3h
-      (all ESTIMATES).
+  ── s34 LEDGER — PARKED REMAINDER (s36) ──
+  [ ] D-S2 (4.24) Sealed-skip days dead + refuse taps, BOTH panels.
+      Self panel PASS s36; PARTNER skip immutability UNTESTED — no
+      partner skip seed exists. Verify when next altering the seed.
+  [ ] D-S3 (4.24) Off-month nav — backward case + today-as-overflow
+      edge UNEXERCISED s36: June 1 = Monday, no leading dead cells.
+      Forward case (May → June trailing → navs + tray) PASS, carries
+      the F1 fix proven live. Needs a month whose 1st isn't Monday —
+      JULY 2026 (1st is Wed) gives leading cells. Verify then.
+  [ ] D-S8 (4.10) Month stats popup long-press on a REAL sealed month
+      — verify at first actual month seal. DevKit in-progress view PASS
+      s36 (6/48, 13%, best run 0, coins '—', elapsed-day denominator)
+      but that's dev convenience; the SHIPPING trigger is long-press on
+      the tier-recoloured title, which only exists once a month seals.
+      Sealed-only gate confirmed correct as design (title recolour IS
+      the affordance). Confirm title-recolour + long-press read the
+      SAME sealed-state flag when it first fires.
+
+  [ ] Time-log corrections owed at close: s32 ~6h, s33 ~7h, s34 ~3h,
+      s35 ~3h, s36 ~5h (all ESTIMATES — FIVE pending).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 APPTRIOC FORK ARCHITECTURE (locked session 5)
@@ -142,7 +130,10 @@ Reference: `four_tasks_onboarding_design_notes.md`. Solo-as-default, 8-screen
 flow, pairing post-onboarding. VALIDATION (every name/username/sticker input):
 no `|`, non-empty; UX caps username ~20 (server 40), sticker ~short (server
 50), task labels ~30 (server 49). Server caps ENFORCED as of session 29
-(value_too_long).
+(value_too_long). NOTE (s36): the createUser SERVER path itself was never
+exercised against a real DB until s36 — devkit seeds bypass it. Now proven
+(curl smoke + first prod boot). Pairing / join_by_values / recovery_flow
+remain device-only-tested, not first-contact-proven against empty prod.
 
 [x] 3.1 [CODE] Onboarding state machine + entry routing. Session 24.
 [x] 3.2 [CODE] Welcome + first-time/recover fork. Session 24.
@@ -177,25 +168,25 @@ before code). Realistic store launch: Sept-Oct 2026.
 ━━━ PRE-FORK CODE TILES (APPtrioc inherits) ━━━
 
 [x] 4.1 [CODE] Glitch typewriter utility. Session 25. ~1h.
-[ ] 4.2 [CODE] Wire glitch-word reveals into onboarding popups. 24 marked words from web build. (~2-3h)
+[ ] 4.2 [CODE] Wire glitch-word reveals into onboarding popups. 24 marked words from web build (NEEDED from Morgan). (~2-3h)
 [x] 4.3 [CODE] CoinFX utility. Session 27. (Stub coin art; real sprite 4.A — swap _make_coin only.)
-[x] 4.4 [CODE] MOTD spinner. Sessions 25-26. ~6h. TUNING deferred (column widths, font, selector band, emoji reel TextureRect column).
+[x] 4.4 [CODE] MOTD spinner. Sessions 25-26. ~6h. TUNING deferred (column widths, font, selector band, emoji reel TextureRect column). NOTE (s36): spinner shows WORDS where sticker art expected on prod build — same sticker-load gap as onboarding companions; see ACTIVE sticker-render bug.
 [~] 4.5 [CODE] MOTD reroll cost — SERVER HALF DONE (s29): POST /users/:id/motd/reroll (relative debit, 409 insufficient_coins, returns user + fresh roll); REROLL_COST=100 placeholder shipped via economy payload; fee-is-vent-not-protection decision recorded at the constant (free /motd/roll remains the first-spin path). CLIENT HALF remains: picker lock button + confirm popup wiring (ceremony-adjacent — with Morgan). MUST sealed-gate the edit surface (sealed-beats-clock, s31) AND serve as the recovery surface for a mid-ceremony kill (today's MOTD pick is lost if beats die before 9 — s31 finding). (~2h left)
 [x] 4.6 [CODE] Morning sequence — coordinator. Sessions 26-28. ~11h + economy. OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold); cross-month verified-on-real-1st only. Interruption = freeze/resume (doc synced s32).
-[x] 4.7 [CODE] Stamp slap — folded into 4.6 beat 7. Session 26. Placeholder art; real stamps 4.C. Messages = content (PARKED).
+[x] 4.7 [CODE] Stamp slap — folded into 4.6 beat 7. Session 26. Placeholder art; real stamps 4.C. Messages AUTHORED + live s36 (see stamp_messages.ts; pools locked).
 [~] 4.8 [CODE] Rest day system — MECHANISM DONE (s28) + session-29 hardening (free-rest hole closed, per-op rollback, server-shipped cost, anim-leak fix). Time: ~2h. Device test = S29 ledger D7/D8. DEFERRED: rest-day task-label content swap (~15-30 phrases; felt cheesy).
-[~] 4.10 [CODE] Month colour + stats popup — RESHAPED s35 (authority NEW four_tasks_month_stats_design_notes.md): month STAMP CUT (visual downgrade vs eternalised themed month; PERFECT MONTH survives as a single client flourish at 100% — pools-doc month-stamp question CLOSED, no pool). Popup half BUILT s35 ★UNVERIFIED (D-S8): month_stats_popup.gd NEW, code-built overlay (bug_catcher pattern) — % (rest days excluded from denominator; current month counts elapsed days), tasks X/Y, best run (within-month, purple-bridged, display-only), coins STUBBED '—' (no per-day coins server-side; per-day column = mechanism A at next index.ts unfreeze, doc records the lifetime-watermark alternative B), bounded in-popup month nav, static month_stats()/tier_for_percent() helpers the header wiring imports. devkit_menu.gd Tools row. REMAINS: (a) header wiring — month-name tier tint (completed months only, band consts in the popup) + long-press relay, few lines in calendar_grid AFTER D-S2/D-S3 verify; (b) coins column server-side post-D-S6; (c) COMPLETED-MONTH CHROME — DESIGNED s35 (theme doc v2 authority); builds inside 4.14b. Month-close disclosure copy TBD (roster content list). Time: ~1.5h popup (ESTIMATE — correct at close).
+[~] 4.10 [CODE] Month colour + stats popup — RESHAPED s35 (authority NEW four_tasks_month_stats_design_notes.md): month STAMP CUT (visual downgrade vs eternalised themed month; PERFECT MONTH survives as a single client flourish at 100% — pools-doc month-stamp question CLOSED, no pool). Popup half BUILT s35, DevKit in-progress view DEVICE-VERIFIED s36 (D-S8 dev-side: %, X/Y, best run, coins '—', elapsed denominator all correct): month_stats_popup.gd, code-built overlay (bug_catcher pattern), bounded in-popup month nav, static month_stats()/tier_for_percent() helpers the header wiring imports. coins STUBBED '—' (no per-day coins server-side; per-day column = mechanism A at next index.ts unfreeze, doc records the lifetime-watermark alternative B). REMAINS: (a) header wiring — month-name tier tint (completed months only, band consts in the popup) + long-press relay, few lines in calendar_grid AFTER D-S2/D-S3 verify [confirm tint + long-press read the SAME sealed flag]; (b) coins column server-side post per-day unfreeze; (c) COMPLETED-MONTH CHROME — DESIGNED s35 (theme doc v2 authority), builds inside 4.14b; (d) D-S8 SHIPPING-trigger verify at first real month seal. Month-close disclosure copy TBD (roster content list). Time: ~1.5h popup (ESTIMATE).
 [ ] 4.11 [CODE] Help menu — two-tier, six subjects, [g]glitch[/g] markup (consumes 4.1). Copy = roster-week content list. (~4-6h)
 [~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: real-UI trigger (one line, lands with 4.11's help menu). Confetti garnish DEFERRED with 4.9 (s35) — no one-off particles; rides the shared system if 4.9 revives. (~5min left, inside 4.11)
 [ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h)
 [x] 4.14c [CODE] Future cells non-tappable. day_cell.is_interactive() rejects taps + long-presses on DEAD_FUTURE. Device-verified session 31. ~0h.
-[ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready-ish: `user_weekday_overrides` table needs the 4.D2 reshape (per-slot text + active bitmask; explicit drop-and-recreate — IF NOT EXISTS won't restructure) + its write endpoint; `week_mode_weekdays` bitmask RETIRED-UNUSED under Model B.
+[ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready-ish: `user_weekday_overrides` table needs the 4.D2 reshape (per-slot text + active bitmask; explicit drop-and-recreate — IF NOT EXISTS won't restructure) + its write endpoint; `week_mode_weekdays` bitmask RETIRED-UNUSED under Model B. NOTE (s36): the "IF NOT EXISTS won't restructure" hazard just bit PROD for real — treat the 4.D2 reshape as a proper migration, not a re-apply (see ACTIVE schema-migrations item).
     Interaction-model fork RESOLVED: Model B — single POPUP off the weekday header, four task slots with per-slot override controls (Morgan 2026-06-10; staggered-disclosure doc synced s32: day-2 long-press relays into the popup, one-time intro line replaces the tutorial flow). Doc sync + popup detail DONE s34 (week-mode doc fully rewritten to Model B; Morgan decisions 1-10 locked: per-slot independent toggles + text, empty-on-blur revert, ghost placeholders, tick-greying w/ all-ticked-unlocks rule, one whole-row save, PUT /users/:id/weekday_overrides/:weekday, week_mode_weekdays column retired-dead). REMAINS: the build. (~8-12h)
-[~] 4.23 [CODE] App local-date-change watcher — BUILT s34, ★UNVERIFIED (D-S4). _last_seen_date marker + _check_date_rollover() first on every FOCUS_IN: date moved EITHER direction → both calendars jump_to_today() (assumption: date moved ⇒ show today beats preserving a browsed month — flag if s31 design said repaint-in-place), open trays on now-future dates close. Skipped mid-ceremony WITHOUT consuming the marker (retries next focus-in). Time: ~30min (ESTIMATE — correct at close).
-[~] 4.24 [CODE] Dead-cell treatment + off-month nav — DECIDED + BUILT s34, ★UNVERIFIED. Authority: four_tasks_calendar_cells_design_notes.md (NEW). Sealed 0-tick days → dead-inert, uninteractable, no tray (fixes sealed-renders-UNMARKED); pre-install identical; off-month flattened to same treatment, tap = grid navigates to home month then delegates as an in-month tap (direction-agnostic; navigation-only when the day is grey/pre-install at home); grey stamp tier LATENT (stamp_tier doc amended — server untouched, no grey authoring). Build: day_cell.gd (SEALED_GREY state, DEAD_HISTORICAL→OFF_MONTH, flattened dead visual) + calendar_grid.gd (sealed branch in _derive_active_state, nav-delegate in tap/long-press relays). App.gd untouched. Device: grey skips dead on both panels; overflow tap opens worked-day tray after nav / nav-only on grey; today-as-overflow edge. Time: ~1h (ESTIMATE — correct at close).
-[~] 4.25 [CODE] Walkback span-sealing — SERVER HALF DONE s33 (doc pass s32; direction s31). index.ts: buildSpan + evaluateSpanRescue (pre-scan) + sealSpan (+per-day computeDayPayout) replace the single-target walkback; per-day streak walk oldest-first; never-opened rows created sealed grey accounted_for=0; one shared sealed_at per batch; pending target_date/tier nullable; streak_at_stake = running streak AT the breaker. Deployed dev; WIRE PASSED s33: W13r both halves, W14r, W19 both halves, W20, W11/W12 re-proven under span code. REMAINS: DEVICE PASS ONLY (D-S6) — pass-2 items resolved s34 by trace: rescue_confirm copy already null-safe (reads rescue_date/cost/streak_at_stake only — verified against fresh upload, byte-identical); coordinator sealed_day:null wind-down verified in code AND hardened: the empty branch now calls refresh_after_morning() so silently-sealed greys paint at wind-down (morning_sequence.gd, ★UNVERIFIED D-S5). (~30min device)
-[~] 4.26 [CODE] Notifications — BUILT s33, DEVICE-PARTIAL. Design authority: four_tasks_notifications_design_notes.md (times 6:30am/8pm fixed v1.0; lowercase copy; boot permission; structural suppression — day-0 morning never scheduled, evening skips 4/4 + rest day; lapse decay daily*7 then gap+1/nudge then weekly, horizon 56; mock clock = silent). Plugin godot-mobile-plugins/godot-notification-scheduler; gradle build now ON (laptop). Notifications.gd autoload, zero existing-file edits. D-N1-D-N4 GREEN; tile closes when the ambient cases (open tests block) go green on both phones. Time: ~3h (ESTIMATE — correct at close).
-[~] 4.27 [CODE] Safe-area top inset (status bar / camera cutout) — BUILT s34, ★UNVERIFIED. Layout.safe_top_inset(): DisplayServer.get_display_safe_area top edge, physical→design conversion via design-height/window-height, mobile-gated to 0 elsewhere. App._apply_safe_area_inset(): inset onto each panel's Layout VBox (panel backgrounds stay full-bleed under the translucent bar), same amount off each tray's runtime minimum (the Layout.gd budget dial). Boot print "[App] safe_top_inset=". Device: title clear of the bar on both phones; open-tray internals fit at reduced minimum (next dial if not: calendar-card headroom). CAVEAT: Godot's Android report is cutout-driven — a barred-but-cutoutless device can report 0 (theoretical for the test pool, real for 2017-era users). Loader/onboarding: eyeball same pass, apply the one-liner pattern if any screen hugs the top. Time: ~30min (ESTIMATE — correct at close).
+[~] 4.23 [CODE] App local-date-change watcher — BUILT s34, DEVICE-VERIFIED s36 (D-S4 PASS): _last_seen_date marker + _check_date_rollover() first on every FOCUS_IN: date moved EITHER direction → both calendars jump_to_today(); open trays on now-future dates close; payout ceremony is one-shot, consumed at accounting (2nd mock-day re-rolls MOTD only, correct). Skipped mid-ceremony WITHOUT consuming the marker. Time: ~30min.
+[~] 4.24 [CODE] Dead-cell treatment + off-month nav — DECIDED + BUILT s34, DEVICE-PARTIAL s36. Authority: four_tasks_calendar_cells_design_notes.md. Sealed 0-tick days → dead-inert, uninteractable, no tray; pre-install identical; off-month flattened, tap = grid navigates home then delegates as in-month tap (direction-agnostic; navigation-only when grey/pre-install at home); grey stamp tier LATENT. Build: day_cell.gd (SEALED_GREY, OFF_MONTH, flattened dead visual, F1 DeadOverlay MOUSE_FILTER_IGNORE fix s35) + calendar_grid.gd (sealed branch, nav-delegate). DEVICE s36: grey skips dead self-panel PASS; FORWARD off-month tap (trailing → navs + tray) PASS, F1 fix proven live. PARKED: partner-panel grey immutability (D-S2, no seed), BACKWARD off-month + today-overflow (D-S3, needs July). Time: ~1h.
+[~] 4.25 [CODE] Walkback span-sealing — SERVER HALF DONE s33 (wire-passed) + CLIENT DEVICE-VERIFIED s36 (D-S6 PASS, tile CLOSED): grey rescue dialog fires correct (grey tier, streak-at-stake 3, cost 50000); broke balance DISARMS the SAVE button (affordability gate working — only arms when affordable); LET IT GO seals the missed day + runs payout (decline path, streak→0, no charge); funded accept → rest-day beat (separately seen). Server: buildSpan + evaluateSpanRescue + sealSpan, per-day streak walk, shared sealed_at, W13r/W14r/W19/W20/W11/W12 wire-passed s33; wind-down null-target greys paint via refresh_after_morning (D-S5 PASS). DONE.
+[~] 4.26 [CODE] Notifications — BUILT s33, DEVICE-PARTIAL. Design authority: four_tasks_notifications_design_notes.md (times 6:30am/8pm fixed v1.0; lowercase copy; boot permission; structural suppression — day-0 morning never scheduled, evening skips 4/4 + rest day; lapse decay daily*7 then gap+1/nudge then weekly, horizon 56; mock clock = silent). Plugin godot-mobile-plugins/godot-notification-scheduler; gradle build now ON (laptop). Notifications.gd autoload, zero existing-file edits. D-N1-D-N4 GREEN; tile closes when the ambient cases (open tests block) go green on both phones. Time: ~3h (ESTIMATE).
+[~] 4.27 [CODE] Safe-area top inset — BUILT s34, DEVICE-VERIFIED s36 (D-S1 PASS, self-phone): Layout.safe_top_inset() (DisplayServer safe-area top edge, physical→design conversion, mobile-gated 0 elsewhere); App._apply_safe_area_inset() (inset onto panel VBox, off each tray's runtime minimum). Boot print confirmed "[App] safe_top_inset=172", title clear of bar, tray fits. SOUTH-PHONE REPEAT still owed (CAVEAT: barred-but-cutoutless devices report 0 — theoretical for the pool). Loader/onboarding eyeballed clear. Time: ~30min.
 
 ━━━ FORK POINT ━━━ APPtrioc launches from snapshot after 4.14a. See PHASE 5b. ━━━
 
@@ -204,7 +195,7 @@ before code). Realistic store launch: Sept-Oct 2026.
 [ ] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration). Unlocked menu: per-slot icons, instant application + APPLY ALL. Locked menu: PREVIEW (~30s revert). Rotation fires on active_leader change ONLY.
     Design authority: theme doc v2 (THEME PREP resolved s32 — colour system, 7-slot catalogue, pre-bake retint, preview/marker rules; +s35 COMPLETED-MONTH CHROME — completed months source screen-level slots from the last sealed accounted day's day_theme_state, one selection rule inside the renderer; build-time check: days payload ships accounted_for, else one-line payload add at unfreeze). Build machinery against placeholder art. Owed at this tile per doc: icon art, marker style, 9-slice centre-mode convention, partner-render asset endpoint shape. (~10-15h)
 [ ] 4.15 [CODE] Username + icon edit. Settings → triggers rotation. "Changes may take a minute" popup. (~3-4h)
-[~] 4.20 [CODE] Palette derivation devtool — BUILT s35 (mobile build-ahead, disjoint from all s34 unverified surfaces), ★UNVERIFIED (D-S7). palette_derive.gd NEW (class_name PaletteDerive — `Palette` taken by the colour-constants autoload): the SHARED derivation implementation 4.14b's renderer MUST consume — int-exact exclusion rule (a8<255 OR r8==g8==b8), derive() (role ranking by pixel count, deterministic RGB tie-break, overflow ranks 5+, neutral audit w/ canonical-ramp tags, alpha counts, compressed-import flag), role_color() accent→tertiary fallback. devkit_palette_tool.gd NEW: code-built overlay (bug_catcher pattern), two sources — res://assets/stickers recursive (CONST AT TOP — adjust if the real folder differs; .import-strip for exported PCKs) + user://palette_inbox (drop PNGs via file manager/adb, no rebuild — the production-loop path); nearest preview, role swatches w/ hex+count+%, CLOSE adjacent-rank advisory (ratio ≥0.8 — arbitrary, advisory only per doc's discipline-not-validation), overflow list as the AA-violation surface, neutral + alpha audits, lossy-import warning. devkit_menu.gd: Tools section, one-line trigger. Time: ~2h (ESTIMATE — correct at close).
+[~] 4.20 [CODE] Palette derivation devtool — BUILT s35, DEVICE-VERIFIED s36 (D-S7 PASS, tile CLOSED): tool opens DevKit→Tools, scans res://assets/icons recursively (RES_SCAN_DIR fixed s36 — was assets/stickers), renders nearest preview + role swatches w/ hex/count/%, neutral + alpha audits, CLOSE adjacent-rank advisory + AA-smell overflow surface all fired correctly on placeholder stickers. Inbox load (user://palette_inbox) fixed s36 — Image.load_from_file wrapped in ProjectSettings.globalize_path (Android user:// → OS path). palette_derive.gd NEW (class_name PaletteDerive): SHARED derivation 4.14b's renderer MUST consume — int-exact exclusion (a8<255 OR r8==g8==b8), derive() w/ role ranking + neutral audit + alpha + compressed-import flag, role_color() accent→tertiary fallback. NOTE: the two designated neutral greys must be present in PaletteDerive's exclusion set so documented greys drop to neutral (per pools/theme doc — confirm once). devkit_palette_tool.gd NEW + devkit_menu.gd Tools row. Time: ~2h.
 [ ] 4.21 [CODE] Un-pair flow — client UI (server endpoints done 1.3; initiator-notice fix s29). Initiator: long-press partner header → menu → Un-pair → confirm → change-username follow-up. Recipient: dismissable banner (one-shot, server-tracked). Reference: pair-key doc §17. (~3-4h)
 [~] 4.22 [CODE] Content-drops delivery pipeline — SERVER RECEIVE-SIDE DONE (s29): schema (content_drops / content_drop_assets / content_drop_deliveries), GET /users/:id/drops (live + forward-only + undelivered; release-day local-time gating is CLIENT-side per client-owns-the-clock; subscriber_only returned not filtered — sub-pack news is conversion pull), POST delivered ack (explicit, idempotent, never implicit on read), Thursday-release cron (wrangler [triggers] + scheduled handler). Tests = W9/W10. CLIENT HALF remains: presentation queue + drop popup (ceremony-adjacent — with Morgan). Publishing = manual SQL at launch; authoring tool post-launch. (~3h left)
 
@@ -225,7 +216,7 @@ PHASE 4b — Art & feel (PAINTING ONLY, at the easel)
 [ ] 4.A [ART] Coin sprite.
 [ ] 4.B [ART] Frog mascot.
 [ ] 4.C [ART] Stamp set. Five tiers: red/orange/yellow/green/purple (grey LATENT s34 — never surfaced, paint nothing).
-[ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png`. Palette from sticker.png pixel-frequency (≤4 non-neutral + free neutral ramp — doc v2). 32×32 RGBA. Maximal pack = sticker + background 360×800 + three 48×48 9-slices + 1-4 border corners 96×96. Launch set + 3-4 pack buffer (see PARKED pack-drop item). Reference: theme doc v2.
+[ ] 4.D [ART] Sticker catalogue. Folder per sticker, `<id>_<role>.png`. Palette from sticker.png pixel-frequency (≤4 non-neutral + free neutral ramp — doc v2). 32×32 RGBA. Maximal pack = sticker + background 360×800 + three 48×48 9-slices + 1-4 border corners 96×96. Launch set + 3-4 pack buffer (see PARKED pack-drop item). Reference: theme doc v2. NOTE (s36): loaders expect <folder>/<folder>_sticker.png (palette tool confirmed black_cat_sticker.png etc. on disk); see ACTIVE sticker-render bug — picker/spinner aren't resolving these at runtime in BOTH builds, root cause TBD (filename convention vs loader path template).
 [ ] 4.E [ART] UI chrome (buttons, popups, dividers, util bar).
 [ ] 4.F [ART] Onboarding example calendar screenshots (real build, post-theming).
 
@@ -240,8 +231,8 @@ PHASE 5 — Ship Four Tasks to stores
 
 [ ] 5.0 [DECIDE] Android-first option. Considered 2026-06-10, NOT taken (store-spend at launch matters; alienating iOS adopters feels wrong) but kept as a conscious lever if Phase 5 slips: Google-only launch halves Phase 5, APPtrioc (HTML5) doesn't need iOS, iOS fast-follows on revenue. Revisit only if the Mac/review path stalls.
 [ ] 5.10 [ADMIN] Google Play Console setup. ★ PULLED FORWARD (2026-06-10): DO NEXT ROSTER BREAK. Identity verification has days-to-weeks lead time, and IAP products must exist in the console before RevenueCat plumbing is testable. Costs an evening now; costs a break if discovered late.
-[ ] 5.1 [CONFIG] Production Worker deployment. Real domain (`api.fourtasks.thepicklemoon.com`). Builds → production; dev/test → staging.
-[ ] 5.2 [CONFIG] DevKit excluded from release exports — audit the custom feature is absent from store presets; confirm both devkit buttons vanish in a release build.
+[ ] 5.1 [CONFIG] Production Worker deployment. Real domain (`api.fourtasks.thepicklemoon.com`). Builds → production; dev/test → staging. NOTE (s36): prod Worker `four-tasks-api` IS live + serving (workers.dev URL); `--env production` proven; devkit gating fail-closed (POST /devkit → 404). Custom-domain mapping is what remains here.
+[ ] 5.2 [CONFIG] DevKit excluded from release exports — audit the custom feature is absent from store presets; confirm both devkit buttons vanish in a release build. NOTE (s36): store preset is devkit-clean (verified [Loader] devkit=false on prod APK). Keep the formal audit at Phase 5.
 [ ] 5.3 [CODE] Production logging + error reporting.
 [ ] 5.s [CODE] Subscription infrastructure plumbing — RevenueCat SDK + webhook endpoint SETTING users.subscription_active (server-set only; claim-side economy already reads it, s28), entitlement check, lapse flow, paywall UI, day-21 value-summary disclosure copy. Depends on 5.10 console products existing. (~10-15h)
 [ ] 5.4 [CONFIG] Android build — release signing, keystore, signed .aab, verify on Pixel. (Debug toolchain done s23.)
@@ -290,6 +281,14 @@ ACTIVE — ad-hoc items found during the port
     (a) STREAK RESCUE — locked + built + verified (W11-W17, D12-D14). Authority: economy doc (Streak rescue) + morning-seq doc (Streak rescue gate). AMENDED s32 for span-sealing (4.25).
     (b) SEAL-DAY HERO BEAT — locked + built + verified (D15). Authority: four_tasks_hero_beat_design_notes.md. Sticker art placeholder until 4.D.
 
+[ ] ★ SCHEMA MIGRATIONS — adopt before Phase 5 (s36, hard lesson). CREATE TABLE IF NOT EXISTS will NOT restructure an existing table — prod `days` survived as a stale pre-accounted_for version and broke createUser until DROP+reapply (safe only because prod was empty). Dev `days` ALSO drifted (hand-run ALTER, column appended at table end vs file's mid-table position) — functionally equal but the schema-of-record was unreliable. ACTION: (a) declare schema.sql canonical; (b) one-time reconcile dev↔file↔prod, confirm EVERY table matches the file in content (the hand-ALTER risk isn't just `days`); (c) introduce numbered migrations/ + a schema_version marker so future column adds apply to all environments via explicit ALTER, run separately from the CREATE-IF-NOT-EXISTS baseline. CRITICAL: drop+reapply dies the instant prod has a real (paying) user — this must be in place before Phase 5.
+
+[ ] user_not_found should route to ONBOARDING, not the reach-server error screen (s36). State.gd:548 _on_user_load_failed / Backend.gd:493 _request collapse all load failures into "Couldn't reach the server." Latent — only bites a device holding a stale user_id against an empty/reset DB (genuinely-fresh install has no id → onboards fine), but real cases exist: server-side account deletion/unpair, any prod reset. Fix = branch: network/timeout → retry screen; clean user_not_found from a reachable server → onboarding. (~few lines)
+
+[ ] STICKERS not rendering at runtime — MOTD picker + onboarding companions, BOTH dev AND prod builds, non-fatal (falls back to text/warning). onboarding_companions.gd:185 _load_sticker_texture; water_bottle the live example ("sticker art missing at res://assets/icons/water_bottle/water_bottle_sticker.png"). Root cause TBD: constructed path template vs actual filenames (loaders build an exact path string; palette tool lists them fine because it SCANS — different mechanism). Check the path template against disk + confirm water_bottle's file follows the <name>/<name>_sticker.png convention. NOT export-stripping (fails in both builds).
+
+[ ] FIRST-RUN SURFACE broadly unverified (s36). Devkit seeds bypass createUser / first-pair / day-0. createUser PROVEN s36 (curl smoke + first prod boot); pairing, join_by_values, recovery_flow still only device-tested, not first-contact-proven against an empty prod DB. Expect more first-contact bugs as Morgan + Ayshe dogfood. Watch these paths specifically during pairing.
+
 [ ] PARKED (s35 sweep, F2): days payload window (Jan 1 of last year) contradicts the calendar/stats nav floor (install month) — months older than the window render UNMARKED locally (tiers + sealed greys lost; 4.24's symptom resurfacing at the window edge), and each Jan 1 the poll merge mass-drops a year of local rows mid-session. Year-2-user class, nothing burns at launch. Morgan direction: likely resolved by a year-close export/ceremony concept rather than widening the payload — design when it matters.
 
 [ ] Username display normalisation vs recovery footgun. panel_heading lowercases at render; recovery matches STORED case → user types what they saw, gets user_not_found. Resolve: (a) lowercase server normalisation (heavy: re-derives hashes), or (b) recovery-screen copy "enter exactly as you first typed it, capitals matter" (~30min). Lean (b). Pair-key doc §12.
@@ -302,7 +301,7 @@ ACTIVE — ad-hoc items found during the port
 
 [x] DevKit disappointment-day scenario — superseded by s30 morning_grey scenario (device-verified s31).
 
-[ ] Roster-week content list — mobile-writable work for on-roster weeks: stamp-message additions OPTIONAL (pools LOCKED for launch s35 at purple 18 / green 25 / yellow 4 / orange 3 / red 3 — append-over-time; bracket-stubs still in PROD until the constants deploy), help-menu copy (six subjects), month-close disclosure copy (one-shot, disclosure doc s35), rest-day task-label phrases (~15-30), sticker/stamp concept lists, promo-codes doc draft.
+[ ] Roster-week content list — mobile-writable work for on-roster weeks: stamp-message additions OPTIONAL (pools LOCKED + LIVE dev/prod s36 at purple 18 / green 25 / yellow 4 / orange 3 / red 3 — append-over-time, one-deploy; NO longer bracket-stubs in prod), help-menu copy (six subjects), month-close disclosure copy (one-shot, disclosure doc s35), rest-day task-label phrases (~15-30), sticker/stamp concept lists, promo-codes doc draft.
 
 [~] Doc sync pass — s29 shipped five docs; s32 shipped five more (economy, morning-seq — incl. the s30 rescue-gate section that never reached the repo, system map full refresh incl. the §6-7 inventory, timezone incl. boot-only clarification + rotation/MOTD wording, staggered-disclosure) + wire_regression_pack.md. REMAINING pile:
     - Partner reactions doc → `four-tasks/deferred/`.
@@ -346,7 +345,7 @@ PARKED — known, not blocking
 
 [ ] Bump wrangler `compatibility_date` (pinned 2026-01-01). Natural at Phase 5.
 
-[ ] GOTCHA (s29): wrangler.toml top-level now mirrors DEV — bare `wrangler deploy` lands on the dev worker; prod REQUIRES `--env production`. Inverted from the old layout deliberately (accidental-deploy-to-prod was the dangerous direction).
+[ ] GOTCHA (s29): wrangler.toml top-level now mirrors DEV — bare `wrangler deploy` lands on the dev worker; prod REQUIRES `--env production`. Inverted from the old layout deliberately (accidental-deploy-to-prod was the dangerous direction). (Re-proven s36: bare deploy hit dev, --env production hit `four-tasks-api`.)
 
 [ ] Windows curl TLS quirk (SEC_E_ILLEGAL_MESSAGE ~30min on fresh Worker URLs). Browser-test first.
 
@@ -360,6 +359,8 @@ PARKED — known, not blocking
 
 [ ] GOTCHA: device-test via `adb install -r`, not email/download.
 
+[ ] GOTCHA (s36): a STALE table survives `CREATE TABLE IF NOT EXISTS` — applying schema.sql does NOT fix a table created in an older shape. While a DB is empty, DROP TABLE <name> + re-apply. Once it has data, this is gone — use ALTER migrations (see ACTIVE schema-migrations). Also: `wrangler tail` logging an invocation as "Ok" means the handler returned a Response (incl. a handled 500) — it is NOT proof of HTTP 200; check the body/DB.
+
 [x] ECONOMY REDESIGN — doc LOCKED s27 (AUTHORITY). Claim handler applies it in full as of s28. Amended s30 (streak/rescue) + s32 (span-sealing, 4.25 — doc-locked ahead of build).
 
 [ ] Coin economy balance pass — feel tuning of placeholder figures against real play. rest_cost now server-shipped (s29) so retunes are one server constant; extend the economy payload container as more numbers go live (reroll cost, sticker prices).
@@ -372,7 +373,7 @@ PARKED — known, not blocking
 
 [ ] Same-person multi-device pairing. Design needed only if multi-device sync becomes v1.x.
 
-[ ] Stamp messages real authoring — see roster-week content list (ACTIVE). Still bracket-stubs in prod.
+[x] Stamp messages authored — five tiers locked + LIVE dev/prod (s36). pickStampMessage returns real strings (claim-verified). Append-over-time, one-deploy. Optional further additions tracked in the roster-week content list.
 
 [ ] Achievement framework — speculative. May never ship.
 
@@ -410,3 +411,5 @@ Running project total at session 31 close: ~156.75h
 (s29 ~5h · s30 ~5h · s31 ~4h; s29 figure is an estimate — correct if wrong).
 Running project total at session 32 close: ~162.75h
 (s32 ~6h ESTIMATE, doc-only incl. THEME PREP — correct at close if wrong).
+Running project total at session 36 close: ~180.75h
+(s33 ~7h · s34 ~3h · s35 ~3h · s36 ~5h — ALL ESTIMATES, FIVE corrections owed: s32-s36).
