@@ -1,145 +1,251 @@
-# PICKLE MOON Repo Index
+# THE PICKLE MOON — Repo Index & Doc-Fetch Guide
 
-Last edit: 2026-05-28 AWST
+Canonical file map for the studio's repos, and the operating guide for how
+Claude pulls design docs on demand. This file supersedes the old
+`pickle_moon_repo_index.md` (same name, kept so existing references resolve).
 
-Purpose: canonical list of files across THE PICKLE MOON's repos, with one-line descriptions. Reference doc for Claude sessions — "fetch the X doc" resolves to a specific file from this list.
+Kept in the Project's files so it's always in front of Claude. Morgan
+refreshes the map manually (see REFRESHING, bottom). Last synced from
+`git ls-files`: **2026-06-14 (session 37)**.
 
-Last updated: 2026-05-28 (session 19 — doc de-stale pass: all design docs reconciled to shipped v1.0 schema + system map; system map + test matrix added to repo; devkit + content-authoring docs indexed; deferred/ and archive/ folders represented).
+═══════════════════════════════════════════════════════════════
+FOR CLAUDE — READ THIS FIRST
+═══════════════════════════════════════════════════════════════
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REPO: pickle-moon-design-notes (PUBLIC)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Design docs are **not** uploaded to the Project or pasted per chat. They
+live in the public `pickle-moon-design-notes` repo and you fetch the ones
+you need yourself, via `bash` + `curl`, from raw GitHub. Don't ask Morgan
+to paste a design doc you can fetch — fetch it.
 
-Raw URL base:
-https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/main/
+The MAP below tells you what exists and the exact path of each file. When a
+doc is referenced — by name, by topic, or because a task touches its area —
+pull it before answering on its content.
 
-## Root level
+═══════════════════════════════════════════════════════════════
+FETCH — HOW
+═══════════════════════════════════════════════════════════════
 
-- `pickle_moon_repo_index.md` — this file. The directory.
-- `README.md` — repo intro.
-- `.gitignore` — repo ignore rules.
-- `a quiet week/design_doc.md` — other Pickle Moon project (not Four Tasks). Kept in-repo deliberately.
-- `envelope/envelope-doc.md` — other Pickle Moon project (not Four Tasks). Kept in-repo deliberately.
+Base URL (note the `refs/heads/main/` form — the short `main/` form is
+flaky):
 
-## four-tasks/ — Four Tasks Godot port
+  https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/refs/heads/main/
 
-Raw URL prefix for this subfolder:
-https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/main/four-tasks/
+Fetch a doc = base + its MAP path:
 
-Working documents (high churn):
-- `four_tasks_godot_devlog.txt` — ACTIVE devlog (current). Summary block of sessions 1-9 at top, then sessions 10+. Primary context doc. AI reading guide at top.
-- `four_tasks_godot_devlog_session_1-9.txt` — archived early devlog (sessions 1-9 in full prose). Reference only — for reconstructing how a decision was reached, not the decision itself. Authority for any locked decision lives in the relevant design doc + the active devlog's summary block.
-- `four_tasks_godot_todo.txt` — active tile list, phases, parked items.
+  B="https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/refs/heads/main"
+  curl -sS "$B/four-tasks/four_tasks_week_mode_design_notes.md" -o /tmp/wk.md
+  # then `view /tmp/wk.md` (or head/grep it)
 
-Live system state (the "what shipped" reference — authoritative for current build):
-- `four_tasks_system_map.md` — live operational view of the shipped system: schema, endpoint contracts, autoloads, scenes, seal invariants. The ground-truth doc the design notes are reconciled against. Created session 19.
-- `four_tasks_test_matrix.md` — test coverage matrix: endpoints, client autoloads, devkit, bug-report path. Created session 19.
+Gotchas (all proven this session):
+  - Use **bash `curl`**, not `web_fetch` — `web_fetch` is gated; the raw
+    GitHub host IS in the bash network allowlist.
+  - **Spaces in a path** must be URL-encoded: `a quiet week/` →
+    `a%20quiet%20week/`.
+  - **CDN propagation:** a doc pushed in the last ~1-3 min may 404 or serve
+    a stale copy. If a fetch looks wrong right after Morgan says he pushed,
+    wait and retry.
+  - **Do NOT rely on the GitHub API to list the repo.** The tree endpoint
+    (`api.github.com/repos/.../git/trees/main?recursive=1`) works in
+    principle but this environment's egress IP is shared and hits GitHub's
+    unauthenticated 60/hr limit — it will often fail. The MAP in this file
+    is the authoritative list; raw per-file fetches are the reliable path.
 
-Locked design docs (architecture / meta-rules):
-- `four_tasks_architectural_preference.md` — meta-rule: clarity over cleverness for low-throughput load profile. Examples + when the clever option is permitted.
-- `four_tasks_staggered_disclosure_design_notes.md` — meta-principle: features reveal over days/weeks, not at onboarding. Day-4 partner-reactions slot deferred with the feature. Coordinator + reveal content lands Phase 4.
-- `four_tasks_pair_key_design_notes.md` — identity model. Three-identifier system: user_id (stable per-user UUID, forever), pair_id (stable per-pair UUID, current relationship), pair_key (recovery hash of six values, lookup-only). Name immutable; username + active_leader mutable, trigger pair-key rotation. Case-sensitive name matching. Schema shipped wholesale session 12 (header note clarifies the migration_005 mentions are historical).
+═══════════════════════════════════════════════════════════════
+FETCH — WHEN
+═══════════════════════════════════════════════════════════════
 
-Locked design docs (server / backend):
-- `four_tasks_rate_limiting_design_notes.md` — Cloudflare edge rate limits. Two-tier: user_id-keyed (identified endpoints) + IP-keyed (resolve / user creation). 429 status code exception to the otherwise-locked set. Config lands Phase 5. Re-keyed off the shipped /users/:user_id surface session 19.
-- `four_tasks_timezone_and_sealing_design_notes.md` — IANA timezone per user, boot-only sync. Lazy seal-on-open absorbed into claim endpoint transaction at tile 1.3 (session 12). No cron.
+  - **Session start (`prep`/`sync`):** read the devlog + todo first
+    (they may already be in the Project's files — check; if not, fetch
+    them), follow the devlog's AI Reading Guide, then pull whatever docs
+    Morgan flags as recently changed.
+  - **Mid-chat:** any doc named or implicated by the work — fetch it before
+    reasoning about its locked decisions. The devlog/todo are lean
+    pointers; the design docs carry the actual authority and detail.
+  - **Naming is regular:** `four-tasks/four_tasks_<topic>_design_notes.md`.
+    If something's referenced that isn't in the MAP, try constructing the
+    path and fetching anyway — a 404 means it doesn't exist, a 200 means
+    the MAP is stale and should be refreshed.
 
-Locked design docs (gameplay / UX):
-- `four_tasks_morning_sequence_design_notes.md` — 12-beat morning ritual. Rest-day variant, partner panel visibility, crash-resistance via walkback/sealed_at gate, shipped claim endpoint (POST /users/:user_id/claim), MOTD storage (days.motd, frozen at seal; header vs tray surfaces), MOTD reroll flat-cost (90-110, supersedes doubling). Reconciled to shipped session 19.
-- `four_tasks_onboarding_design_notes.md` — onboarding flow. Solo-as-default (no fork screen), 8-screen flow with copy locked, pairing-by-typed-values (POST /users/:user_id/join_by_values, shipped shape), recovery via POST /resolve, theme+MOTD in day-zero onboarding, library sharing soft-plant. Case-sensitive name confirmation. Reconciled to shipped session 19.
-- `four_tasks_stamp_tier_design_notes.md` — stamp tier mapping (red/orange/yellow/green/purple), server-side message pools, tone targets per tier. Random pick, no anti-repeat for v1.0.
-- `four_tasks_week_mode_design_notes.md` — per-weekday opt-in task templating. Long-press day-name to toggle. Divergence on first edit. Personal not shared. v1.0 scope (promoted session 9). Schema shipped: week_mode_weekdays bitmask + user_weekday_overrides (user_id, weekday) PK + task_labels JSON. Corrected session 19.
-- `four_tasks_theme_design_notes.md` — theme + sticker system. Feature-catalogue model. Pixel-frequency palette derivation from sticker.png (session 8 — supersedes palette.tres). Asset naming `<id>_<role>.png`. Per-slot variant rotation by stable date-hash. Cell shows sticker (stamp is on the tray). MOTD + UI fonts locked global. Cell-overlay-bucket vs runtime-tier open question flagged (4.14b).
-- `four_tasks_devkit_design_notes.md` — DevKit scenario menu (tile 2.9). In-build tooling to drive states for testing (seed days, force seals, jump dates, dismiss reveals). Replaced the killed tile-0.4 devkit skeleton. Session 17.
-- `four_tasks_content_authoring_tool_design_notes.md` — tool for authoring the content pools (stamp messages, MOTD wordlists, rest-day labels, task placeholders) outside hand-edited source. Session 17.
+═══════════════════════════════════════════════════════════════
+CANNOT FETCH — PASTE INSTEAD
+═══════════════════════════════════════════════════════════════
 
-Locked design docs (commercial):
-- `four_tasks_monetisation_position.md` — v2.0 (session 6/7). Subscription delivers bilateral library access + small stacking coin bonus. All packs bought with coins. Fortnightly alternating drop cadence (subscriber-only / free-thank-you). Founders pricing tier for launch cohort. day_theme_state JSON column shipped v1.0.
+The `four-tasks` repo is **private** — its source is NOT on raw GitHub:
+Godot client (`.gd`, `.tscn`), the Worker (`server/index.ts`), `schema.sql`,
+`wrangler.toml`, `stamp_messages.ts`, etc.
 
-Pending design docs (server / backend — NOT YET WRITTEN):
-- `four_tasks_promo_codes_design_notes.md` — promo-codes tables + user columns shipped inert in v1.0 schema (session 12); the /redeem endpoint and this doc are pending. Formalise before subreddit outreach. Single-code-per-user enforcement, code shape, founders_rate permanence, redemption_attempts log.
+In a Project chat these code files are usually mirrored read-only in the
+Project's files (`/mnt/project/`) — check there first. If a file is absent
+or looks stale, ask Morgan to paste it. The Project mirror can lag the live
+repo; for code, `/mnt/project/` or a paste is the source of truth, never a
+fetch.
 
-Running documents (not locked, edit freely):
-- `four_tasks_marketing_notes.md` — APPtrioc launch play, subculture targeting, streamer outreach, promo code + subculture launch model, journal section. Partner reactions noted v1.x, not launch copy.
-- `four_tasks_sticker_pack_brainstorm.md` — content brainstorm. Pack ideas with leader + slots-shipped + companions + notes. Feature-catalogue model.
-- `four_tasks_achievements_brainstorm.md` — hidden Easter-egg achievements rewarding global-first unlockers with lifetime subscriptions. NOT locked. Prompt-as-document.
+`pickle-moon-public` and `pickle-moon-ledger` aren't relevant to build work
+and aren't fetched here.
 
-Discussion / reference (captured thinking, deferred from implementation):
-- `four_tasks_tracking_design_notes.md` — per-user stat tracking discussion. DEFERRED. Two trackers with committed UX (lifetime_coins, longest_streak) are the entire scope. Goodhart audit + event-logging alternative captured for future revisit.
+═══════════════════════════════════════════════════════════════
+MAP — four-tasks/  ·  STATE & WORKING FILES
+═══════════════════════════════════════════════════════════════
 
-Session captures (handoff artefacts — under Morgan's control, not load-bearing reference):
-- `four_tasks_session_19_capture.md` — session 19 capture.
-- `s19primer.md` — session 19 primer.
+  four-tasks/four_tasks_godot_devlog.txt
+      THE devlog (v3). Read first at session start — AI Reading Guide +
+      summary block at top, sessions append chronologically.
+  four-tasks/four_tasks_godot_todo.txt
+      THE todo. Phase-structured tile list, test ledger (top block),
+      ACTIVE/PARKED/DEFERRED tiers, running hour total (bottom).
+  four-tasks/four_tasks_system_map.md
+      Live schema + core invariants (re-derive-never-remember, the
+      uniform envelope, sealing model). Update at every schema pass.
+  four-tasks/four_tasks_test_matrix.md
+      Device/wire test matrix.
+  four-tasks/wire_regression_pack.md
+      Re-runnable server wire tests (PowerShell/curl), added s32.
+  four-tasks/stamp_streak_pools_working_draft.md
+      Stamp + streak message pools (working draft; launch pools locked
+      into stamp_messages.ts in the private repo).
+  four-tasks/four_tasks_sticker_pack_brainstorm.md
+      Sticker concept brainstorm (not locked).
+  four-tasks/terms_of_service_draft.md
+      ToS draft (s29). Awaits Morgan review + hosting in pickle-moon-public.
 
-Subfolders:
-- `privacy/` — drafts and reference docs for the privacy policy. Published version lives in pickle-moon-public.
-- `deferred/` — design docs for features explicitly off the v1.0 roadmap. Captured fully; not active development.
-- `archive/` — superseded docs retained for history; not authoritative.
+═══════════════════════════════════════════════════════════════
+MAP — four-tasks/  ·  ACTIVE DESIGN DOCS (AUTHORITY)
+═══════════════════════════════════════════════════════════════
 
-## four-tasks/deferred/ — features deferred from v1.0
+  four_tasks_architectural_preference.md
+      Clarity-over-cleverness meta-rule. Read when weighing a design call.
+  four_tasks_pair_key_design_notes.md
+      Three-identifier model (user_id / pair_id / pair_key), pair-key
+      rotation, re-entrant transaction-wrapped writes.
+  four_tasks_economy_redesign_notes.md
+      Coin / streak / rescue AUTHORITY. Any number or multiplier reads it.
+  four_tasks_morning_sequence_design_notes.md
+      12-beat ceremony + post-sequence presentation queue (beat-collision
+      resolution).
+  four_tasks_staggered_disclosure_design_notes.md
+      Day-2 reveals, gesture dismissal, tutorial_progress semantics.
+  four_tasks_timezone_and_sealing_design_notes.md
+      Local-clock weekday-of-today; sealed days immutable (constrains all
+      propagation).
+  four_tasks_week_mode_design_notes.md
+      Per-slot per-weekday label overrides. DESIGN LOCKED (Model B, popup
+      detail s34). Build = tile 4.D2. See four_tasks_week_mode_primer.md.
+  four_tasks_task_label_editing_design_notes.md
+      days.sealed_labels snapshot + standard-four editor (tile 4.SL, s37).
+  four_tasks_calendar_cells_design_notes.md
+      Dead-cell treatment + off-month nav (tile 4.24).
+  four_tasks_month_stats_design_notes.md
+      Month colour + stats popup; month-stamp CUT (tile 4.10).
+  four_tasks_hero_beat_design_notes.md
+      Seal-day hero beat (4th-tick sticker moment).
+  four_tasks_motd_design_notes.md
+      MOTD message + pool design (distinct from stamp messages).
+  four_tasks_stamp_tier_design_notes.md
+      Five stamp tiers (grey latent); tier→colour→message mapping.
+  four_tasks_notifications_design_notes.md
+      Local scheduled reminders, v1.0 (tile 4.26); server push deferred.
+  four_tasks_onboarding_design_notes.md
+      8-screen solo-as-default flow; validation rules.
+  four_tasks_recovery_design_notes.md
+      Two-tier recovery flow.
+  four_tasks_rate_limiting_design_notes.md
+      Per-IP edge rate limiting; the sole 429 path.
+  four_tasks_theme_design_notes.md
+      Theme system v2 (THE authority): 4-role weighted colour system, v1.0
+      7-slot catalogue, pre-bake retint, R2 runtime delivery. Gates 4.14b.
+  four_tasks_tracking_design_notes.md
+      Per-user stat tracking; week mode framed as the anti-scope-creep
+      counterexample.
+  four_tasks_content_authoring_tool_design_notes.md
+      Content-drops authoring/delivery (tile 4.22 receive-side built).
+  four_tasks_promo_codes_design_notes.md
+      Founders promo codes; flag-vs-rate distinction.
+  four_tasks_devkit_design_notes.md
+      DevKit overlay + scenarios.
+  four_tasks_monetisation_position.md
+      Monetisation stance (subscription posture, buddyware framing).
+  four_tasks_marketing_notes.md
+      Go-to-market, APPtrioc launch sequence.
 
-Raw URL prefix:
-https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/main/four-tasks/deferred/
+  four_tasks_week_mode_primer.md   ← may not be pushed yet (created s37)
+      Handoff primer: 4.SL recap + the 4.D2 week-mode build, with the
+      seal-snapshot retrofit called out. Fetch when starting 4.D2.
 
-- `four_tasks_leaderboard_design_notes.md` — single global leaderboard ranked by lifetime_coins, streak secondary. DEFERRED (session 8). Re-evaluate after v1.0 with real usage data. Full design + rejected alternatives preserved.
-- `four_tasks_coin_name_design_notes.md` — server-side affix rule system transforming username into a flavoured coin display name. Schema reserved v1.0, feature ships v1.x+. Moved to deferred session 9.
-- `four_tasks_partner_reactions_design_notes.md` — sealed-day immutable partner reactions on MOTD + tray. DEFERRED at session 12 — eliminated cross-user write complexity from tile 1.3. Schema columns retained in v1.0 schema, feature ships v1.x. Surfacing principle (time-agnostic, no push) lives in the morning sequence doc Q7.
+═══════════════════════════════════════════════════════════════
+MAP — four-tasks/deferred/  ·  v1.x OR KILLED
+═══════════════════════════════════════════════════════════════
 
-## four-tasks/archive/ — superseded, retained for history
+  four_tasks_partner_reactions_design_notes.md   field write rules (v1.x)
+  four_tasks_leaderboard_design_notes.md         KILLED for v1.0
+  four_tasks_coin_name_design_notes.md           coin-name generator (v1.x)
+  four_tasks_achievements_brainstorm.md          speculative, may never ship
+  four_tasks_godot_devlog_session_1-9.txt        devlog v1 archive (s1-9)
+  four_tasks_godot_devlog_session_10-25.txt      devlog v2 archive (s10-25)
+      NOTE: the v3 devlog header refers to these as `_v1_sessions_1-9` /
+      `_v2_sessions_10-25` — the real filenames are the above, in
+      deferred/. Fetch by the real path.
 
-Raw URL prefix:
-https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/main/four-tasks/archive/
+═══════════════════════════════════════════════════════════════
+MAP — four-tasks/archive/  ·  SUPERSEDED
+═══════════════════════════════════════════════════════════════
 
-- `four_tasks_write_rules_design_notes.md` — SUPERSEDED at session 11. Every section had a canonical home elsewhere (project conventions, pair-key Sections 7/11/12/13, feature docs). Not authoritative. Tile 1.3 implemented against architecture docs directly.
+  four_tasks_write_rules_design_notes.md
+      Superseded field-write-rules doc; background only.
 
-## four-tasks/privacy/ — privacy policy drafts + reference
+═══════════════════════════════════════════════════════════════
+MAP — four-tasks/privacy/
+═══════════════════════════════════════════════════════════════
 
-Raw URL prefix:
-https://raw.githubusercontent.com/thepicklemoon/pickle-moon-design-notes/main/four-tasks/privacy/
+  privacy_policy_v7.md          current privacy policy
+  privacy_policy_findings.md    findings / rationale
+  privacy_policy_v1..v6.md, privacy_policy_v4_annotated.txt, README.txt
+      version history — ignore unless tracing a decision.
+  (The hosted policy lives in the separate pickle-moon-public repo.)
 
-- `README.txt` — folder intro / status.
-- `privacy_policy_findings.md` — research + requirements notes feeding the policy.
-- `privacy_policy_v1.md` … `privacy_policy_v7.md` — versioned drafts. v7 is the latest. Published version lives in pickle-moon-public.
-- `privacy_policy_v4_annotated.txt` — annotated v4 (review pass).
+═══════════════════════════════════════════════════════════════
+MAP — OTHER PROJECTS (NOT Four Tasks — out of scope for FT work)
+═══════════════════════════════════════════════════════════════
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REPO: four-tasks (PRIVATE)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  a quiet week/design_doc.md        separate project (stay-at-home-dad
+                                    roguelike). Path needs %20 encoding.
+  envelope/envelope-design-doc.md   separate project ("Envelope").
 
-Godot project + Cloudflare Worker source. NOT fetchable by Claude — paste relevant files into chat when needed.
+═══════════════════════════════════════════════════════════════
+MAP — REPO ROOT
+═══════════════════════════════════════════════════════════════
 
-Notable paths Claude should know exist:
-- `server/src/index.ts` — Worker source. Endpoints live at https://four-tasks-api.thepicklemoon.workers.dev (11 as of session 12).
-- `server/src/stamp_messages.ts` — stamp message pools by tier (stubs as of session 12; real authoring parked).
-- `server/schema.sql` — D1 schema, v1.0 lock. Single source of truth (migration_001/002/003.sql DELETED session 12; remote D1 wiped + reapplied, UUID d92e5792-61a1-42cf-969c-9b33b8cc1475).
-- `server/wrangler.toml` — Worker config.
-- `server/tsconfig.json` — TypeScript config (session 12).
-- `scenes/` — Godot scenes.
-- `scripts/` — GDScript autoloads + non-scene helpers.
+  pickle_moon_repo_index.md   THIS file.
+  README.md, .gitignore       repo housekeeping.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REPO: pickle-moon-public (PRIVATE → PUBLIC at Phase 5)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+═══════════════════════════════════════════════════════════════
+THE FOUR REPOS (on @thepicklemoon)
+═══════════════════════════════════════════════════════════════
 
-- `privacy_policy.md` — published privacy policy. Goes public at store submission.
-- Future: `terms_of_service.md` — drafted before paid users exist.
+  pickle-moon-design-notes  PUBLIC  — devlogs, todos, design docs, planning.
+      Everything in the MAP above. Raw-fetchable. Local: C:\dev\
+      pickle-moon-design-notes\.
+  four-tasks                PRIVATE — Godot project + Cloudflare Worker (TS).
+      NOT fetchable; code mirrored in the Project's /mnt/project/ or pasted.
+      Local: C:\dev\four-tasks\.
+  pickle-moon-public        PRIVATE — privacy policy + future ToS; goes
+      public at store submission (Phase 5).
+  pickle-moon-ledger        PRIVATE — expense CSV + receipts.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-REPO: pickle-moon-ledger (PRIVATE)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Machine-independent paths: both Morgan's machines (work laptop user `steez`,
+home PC user `Necruccio`) use the same `C:\dev\` layout. Repos live OUTSIDE
+OneDrive deliberately.
 
-Expense records. NOT fetchable by Claude — paste relevant rows when needed.
+═══════════════════════════════════════════════════════════════
+REFRESHING THIS FILE (Morgan)
+═══════════════════════════════════════════════════════════════
 
-- `ledger.csv` — single source of truth for expenses.
-- `receipts/` — supporting docs per row.
-- `summary_FY*.md` — annual summaries generated at 30 June each year.
+When docs are added/removed/renamed:
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-USAGE NOTES FOR CLAUDE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  cd C:\dev\pickle-moon-design-notes
+  git ls-files
 
-- The pickle-moon-design-notes repo is public; raw URLs are fetchable when a file isn't already in the Project knowledge.
-- The Project knowledge holds the current design docs; prefer it. Fetch a fresh raw URL only when Morgan flags a file as newer than the Project copy.
-- For "what shipped" questions, the system map + test matrix are authoritative over the design docs.
-- Morgan refers to files by short name ("the devlog", "the morning sequence doc", "marketing notes"). Map to filenames via this index.
-- When Morgan says "the docs have changed," ask which ones rather than assuming staleness.
+Paste the output to Claude and have it reconcile the MAP — add new lines,
+drop deleted ones, fix renames — and bump the "Last synced" date at the top.
+Then keep both copies in step: commit this file to the repo root AND update
+the copy in the Project's files (the Project copy is the one Claude reads by
+default; the repo copy is the fetchable backup).
