@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-12 AWST (session 35, mobile/work)
-Last updated: 2026-06-12 (session 35 — mobile content+design+build-ahead: pools red-penned + LOCKED for launch; 4.9 streak popup DEFERRED v1.x; 4.20 palette devtool BUILT + 4.10 reshaped (stamp CUT) w/ stats popup BUILT — both disjoint from s34 surfaces, ★UNVERIFIED D-S7/D-S8; completed-month chrome DESIGNED into theme doc v2; month-close disclosure registered; constants update UNGATED.)
+Last edit: 2026-06-14 AWST (session 37, laptop)
+Last updated: session 37 — 4.SL SEALED LABELS + STANDARD-FOUR EDITOR. New days.sealed_labels column freezes the resolved four at seal ('[]' = live fallback); sealSpan writes it (3 seal sites) + parseDayRow serialises + seedDefaultSpread backfills seeded-sealed days (they bypass sealSpan — that was the debug arc). Client: task_list render rule (sealed → snapshot, else live) + State passthrough/ceremony snapshot. NEW tasks_edit_dialog.gd (all-code modal) via hamburger long-press; app_menu.gd DELETED. Both DBs reset from schema.sql (new reset.sql; reset-not-migrate, no real pairing yet). Dev deployed + DEVICE-VERIFIED (sealed held, today changed; the claim-sealed day returned a populated snapshot — proves sealSpan, not just the backfill). OWED: index.ts → PROD; 4.D2 must retrofit the snapshot to the RESOLVED four per-weekday (hook commented in index.ts). Next: 4.D2 week mode (design LOCKED). New tile 4.FT fourth-tick seal.
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1181,11 +1181,6 @@ Session 35 time: ~3h (ESTIMATE — correct at close; s32 ~6h, s33
 ~7h, s34 ~3h corrections still owed).
 Running total: ~175.75h (FOUR estimates pending correction).
 
-═══════════════════════════════════════════════════════════
-DEVLOG — paste as new session block (above the s35 block, or
-wherever newest goes in your file)
-═══════════════════════════════════════════════════════════
- 
 SESSION 36 (2026-06-14, post-night-shift, laptop) — DEPLOY +
 FIRST PROD BOOT.
  
@@ -1253,3 +1248,66 @@ path strings). Separate ticket.
  
 Session 36 time: ~5h ESTIMATE (long debug haul, correct at close).
 Running total: ~180.75h (FIVE estimates pending correction).
+═══════════════════════════════════════════════════════════
+
+SESSION 37 (2026-06-14, laptop) — 4.SL SEALED LABELS +
+STANDARD-FOUR EDITOR.
+
+PROBLEM: task labels were global (users.task_labels); days stored
+no labels, so sealed days rendered labels LIVE — editing your four
+relabelled all history. The week-mode render rule (step 1) requires
+sealed days freeze their labels; the storage never existed.
+Invisible for 36 sessions because nothing edited labels post-
+onboarding (no editor until now).
+
+SHIPPED:
+- schema: days.sealed_labels (JSON[4], the RESOLVED four frozen at
+  seal; '[]' = no snapshot → render falls back to live). Both DBs
+  reset + reapplied from schema.sql via new reset.sql. Reset-not-
+  migrate is valid only until prod holds a real Ayshe pairing.
+- server (index.ts): sealSpan writes sealed_labels at all 3 seal
+  sites (never-opened INSERT, existing-row UPDATE, gap-rescue
+  INSERT); parseDayRow serialises it; seedDefaultSpread backfills
+  seeded sealed days — they're inserted straight as sealed and
+  BYPASS sealSpan, so without the backfill every seeded sealed day
+  is '[]' and falls back to live (the entire debug arc this
+  session: the freeze looked broken because none of Morgan's
+  sealed days had ever been through sealSpan). Deployed dev.
+- client: task_list.gd render rule (_resolve_labels_for_day:
+  sealed + 4-elem array → snapshot, else live). State.gd passes
+  sealed_labels through the server-controlled-field merges + snap-
+  shots at ceremony-seal time (_apply_seal_to_day /
+  _self_labels_snapshot).
+- UI: tasks_edit_dialog.gd NEW (all-code modal, rest_confirm
+  pattern — scrim + card + 4 LineEdits, validation mirrors server,
+  Backend.update_user on confirm). hamburger_button.gd NEW (top-
+  left 4-bar icon, long-press). App.gd wired; long-press opens the
+  editor directly. app_menu.gd DELETED (middleman menu removed).
+
+VERIFIED: dev morning_payout → claim. The day the scenario leaves
+UNSEALED, once claimed, came back with a populated snapshot — the
+backfill never touches unsealed rows, so that proves sealSpan
+writes the column itself (the seeded days prove the backfill).
+Both seal paths green server-side. Device: edited the four via the
+editor, sealed days held their labels, today changed. Freeze
+confirmed on hardware.
+
+OWED:
+- index.ts → PROD: npx wrangler deploy --env production (from
+  server/). Dev is on it.
+- ★ 4.D2 SEAL-SNAPSHOT RETROFIT: sealSpan snapshots the STANDARD
+  four (const sealedLabels = userRow.task_labels, computed ONCE
+  before the per-day loop). Correct only while overrides don't
+  exist. Once week mode ships, the snapshot must be the RESOLVED
+  four per-day (standard ⊕ that weekday's override) — move the
+  resolution inside the loop. Same retrofit on the seedDefault-
+  Spread backfill + client _self_labels_snapshot. Hook is
+  commented in index.ts. Miss it and an overridden day that seals
+  freezes the wrong labels. See four_tasks_week_mode_primer.md.
+
+NEXT: 4.D2 week mode (design LOCKED, Model B; 4.SL delivered
+render-rule step 1 + the standard-four editor as prerequisites).
+New tile 4.FT fourth-tick seal — route through the shared seal
+routine, never a parallel path (the 4.SL bug class).
+
+Session 37 time: ~5h ESTIMATE (correct at close).
