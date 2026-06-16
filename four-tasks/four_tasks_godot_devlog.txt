@@ -1,20 +1,38 @@
-FOUR TASKS — Godot Devlog (v3)
+FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-15 AWST (session 38, laptop)
-Last updated: session 38 — 4.D2 WEEK MODE server + read-side client (authoring UI → s39). ★ PILLAR CORRECTION: week mode is NOT "personal/not shared" — the partner panel must FAITHFULLY RECONSTRUCT the partner's calendar (default + overridden + sealed, exactly as it renders in their app). "No cross-user reads in v1.0" KILLED (partner reactions still cut). SHIPPED + DEVICE-VERIFIED (dev): schema +active_mask; PUT /users/:id/weekday_overrides/:weekday (9/9 wire); GET ships self + partner override sets; State.resolve_labels_for_day = single resolution authority (keyed by uid → partner resolves against partner data); seal retrofit (resolved four); CalendarMath.iso_weekday. Partner's overridden Wed ("HER WED") renders on the partner panel. BUG FOUND+FIXED: _on_poll_completed didn't ingest overrides (survived boot, died on poll). OWED: authoring UI, week-mode doc rewrite (5 privacy passages now wrong), index.ts → PROD (s37+s38).
+Last edit: 2026-06-16 AWST (session 39, laptop)
+Last updated: session 39 — 4.D2 WEEK MODE CLOSED (authoring UI shipped)
++ SEALED-DAY IMMUTABILITY fixed. s38 shipped the server + read-side
+partner mirror; s39 built the authoring UI (weekday_edit_dialog.gd, a
+new all-code modal; weekday-header long-press, self-gated; optimistic
+State.request_weekday_override; active-override header bold) then fixed
+an immutability break the override layer exposed. MODEL A LOCKED
+(Morgan: "preserve the memory of the days gone by") — a sealed day
+PRESERVES its override; the snapshot IS the memory. Resolver rewritten:
+gate on sealed_at NOT snapshot-presence (the bug), display-only past-
+guard, for_seal flag freezes the override into the snapshot. Server
+mirror: resolveSealedLabels freezes the RESOLVED four per-day at all 3
+seal sites (the 4.SL retrofit). Seal-through DEVICE-VERIFIED via mock-
+clock +1 → real claim → DB mixed per-slot freeze. OWED: index.ts →
+PROD + prod schema reset (the dogfooding gate); week-mode doc rewrite
+(Model A + the 5 stale "private" passages). 4.FT still open. NEXT: prod
+deploy, then Morgan + Ayshe dogfood on prod.
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
 
-This is devlog v3. Prior files are archive-only — read them for
+This is devlog v4 (live). Prior files are archive-only — read them for
 historical reconstruction of HOW a decision was reached, not for the
 decision itself:
-  - `four_tasks_godot_devlog_v1_sessions_1-9.txt`   — sessions 1-9
-  - `four_tasks_godot_devlog_v2_sessions_10-25.txt` — sessions 10-25
+  - `four_tasks_godot_devlog_v1_sessions_1-9.txt`    — sessions 1-9
+  - `four_tasks_godot_devlog_v2_sessions_10-25.txt`  — sessions 10-25
+  - `four_tasks_godot_devlog_v3_sessions_26-37.txt`  — sessions 26-37
 
-Design docs (in `four-tasks/` under `pickle-moon-design-notes`) are
-the authority for everything locked. The summary below is current
-state at session 25 close; session 26+ append chronologically.
+This live file carries: the carried-forward SUMMARY (baseline state, last
+fully refreshed at session 25 close — still the architectural baseline,
+read it for the invariants) + sessions 38 onward. Design docs (in
+`four-tasks/` under `pickle-moon-design-notes`) are the authority for
+everything locked. Append new sessions after the latest.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 AI READING GUIDE
@@ -105,1212 +123,6 @@ CARRIED NOTES / OWED:
     cleaned, not blocking. Prod wiped to zero post-recovery-testing.
 
 Running total at session 25 close: ~121.75h.
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 26 — 2026-06-05
-4.4 CLOSED · beat-collision LOCKED · 4.6 coordinator built (1 beat left)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-4.4 MOTD SPINNER — CLOSED (deployed dev + device-verified). Time: ~2h.
-  - onboarding_motd.gd/.tscn (NEW) — screen-6 panel hosting msg_picker;
-    captures the just-picked sticker pool, auto-spins, "spin again" reroll,
-    Continue emits composed_message(). Economy-fenced.
-  - msg_picker: open(emoji_override) for onboarding injection; reroll()
-    (snappy) split from spin() (dramatic). msg_wheel: spin_to() velocity
-    wrap-scroll vs jiggle_to() damped reroll wobble.
-  - onboarding spine reordered: THEME_THEATRE moved AFTER tasks (gather
-    leader+companions+MOTD+tasks, THEN commit). create_user now sends
-    `today` (client ISO) + `motd`; server writes users row AND day-0 row
-    (accounted_for=1) in one batch.
-
-BEAT-COLLISION DESIGN — LOCKED (folded into morning_sequence doc).
-  - "Collision" = content drops / patch notes / popups competing at boot,
-    NOT two-days-sealing (walkback handles that). Resolution: the morning
-    sequence is SOVEREIGN — always first, uninterruptible, NOT a queue
-    member but the gate everything waits behind. A simple presentation
-    queue drains AFTER the sequence cedes control, once per app-open.
-    No replay of a completed sequence. Unblocked 4.6.
-
-4.6 MORNING SEQUENCE COORDINATOR — built, device-verified. Time: ~5h.
-  Spine + 11 of 12 beats real; beat 6 (coin payout) the only stub.
-  - morning_sequence.gd (NEW) — driver Node. App owns it, hands refs
-    (self tray, header subtitle, picker, user_id, local_date) via run().
-    started()/finished() boundaries; idempotent single cleanup; abort().
-    Drives claim via State; beats await each other.
-  - State.gd — claim handler split (A2): merges banked user silently +
-    writes the sealed day onto State.days SILENTLY (no signal, so the
-    calendar doesn't repaint mid-ceremony) + emits new morning_claimed
-    (sealed_day) signal INSTEAD of the old eager load_user reload (which
-    spoiled the reveal). refresh_after_morning() repaints at beat 12.
-    _apply_seal_to_day() stamps stamp+sealed_at onto the row.
-  - App.gd — owns coordinator + picker overlay (z100) + full-screen input
-    blocker (z200, mouse_filter STOP, added last). Fires the sequence once
-    on first self-load. started → blocker up + swipe off; finished →
-    blocker down + swipe on. Blocker swallows ALL user input (cells, month
-    nav, tray close, swipe, DEV btn) — device-confirmed dead.
-  - tasks_tray.gd — NEW capabilities driven by the coordinator:
-      · lift_to_centre()/return_to_dock() (beat 5/8) — fly the card to
-        viewport centre, full-screen dim behind, restore exact dock.
-      · wobble() (beat 4) — damped POSITIONAL overshoot in the slide-out
-        direction (telegraphs the lift; wheel-jiggle family).
-      · STAMP = data-driven render. ONE path: _render_stamp_from_data()
-        draws the stamp if the open day is sealed (message from days.stamp,
-        tier DERIVED from tasks_done count — shared w/ cell, can't drift).
-        Called on every open → permanent, shows on partner's open of your
-        sealed days too. slap_stamp() (beat 7, no args) renders-then-
-        animates the SAME thing. NOT freed on return — persists via data.
-        Placeholder art (tinted panel + message); real art is 4.C.
-  - DevKit harness: index.ts refactored default seed into shared
-    seedDefaultSpread(env, mode); added scenarios morning_payout
-    ("unsealed_worked" → seals orange) + morning_rest ("unsealed_rest" →
-    purple) via insertUnsealedDaySql (sealed_at NULL). TestUser/TestPartner
-    now seed active_stickers + real sticker leaders so the emoji reel has
-    art. devkit.gd saves TestUser identity post-seed for the morning
-    scenarios (was the "nothing happened" bug). devkit_menu rows flipped
-    live. NEEDS REDEPLOY done.
-
-  VERIFIED on device: open yesterday → wobble → lift to centre + dim →
-  (stub coin hold) → stamp slaps + lingers → return + close → picker spins
-  → MOTD glitches into header → today opens → calendar refreshes to sealed
-  state ONLY after (reveal not spoiled) → control returns, all input dead
-  throughout. Stamp PERSISTS — reopening yesterday shows it from data.
-
-  STUB LEFT: beat 6 — task payout + coin fly. The last beat; its home is
-  CoinFX (tile 4.3, no home until now). Per-row jiggle (700ms stagger) +
-  coin fly + count-up (worked) / purple strike (rest). Currently a hold.
-
-DECISIONS:
-  - Eager-sealing (seal at 4th-tick/rest-apply) considered + REJECTED.
-    Solving a non-problem; lazy walkback is sufficient. Noted so it isn't
-    re-litigated.
-  - Stamp is data-driven (stored on day row, rendered from it everywhere,
-    slap is cosmetic) — not a ceremony-owned node. Single source of truth.
-  - Tier always DERIVED from tasks_done count, never stored — can't drift
-    from the cell colour.
-
-OWED (new):
-  - Cross-month seal nav — if the sealed day is in a prev month the calendar
-    must nav there before beat 3. Not built (same-month opens directly).
-    Owed with tray work.
-  - Tray-MOTD subtitle (the "diary" beat, system map §7.5 fold-in) — needs
-    a subtitle Label on TasksTray + the claim/row to carry the day's motd.
-    Stubbed at zero hold in the coordinator.
-  - Beat 4 wobble direction + lift fade-out speed = in-context tuning once
-    the middle is full.
-
-Session 26 time: ~9h.
-Running total: ~130.75h.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 27 — 2026-06-08
-4.3 + 4.6 CLOSED · economy LOCKED · ceremony-gate refactor
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-ECONOMY REDESIGN — LOCKED. New doc four_tasks_economy_redesign_notes.md
-is now AUTHORITY; supersedes the monetisation doc's coin-tuning +
-pair-pricing + pair-shared-coins prose (those described the prototype,
-not the shipped per-user schema). Locked:
-  - Per-user everything: coins, streak, library all individual. Only
-    library ACCESS crosses the pair (tier-1 sub unlock). No shared
-    wallet / pack list / co-ownership.
-  - Per-task 900-1400 base. Partner multiplier 1.2/1.3/1.4/1.5 at 1-4
-    partner tasks. Streak bonus +1%/day perpetual, TWO-SUB-ONLY.
-  - Sub tiers: tier-1 (either) = library only, zero economy. tier-2
-    (both) = streak bonus + x1.5 partner bonus (2.25x cap).
-  - Solo subbed = phantom 1.5x, no streak (can't reach two-sub).
-  - Rest 50,000. Stickers 20k-100k by UI volume (300-600 killed).
-  - Cadence: free == one-sub (~7d); only two-sub accelerates. Doc's
-    old cadence table DEAD.
-  - OPEN TENSION logged: perpetual streak vs fixed sink (contained to
-    two-sub cohort + self-limits on streak reset). Cap option noted,
-    not applied.
-  - Claim handler currently naive (per-task sum only) — doc is the
-    TARGET; multiplier/sub/streak application owed in the handler.
-
-4.3 CoinFX — CLOSED. New CoinFX.gd autoload (REGISTER as autoload;
-filename PascalCase for the Android case-sensitive PCK). fly_coins
-(rect->target, staggered, shrink+fade), count_up (display-only, never
-touches State), wiggle (taskWiggle port), coins_for_row (4-7). Stub
-coin art = yellow Label; real sprite is 4.A (swap _make_coin only).
-
-4.6 MORNING SEQUENCE — CLOSED. Beat 6 real (last stub gone):
-  - Per-row cascade (700ms): done -> wiggle + coin fly + count-up tick;
-    undone -> wiggle + reveal MISSED; rest -> wiggle + reveal purple.
-    coins_earned split evenly across done rows (cosmetic; total real).
-  - Count-up architecture: claim merges final total into State BEFORE
-    the ceremony, so beat 6 rewinds the display to (total - earned) and
-    climbs back. Display-only via streak_bar.set_coin_display + CoinFX.
-  - Cross-month nav (beat 3) real: calendar.show_month() before the tray
-    opens if the sealed day is a prior month; beat 11 navs back to today.
-  - Picker-invisible bug FIXED: open() never set visible; beat 9 now
-    shows the picker before spin, hides after settle.
-  - tasks_tray: list forwarders set_task_pre_payout / task_rows /
-    reveal_task_row. task_list: pre-payout render mode + reveal_row +
-    get_rows; suppresses its own auto-render while pre-payout.
-  - msg_picker: card + selector band added (was bare reels over the
-    calendar), styled at runtime from Palette (PICKER_* consts) — NOT
-    baked in scene, so the theme system reskins it later. msg_wheel
-    words given a dark font colour (were white-on-white, invisible once
-    the card went in).
-
-CEREMONY-GATE REFACTOR. Collapsed the per-surface mid-ceremony repaint
-guards into ONE State.ceremony_active flag + ceremony_changed signal.
-App flips it on started/finished; reactive surfaces (streak_bar,
-panel_heading) read it in their render guard and settle on release. New
-reactive surface needs zero App change. Two distinct suppression
-mechanisms now documented in State: (1) source-side emit suppression
-(silent seal merge — calendar) for single consumers; (2) this surface-side
-gate for consumers whose trigger must still fire for others (Poll, the
-morning trigger). task_list._pre_payout stays separate (render-MODE,
-finer than the gate). Tray clear_stamp / direct-drive unchanged.
-
-BUGS FIXED (audit pass): streak_bar coin-flash spoiler (claim self_changed
-repainted final total before the count-up); panel_heading subtitle vs
-beat-10 glitch clobber; streak_bar was reading current_streak (always 0)
-— now streak; coordinator nav + GlitchType-null hardening; msg_wheel
-white-on-white text on the new card.
-
-OWED (carried): claim handler economy application (multiplier/sub/streak);
-tray-MOTD diary subtitle (still zero-hold stub); in-context tuning (wobble
-dir, coin size band, picker card width [full-viewport now], picker entrance
-anim, MOTD font); cross-month verified-on-a-real-1st only.
-
-Session 27 time: ~8h.
-Running total: ~138.75h.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 28 — 2026-06-09
-claim economy LIVE · partner-rest fix · bonus-line + diary-MOTD beats
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-CLAIM HANDLER ECONOMY — LIVE (index.ts). Was naive per-task sum; now
-applies the economy doc in full at seal:
-  - base (per-task 900-1400 sum) × partner multiplier (1.2/1.3/1.4/1.5
-    by partner's task count ON THE SEALED DATE; explicit lookup table,
-    not 1.1+n*0.1 float-drift). ×1.5 again if two-sub (2.25 cap).
-  - Two-sub-only streak bonus: round(base*mult * streak*0.01), PRE-claim
-    streak (the day being sealed doesn't bump its own bonus).
-  - Solo: 1.0, or phantom 1.5 if subscribed-solo. No streak (can't reach
-    two-sub).
-  - Partner/sub reads gated behind base>0 — rest/grey skip them (0 base,
-    mult moot). Partner row via the existing pair_id pattern; partner's
-    sealed-date day read for completion; both subs read for two-sub.
-  - Baked into coins/lifetime_coins immutably (no recompute on later
-    lapse). Verified on-device: 2-task day × partner-did-3 = ×1.4, deltas
-    ~3210/3259 (correct against the ~3220 midpoint).
-
-PARTNER-REST → ×1.5 FIX. First cut read rest as 0 tasks → ×1.0,
-contradicting the LOCKED rule (morning_seq doc line 154) AND the client
-pill (Bonus.gd REST_DAY_MULTIPLIER). Corrected: partner query reads
-rest_day; partnerRested forces 1.5; partnerContributed (rest OR ≥1 task)
-gates the two-sub boost so rest behaves exactly as a 4-task day (2.25
-under two-sub). Pill was right all along; server was wrong.
-
-CLAIM RESPONSE gains sealed_day.multiplier (applied factor, for the
-ceremony bonus line) + sealed_day.motd (the sealed day's own MOTD, for
-the diary glitch). targetRow already SELECTed motd; just surfaced.
-
-TRAY SUBTITLE SLOT REPURPOSED (tasks_tray.gd, NO scene change). The
-existing LabelLabel ("TASKS FOR" eyebrow) is now state-driven on open:
-sealed day with a MOTD → that day's frozen MOTD; else → "TASKS FOR".
-_pre_payout flag (mirrors task-list pre-payout) keeps it neutral during
-the ceremony so the coordinator fills it. subtitle_label() exposed for
-the coordinator to glitch into (same pattern as the header at beat 10).
-One slot, three registers distinguished by casing (all-caps eyebrow /
-Title-case bonus / natural-case MOTD) — one style. Sealed-day reopen now
-shows that day's MOTD in perpetuity (immutable, frozen by sealed_at).
-
-MORNING SEQUENCE BEATS (morning_sequence.gd) — last stubs gone:
-  - Beat 5a (NEW, after lift): glitches "Coin Bonus = ×1.4" (from the
-    claim's multiplier — authoritative, NOT the live pill which reads the
-    wrong day at morning-open) / "Rest Day" on a rest claim. Holds through
-    the payout.
-  - Beat 7 (_beat_tray_motd_subtitle, was zero-hold stub): the sealed
-    day's own MOTD glitches into the SAME slot as the stamp lands,
-    overwriting the 5a line (GlitchType auto-cancels the prior reveal on
-    the same label — clean overwrite, no glitch-out pass).
-  - Beat order: lift → 5a → payout → stamp+MOTD → return/close → picker →
-    header MOTD → today's tray → refresh. The new MOTD spun at beat 9
-    (header, beat 10) is distinct from the diary MOTD at beat 7 (tray) —
-    two strings, two surfaces.
-
-DEVKIT SEED FIX. morning_payout/morning_rest seeded the claimable day
-with an empty motd → beat 7 had nothing to render (the "MOTD isn't
-showing" symptom — code was correct, seed was bare). Now seeds
-"showed up anyway" (worked) / "took it easy" (rest), standing in for the
-MOTD that day's own sequence would have set.
-
-DESIGN DOC. four_tasks_morning_sequence_design_notes.md updated (beats
-5a/7, the bonus-line rationale, partner-rest → 1.5 as a server
-obligation, claim response multiplier+motd fields, the subtitle dual-use,
-rest-day 5a shows "Rest Day"). Signed off before build.
-
-VERIFIED on-device: worked ceremony (bonus line → coins → MOTD
-overwrite), rest ceremony ("Rest Day" → MOTD overwrite), perpetuity
-(reopened sealed day shows its MOTD). Partner-rest payout ×1.5 confirmed.
-
-4.8 SAME-DAY REST SYSTEM — mechanism complete (content + device test
-deferred). Long-press today's own cell to toggle a rest day.
-  - Server: POST /users/:id/days/:date/rest. Body {rest_day, local_date}.
-    Same-day only (path date must == local_date, else 400 not_same_day;
-    past days are the parked escape hatch). ON debits REST_COST (50,000;
-    409 insufficient_coins below it) + sets rest_day=1 + accounted_for=1.
-    OFF refunds + rest_day=0 (accounted_for stays — monotonic). Idempotent
-    (re-toggle same state = no coin move). Debit+flag in one D1 batch
-    (transactional). Returns {user, day}. Charge lives at DESIGNATION, not
-    claim — claim handler untouched, economy-doc "paid at designation"
-    stays accurate. WIRE-TESTED 5/5 (on/off/idempotent/insufficient/
-    not-same-day).
-  - Client: rest_confirm.gd (new, code-built modal — scrim + centred
-    card, "Take the day off?" copy, yes/no; below 50k shows shortfall
-    copy + disables yes). App connects cell_long_pressed (SELF calendar
-    only), gates to today, opens dialog on toggle-on / silent-refund on
-    toggle-off. Backend.set_rest_day + rest_day_set/_failed signals.
-    State.toggle_rest_day rewired to the cost endpoint: optimistic flag
-    flip, snapshot rollback, coins taken from server response (never
-    guessed). Cell + tray rows repaint to rest-purple FOR FREE via the
-    existing day_changed plumbing (calendar_grid + task_list already
-    classify rest_day → purple/locked; is_toggleable already excludes
-    rest) — no calendar/tray/cell changes needed.
-  - Coin tick: streak_bar.animate_coin_display(from,to) — self-contained
-    number tween (no CoinFX, no flying coins), direction-agnostic (down
-    on spend, up on refund). App drives it via a self_changed one-shot
-    capturing pre/post balance.
-  - Dialog centering bug fixed mid-build: mixing anchor PRESET + manual
-    position pinned it top-left; now explicit anchors + offsets throughout.
-
-CLOSED (both carried from S27 OWED): claim handler economy application;
-tray-MOTD diary subtitle.
-
-OWED (carried): in-context tuning (wobble dir, coin size band, picker
-card width, picker entrance anim, MOTD font, beat-5a hold 0.45s,
-rest-coin-tick 0.45s); cross-month verified-on-a-real-1st only;
-RevenueCat sub plumbing sets subscription_active (Phase 5 — the economy
-reads it, nothing writes it yet).
-
-OWED (4.8 rest, before tile close): device-test the full long-press loop
-(finger feel, dialog at phone size, tick); rest-day task-label content
-swap (~15-30 phrases drawn 4/rest-day — rows still show real task labels
-on a rest day; DEFERRED, felt cheesy). No rest-day design doc (spec
-scattered across economy/morning-seq/system-map, deemed adequate).
-
-Session 28 time: ~4h.
-Running total: ~142.75h.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 29 — 2026-06-10
-Full-stack bug sweep · 20 fixes · forecast + todo restructure · doc sync
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-VERIFIED: wire W1-W9 passed 2026-06-11; device D1-D11 passed session 31.
-
-BUG SWEEP — full stack against the locked docs: index.ts (all 16
-routes), schema.sql, wrangler.toml, every autoload + UI script. 27
-graded findings. Clean bills worth recording: walkback `<` invariant,
-both ceremony-suppression mechanisms, poll selective merge, glitch
-worker lifecycle, derived stamp tiers, calendar math (incl. negative
-month deltas + leap years), envelope/status discipline on all routes.
-
-FIXES SHIPPED:
-  #1  CRITICAL App.gd — claim trigger per-DAY not per-process.
-      _morning_triggered (session bool) → _morning_last_claim_date;
-      APPLICATION_FOCUS_IN re-triggers on a new local date (Poll's
-      proven mechanism); Backend.claim_failed re-arms so a failed
-      claim retries on next focus-in (previously never retried).
-      Android recents-resume silently stopped the daily loop —
-      no claim, no seal, no payout. DevKit always reboots through
-      Loader, which is why device testing never caught it.
-  #2  CRITICAL index.ts — writeDay upsert sets accounted_for=1 on
-      insert AND conflict. The doc's "ticking a task, saving a MOTD"
-      engagement triggers were unimplemented; combined with #1, a day
-      worked across midnight-in-session was PERMANENTLY unsealable.
-      The claim's false "Sole writer of accounted_for" comment fixed.
-  #3  HIGH index.ts — writeDay now 400s rest_day (was a silent free
-      rest day bypassing the 50k charge). Strict-not-silent per the
-      locked write-rules pattern; rest endpoint is the sole writer.
-  #4  HIGH morning_sequence.gd — abort() DELETED. It could not stop a
-      suspended coroutine (zombie resumes after "aborting"); nothing
-      called it; Android freezes the loop on background anyway, so
-      freeze/resume is the correct model for free. INTERRUPTION
-      header rewritten; design doc synced this session.
-  #5  HIGH State.gd — refresh_after_morning() routed through
-      poll_user (selective merge preserves the in-flight beat-10
-      set_motd write). load_user's full reset could stomp the
-      just-committed MOTD at settle; the coordinator comment claimed
-      a protection that did not exist.
-  #6  Backend.gd — 15s HTTPRequest timeout (default = none; a stalled
-      boot claim meant no ceremony, ever, with no failure signal).
-  #7  State.gd — rollback snapshots keyed per-operation (day|/rest|
-      namespaces). The single shared slot let any completing task-tap
-      wipe an in-flight rest toggle's rollback. Residual documented:
-      day_written responses carry no request identity, so the shared
-      flight FLAG can still clear a beat early (cosmetic only).
-  #8  index.ts — identity length caps enforced (name 49 / username 40
-      / active_leader 50, post-normalisation, pair-key doc §12) with
-      the doc-mandated value_too_long error code; all write paths
-      covered incl. the rotation route.
-  #9  index.ts — unpair notice RECIPIENT-only per tile 4.21; the
-      initiator's notice is NULLed (also clears stale notices from a
-      prior relationship).
-  #10 rest cost server-shipped — new `economy` container on GET
-      /users ({rest_cost}); State.rest_cost() with the sole permitted
-      client fallback; rest_confirm's duplicated constant deleted.
-      Economy retunes are now one server constant.
-  #11 App.gd — rest coin-anim ONE_SHOT tracked (_pending_rest_anim)
-      and torn down on rest_day_set_failed; State.toggle_rest_day →
-      bool so the anim only arms on a confirmed dispatch. (Phantom
-      count-up on the next poll was the failure mode.)
-  #12 index.ts — claim coin writes RELATIVE (coins = coins + ?),
-      matching the rest endpoint, so the two coin writers commute;
-      the read-modify-write window could swallow a concurrent rest
-      debit. Streak/longest stay absolute (no concurrent writer).
-  #13 tasks_tray.gd — open/close tween to ABSOLUTE dock targets
-      (_dock_y captured at first open). Relative offsets + callback
-      resets meant interrupted closes baked drift in permanently and
-      poisoned the ceremony lift's baseline.
-  Low tier: wrangler.toml INVERTED (top level mirrors DEV — bare
-  `wrangler deploy` lands on dev; prod requires --env production;
-  the old "accidental deploy goes to prod is safe" comment was
-  backwards risk thinking); Poll.gd debug prints stripped;
-  insertDaySql's stale "State.gd hardcodes UTC+8" comment corrected
-  (false since s23); header MOTD fallback walks back to the most
-  recent prior MOTD (yesterday-only broke the never-empty invariant
-  after one skipped day); lift dim sized from get_viewport_rect()
-  (keep_height varies logical width by aspect); fetch_motd_pool
-  concurrent-call coalescing (duplicate-connect error + double
-  fetch); bug_report cap 500 → 2000 per the write-rules doc.
-
-PARKED FINDINGS (recorded in todo): yesterday_iso epoch−86400 DST
-edge (IANA v1.x family); rotation/join TOCTOU returns 500 not 409 on
-a simultaneous race (pair_key UNIQUE keeps correctness — note only);
-bonus pill never shows the two-sub ×1.5 (lands with 5.s paywall);
-partner payload hands the partner your user_id = write credential
-(recorded as a decision in pair-key §9.1a, written this session);
-tile 4.14c appears ALREADY DONE (is_interactive blocks DEAD_FUTURE
-taps + long-presses) — device-verify and tick.
-
-FORECAST REVIEW → TODO RESTRUCTURED (full rewrite shipped):
-  - Remaining Phase-4 code ≈ 90-105h ≈ ~3 roster breaks to
-    code-complete; realistic store launch Sept-Oct 2026.
-  - Week mode STAYS v1.0 (Morgan's call, against deferral pressure).
-    Interaction fork documented in the week-mode doc: locked
-    two-gesture model vs Morgan's popup-with-radio-selectors
-    description — resolve at design sign-off before 4.D2.
-  - Streak-semantics PARKED item resolved MOOT (week mode is label
-    overrides only; every day still has four tasks) → 4.9 unblocked.
-  - Leaderboard KILLED for v1.0; eternal-stats optionality preserved
-    (lifetime_coins/longest_streak live; tracking doc deferred).
-  - Content-drops delivery promoted to tile 4.22 — the shipped
-    client's pack-delivery path is the enabler of the post-launch
-    "endlessly paint stickers" loop and was buried as a PARKED line.
-  - 5.10 Play Console setup pulled forward (verification lead time;
-    IAP products must exist before RevenueCat is testable); 5.s
-    subscription plumbing tiled out of PARKED.
-  - Rest-purchase ESCAPE HATCH endorsed for v1.0 design (coin sink
-    inside the open-app flow; welcomed because it protects the
-    growing streak bonus). Conflation with the seal-day HERO BEAT
-    flagged — two distinct items, one combined design conversation
-    (same ceremony surface).
-  - Android-first considered, NOT taken (store-spend at launch +
-    iOS adopters), kept as a conscious lever (tile 5.0).
-
-DOC SYNC (five full files shipped): morning_sequence (freeze/resume
-interruption model, per-local-day trigger semantics, soft walkback
-invariant, accounted_for triggers marked implemented); system_map
-(§5.3/§9.2/§9.4/§10.x rewritten to as-built s29; honest header
-currency note — §6-7 component inventory refresh still owed);
-week_mode (fork section + moot resolution + scope reconfirm);
-pair_key (§9.1a intra-pair credential decision); stamp_tier (grey
-tier row + pool key + stamp-lives-on-tray terminology fix).
-
-SECOND PASS — AUTONOMOUS RUN (same day, Morgan on-roster, explicit
-go-ahead to build without per-step device verification; scope line:
-server-side TypeScript, code-built dialogs on the rest_confirm
-precedent, DevKit tooling, docs/content — NOTHING ceremony-adjacent,
-nothing design-gated):
-
-  DEVKIT MOCK CLOCK [~, test D10] — State._mock_today_iso: feature-
-  gated setter (release builds no-op), today_iso/yesterday_iso mock-
-  aware, shift_iso_days pure-calendar arithmetic (no epoch, no DST),
-  cleared by clear(); flows through the claim's local_date so a mocked
-  tomorrow exercises the REAL seal path. DevKit menu "Mock clock"
-  section: status / Today +1 / Clear. Date-boundary testing no longer
-  needs Android settings.
-
-  4.22 SERVER RECEIVE-SIDE [~, tests W9/W10] — schema: content_drops /
-  content_drop_assets / content_drop_deliveries (comm_templates
-  deliberately publishing-stage). GET /users/:id/drops (server: live +
-  forward-only + undelivered; client: release-day local-time crossing,
-  consistent with client-owns-the-clock; subscriber_only returned NOT
-  filtered — sub-pack announcements are conversion pull). POST
-  delivered ack (explicit, idempotent, never implicit on read — the
-  decoupling principle). scheduled() Thursday cron promotes next
-  queued drop; wrangler [triggers] on all three configs. SURFACED:
-  runtime sticker-asset loading (client fetch/cache of R2 PNGs) is
-  UNDESIGNED — joined to the theme-prep conversation; until it lands,
-  drops deliver announcements + catalogue data, not new art.
-
-  4.5 SERVER HALF [~, test W8] — POST /users/:id/motd/reroll: relative
-  debit, 409 insufficient_coins, returns updated user + fresh roll.
-  REROLL_COST=100 placeholder via the economy payload ({rest_cost,
-  reroll_cost}). DECISION recorded at the constant: the fee is vent-
-  pricing on the legitimate flow, not resource protection — words are
-  free via /motd/roll, MOTD writes free via writeDay; bypass is
-  self-spoiling only. Client half (picker lock + confirm) remains.
-
-  4.12 MECHANISM [~, test D11] — bug_catcher.gd: code-built,
-  self-contained compose→sending→thanks/failed against the live
-  endpoint; 2000-cap live counter; ONE_SHOT teardown on every exit
-  path (the rest-anim leak family). Trigger hosted in DevKit →
-  Dialogs; real trigger is one line when 4.11's help menu lands;
-  confetti waits for 4.9's SHARED system. Caught in self-review:
-  two invented Palette constants → TEXT_HEADER/TEXT_WEEKDAY.
-
-  DRAFTS — terms_of_service_draft.md (5.9a [~]: plain-language, ACL
-  carve-out, store-billing refunds, pair-visibility honesty; needs
-  Morgan review + hosting). four_tasks_promo_codes_design_notes.md
-  (formalises s12 schema decisions: one-code-per-user-ever, permanent
-  founders rate, attempt logging incl. failures, codes never grant
-  coins, flag-vs-rate distinction).
-
-  SKIPPED deliberately: 4.9 (modifies the claim handler — the most-
-  changed unverified file), 4.14a/b (fork point + design-gated),
-  4.D2 (interaction fork is Morgan's call), all ceremony surfaces.
-
-Session 29 time: ~5h.
-Running total: ~147.75h.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 30 — 2026-06-11
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Mobile design session (Morgan on roster) → same-day laptop wire pass.
-Client device-verified session 31 (D12-D15 pass). Time: ~5h.
-
-WEEK MODE FORK RESOLVED → MODEL B (popup editor). Long-press the tray
-heading's day name on ANY open day → popup, four fields + per-slot radios.
-Radio ON = override stored on selection; OFF = slot tracks the standard four,
-authored text dormant per-slot. Per-weekday toggle DIES (users.week_mode_
-weekdays retired-unused); override table reshapes at 4.D2 (per-slot text +
-active_slots bitmask; explicit drop-and-recreate — IF NOT EXISTS won't).
-Model A's epitaph + the seventh discovery-arc iteration recorded in the doc.
-
-STREAK RULE AMENDED (economy doc is authority): ≥1 task ADVANCES the streak,
-rest holds, ONLY zero-task days break — sealed grey or never-opened gap.
-Rationale: no paternalising; the bare minimum keeps the chain alive. Found
-in the live handler: gaps NEVER broke streaks as shipped (unsealed days never
-ran streak math) — closed via date-adjacency vs last sealed day (derived, no
-new column). Gap break zeroes the streak BEFORE the sealing day counts AND
-zeroes that payout's streak bonus.
-
-STREAK RESCUE GATE (the escape hatch, designed + built). All forks Morgan's:
-zero-task breakers only; RESCUE_COST = REST_COST = 50k (own constant,
-economy.rescue_cost shipped); NO frequency cap (price-only guard — econ-doc
-open-tension #2 rewritten: containment materially weakened, accepted twice);
-offer only when streak ≥ 1 AND exactly ONE purchasable day saves it (2+ day
-gaps are dead — no false hope for sale). Shape: claim returns pending_rescue
-instead of sealing; POST /users/:id/claim/resolve re-derives everything
-(re-entrant) — decline IS sealing grey, accept IS convert/create-rest + seal,
-both atomic, so the seal itself enforces one-shot (no tracked state; app-death
-mid-offer self-heals via re-offer). Beat 0, PRE-ceremony, over the flat
-calendar — the lockout stays acknowledgement-not-action. index.ts refactor:
-single sealTarget() shared by claim + resolve (one economy implementation,
-two doors); deriveTier/evaluateRescue/lastSealedDateBefore helpers; devkit
-scenarios morning_grey + morning_gap. WIRE-VERIFIED same day: W11-W17 all
-pass (incl. atomic-batch proof — rescue day + target share one sealed_at).
-
-CLIENT HALF (device-verified s31, D12-D14): rescue_confirm.gd — rest_confirm pattern
-with two deliberate deviations: scrim does NOT cancel (declining is
-irreversible) and every exit is an answer. State routes pending_rescue to a
-new signal; the ceremony coordinator's parked one-shot morning_claimed picks
-up the resolve's claim-shaped response — morning_sequence.gd UNCHANGED, as
-designed. Dialog mounts above the input blocker (later in tree + z 300).
-Resolve failure re-arms the per-day claim marker (self-heal).
-
-SEAL-DAY HERO BEAT (designed + built, device-verified s31, D15). Evening celebration:
-4th tick (or rest confirm) → cell PROXY flies up + enlarges (real cell never
-reparents), sticker pops (placeholder glyph until 4.D), card frames payout
-as arriving tomorrow. NO AMOUNT — the morning keeps the reveal, which
-dissolved the s29 "reshapes ceremony" worry: zero ceremony/server changes.
-Once per local date (Prefs.hero_shown_date), day-1, rest variant delays
-~0.8s for the coin tick-down. hero_beat.gd self-contained; App owns trigger
-policy off day_changed; 2 DevKit Dialogs rows bypass the gates for tuning.
-
-ALSO: s29 wire tests W1-W9 PASSED (this date, prior chat) + sweep-chat patch
-on getEligibleDrops (per-drop parse isolation) — index.ts s30 build carries
-it. New docs: four_tasks_hero_beat_design_notes.md, session_30_wire_tests.md.
-Amended: economy, morning-sequence, week-mode docs. (Sync remainders live in the todo bookkeeping block.)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 31 — 2026-06-11
-DEVICE LEDGER CLEARED (D1-D15 all pass) · 5 fixes shipped + verified same day
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-LEDGER: D1-D15 ALL PASS — s29 sweep regressions + s30 rescue/hero closed.
-New W18 (coin bound, below) UNVERIFIED; W10 cron still optional-open.
-
-FIX devkit.gd → DevKit.gd rename. Autoload path case mismatch: Windows
-editor resolves case-insensitively, Android PCK doesn't → autoload Nil on
-device, menu dead. Convention says autoloads are PascalCase; the file was
-the one violation.
-
-FIX ceremony stage normalization (found by D2). show_for_date is a TOGGLE:
-tray already open ON the seal date made beat 3's awaited `opened` never
-fire → coordinator deadlock, input blocker stuck forever. Beat 0b in run():
-close-if-open + await CLOSED before the claim fires (serialized on purpose —
-parallel invites a mid-close race). App: _snap_to(0) on started (ceremony
-played off-screen if backgrounded on partner panel); day-carry's deferred
-re-open gated on _morning_active. Never caught in 5 sessions of device
-testing because DevKit always reboots through Loader = clean stage.
-
-FIX sealed-beats-clock (found via backwards clock travel). task_list gated
-toggleability on the clock alone — a sealed TODAY rendered editable (server
-held throughout; every tap 409'd). is_sealed threaded through _render /
-_resolve_row_state: sealed renders settled + never toggleable regardless of
-date; pre-payout mode explicitly wins (ceremony day is always already
-sealed). App rest long-press bails on sealed. 4.5's MOTD-edit client half
-must carry the same gate (tile noted).
-
-FIX coin-source bound (index.ts). claim + resolve reject local_date outside
-±2 days of server UTC (400 bad_date). Time travel stays legal and
-self-spoiling; farming the ONLY coin source is closed. Sinks + day writes
-deliberately unbounded — rationale recorded at LOCAL_DATE_BOUND_DAYS. W18.
-
-FIX devkit wipe FK failure (found when D11's first real bug_reports row
-broke the Default reseed — the bug proved the test). devkitWipeStatements()
-shared helper: bug_reports / redemption_attempts / content_drop_deliveries
-deleted BEFORE users; all three wipe sites (seedDefaultSpread,
-fresh_install, recovery_flow) route through it. seed_devkit.sql synced.
-Maintenance rule pinned: new users-FK table → add its delete there only.
-
-RECORDED, not built:
-  - Emoji glyphs don't render on work-laptop export (🔥/🟡 invisible incl.
-    CoinFX flights, which fired correctly but invisibly; ★ fine). Suspect
-    Godot 4.6.3 / export parity vs home PC — verify before any release
-    build from this machine.
-  - App local-date-change watcher (repaint + close now-future trays on
-    backwards clock moves; forward already claim-handled) — designed,
-    tiled 4.23.
-  - Mid-ceremony KILL permanently loses today's MOTD pick (beat 9 never
-    runs; no recovery surface until 4.5) — noted on 4.5. Server state
-    stays coherent (claim atomic).
-  - Sealed-grey cell renders UNMARKED, indistinguishable from untouched —
-    [DECIDE] tiled 4.24.
-  - Rapid-tick untick reproducible ONLY under mock-clock hopping (s29 #7
-    residual) — PARKED.
-
-DIRECTION LOCKED (end of session): walkback span-sealing amendment —
-empty days adjudicated AT FIRST CONTACT during the walk (1-day gap + live
-streak → rescue fires then, anchored to the gap day's own seal; 2+ day gaps
-batch-seal grey silently; payout target seals after). Kills the discovered
-wart: current adjacency checks behind the target only, so a streak advances
-past a hole on day N and retroactively collapses on N+1. Stateless rescue
-architecture survives unchanged. Tile 4.25 — doc before code, next session.
-
-Files: morning_sequence.gd, App.gd, task_list.gd, index.ts, seed_devkit.sql,
-DevKit.gd (rename). Client fixes device-verified within session; index.ts
-deployed at close.
-
-Session 31 time: ~4h.
-Running total: ~156.75h.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 32 — 2026-06-11 (mobile, at work — DOC-ONLY, no code)
-4.25 DOC-LOCKED · stranded syncs written · wire pack · ★THEME PREP RESOLVED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-PROJECT FILES RESET: clean-slate replacement (todo + devlog + .gd scripts
-+ server zip). Verified all carry the s31 finals (five fix markers present)
-— the s31 canonical-file trap is closed.
-
-FOUND (repo audit before amending): NONE of the s31 bookkeeping syncs had
-reached the repo, and the s30 morning-seq STREAK RESCUE GATE section was
-never pushed at all (economy's s30 section landed; morning-seq header still
-said s29). Pair-key §9.1a was the one s31 sync that DID land — that todo
-item was simply unticked. Also: the s31 devkit.gd → DevKit.gd rename never
-registered in git — Windows core.ignorecase swallows case-only renames, so
-the repo still carries lowercase and a fresh clone resurrects the dead-
-autoload-on-Android bug. Fix tiled: `git mv devkit.gd DevKit.gd` (laptop).
-
-4.25 WALKBACK SPAN-SEALING — DOC-LOCKED (build owed, ~3-5h + verify).
-Resolutions made inside the s31-locked direction, now authoritative in the
-docs:
-  - The claim walks the FULL span (last seal +1 → local_date −1), oldest
-    first; every day ends terminal — contiguous history.
-  - Never-opened days seal GREY: accounted_for stays 0, zero payout,
-    SILENT (no ceremony for a day never engaged with). Accounted days seal
-    at natural tier; the most recent is the payout target + ceremony day.
-  - The walk runs even with NO payout target — the first-contact fix
-    (skip Tue, open Wed: Tue judged Wed morning; no retroactive collapse).
-  - Rescue = PRE-SCAN: exactly ONE zero-task day in the span AND streak ≥1
-    → offer, anchored to that day's own seal; two-plus (incl. gap + grey
-    target) → batch-seal silently, break, NO offer. Extends the locked
-    no-false-hope rule — no chained offers, no two-purchase saves.
-  - pending_rescue.target_date / target_tier become NULLABLE (rescue can
-    fire on a payout-less claim). Pending seals NOTHING; resolve re-walks
-    and seals the whole span in one batch. Stateless/re-entrant unchanged.
-  - Shadowed accounted day (needs two consecutive claim failures): seals
-    at tier WITH its payout, silently batched; ceremony presents only the
-    most recent day.
-  - Corrected on the way: the morning-seq doc's "stranded days drain
-    most-recent-first, self-correcting" claim was WRONG in steady state
-    (one unsealed row produced per day, one consumed — older rows shadowed
-    forever, payout lost). Recorded as the second fault 4.25 retires.
-
-FILES WRITTEN (7 — commit checklist in todo top block):
-  - economy_redesign: streak rule → per-day walk-order math; rescue →
-    first-contact + pre-scan; never-opened/shadowed earn rules; SPAN-
-    SEALING STATUS line (doc describes target, wire runs s30 until 4.25).
-  - morning_sequence: Q5 rewritten as span-sealing; STREAK RESCUE GATE
-    section written fresh in 4.25 form (the missing s30 content); beats
-    0/0b added to the beat list (s31 stage normalization synced); claim-
-    contract step 5 fixed (still carried the SUPERSEDED s27 green-only
-    streak rule); freeze/resume confirmed present; Q8 shipped-cost note +
-    stale 300-600 pack price → 20k-100k; absence-return queue entry case.
-  - system_map: FULL refresh — §4 to ten tables (content-drops trio), §5.1
-    full endpoint surface (motd roll/pool/reroll, drops + ack, rest,
-    resolve_solo were all missing), §5.2 FK-wipe helper, §5.3 ±2d bound +
-    stranded-day fault + 4.25 forward note (observational discipline:
-    shipped wire stays primary), §6-§7 client inventory REWRITTEN against
-    the uploaded .gd set (the long-owed s24-31 debt paid; stale facts
-    fixed: toggle_task signature, onboarding "STUB", Bonus "will apply",
-    devkit menu), §10 sealed-beats-clock + bound invariants, §11/§12
-    pruned of shipped items, repo path → C:\dev\, s30+s32 changelog rows
-    (s30's refresh had never logged itself).
-  - timezone_and_sealing: new CLOCK BOUNDS section (±2d coin-source bound
-    + sealed-beats-clock client rule, generalised); anti-scrubbing section
-    honestly QUALIFIED — the original "forward rolls skip, don't farm"
-    analysis was wrong under fully-trusted local_date (roll-claim-roll-
-    claim minted a payout per roll; the bound closes the mint); 4.25
-    supersedes-on-build note on the single-row walkback; yesterday_iso
-    DST edge recorded.
-  - staggered_disclosure: week-mode cascade destination = Model B popup +
-    one-time intro line (day-2 long-press relays into the feature itself;
-    "tutorial" → "intro" throughout). 4.D2 fork recorded RESOLVED in todo;
-    week-mode doc's own Model-B sync rides 4.D2's design pass.
-  - wire_regression_pack.md (NEW): folds the s29/s30 session packs into
-    one paste-ready reference ($BASE/$U session vars); W1-W17 marked
-    PASSED s31; W18 commands; 4.25 re-spec block W13r/W14r (span shapes,
-    shared sealed_at as the atomicity probe) + W19 (first-contact hole,
-    null target) + W20 (gap+grey suppression); device rescue-affordability
-    recipe. session_29/30_wire_tests.md DELETE on commit.
-  - todo: top block → commit checklist + git-mv item; 4.25 → [~] design
-    closed; 4.D2 fork resolved (Model B); doc-sync pile updated; s32
-    total row.
-
-THEME PREP DESIGN CONVERSATION — RESOLVED (same session, second
-half; the critical-path conversation gating 4.14b/4.20/4.D, done
-by mobile grilling against annotated screenshots + border sketch).
-Theme doc REWRITTEN AS v2 (restructure supersedes the 2026-05-15
-edition; locked v1 content carried, superseded models compressed
-to history). The locks:
-  - COLOUR SYSTEM: up to FOUR pixel-weighted roles per sticker
-    (primary→accent by count; surface share stays the painter's);
-    role-accent falls back to role-tertiary on 3-colour stickers;
-    FREE NEUTRAL RAMP #000000/#5A5A5A/#B4B4B4/#FFFFFF — usable in
-    stickers AND theme art, never retinted; exact grey rule:
-    derivation excludes R==G==B exactly + alpha<1; AA neutral-to-
-    neutral only; reference values locked #FF0000/#00FF00/
-    #0000FF/#FF00FF. Supersedes strict-three-flats.
-  - v1.0 SLOT CATALOGUE = SEVEN: leader, palette source,
-    background, calendar card, tray card, popup skin, border.
-    THE CELL STAYS SACRED — cell treatments (+ dead-cell, grid
-    tile, flourish, label, effects, meta-mods) DEFERRED to v1.x
-    with locked architecture preserved in the doc; audio already
-    v1.1 globally. (Morgan: cells were the most daunting,
-    smallest surface — deferring un-obscures the vision.)
-  - NEW SLOTS: border = corner flourishes, z above background /
-    below cards, never costs calendar width; convention = one
-    border_corner.png auto-mirrored ×4 OR explicit _tl/_tr/_bl/
-    _br subset (explicit wins). Popup skin = ONE 9-slice for all
-    dialog surfaces. Calendar card + tray card = separate
-    9-slice slots (clone-and-tweak economy). Tray buttons stock
-    [LOCK AT FIRST ART].
-  - RETINT MECHANISM LOCKED: PRE-BAKE at slot change (clarity
-    over cleverness — legible GDScript, devtool-debuggable,
-    transform-stack-free, preview = second bake cache). Shader
-    recorded as fallback; indexed-PNG retired.
-  - META-MODS reserved: palette transform stack between
-    derivation and bake (jester permutes, yin-yang inverts,
-    chrome hue-shifts; composable ordered list in
-    active_theme.mods). v1.x feature, v1.0 pipeline hook.
-  - DIMENSIONS derived from Layout.gd: background 360×800 @3x,
-    card 9-slices 48×48/16px margins @3x, border corners 96×96
-    @3x — all [TUNE AT FIRST ART]. Integer Nearest always.
-  - R2 RUNTIME ASSET DELIVERY designed (closes the s29 gap):
-    launch packs bundled res://; drops download to
-    user://stickers/<id>/ on drop-ack; content_drop_assets rows
-    ARE the manifest; assets immutable per sticker id (cache
-    forever); PARTNER-RENDER RULE — client may fetch any
-    referenced sticker's assets by id, entitlement gates use not
-    pixels; offline degrades to stock + retry.
-  - Picker: 30s preview timeout locked; locked stickers enticing
-    not greyed; devtool gains accent swatch + neutral audit.
-ART IS UNBLOCKED: per maximal pack = sticker 32×32 + background +
-three 48×48 9-slices + 1-4 border corners. Sticker-only valid.
-
-ALSO ADDED: tile 4.26 — notifications, CRUDE pass, wanted ASAP
-for the daily-driver APK. Local only, no FCM. Design locked in
-conversation: two daily notifications, tap opens app — morning
-"your coins are waiting" + ~8pm "you haven't ticked your tasks
-today, want to do that before bed?". Fixed times/copy v1.0,
-customisable v1.x; true server push stays v1.x.
-
-OPEN AFTER THIS SESSION: W18 wire check, W10 (optional), laptop-emoji
-parity, git case-rename fix, commit the EIGHT files (seven above + theme
-doc v2; checklist in todo). Then 4.25 build → daily-driver switch (with
-4.26 + stamp pools), or straight to Aseprite — next roster-break call.
-
-Session 32 time: ~6h (ESTIMATE — doc-only incl. THEME PREP; correct at
-close).
-Running total: ~162.75h.
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 33 — 2026-06-12 (laptop)
-4.26 notifications BUILT · 4.25 SERVER SHIPPED + wire pass · bookkeeping cleared
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-BOOKKEEPING CLEARED (start of session):
-  - s32 push verified on origin/main (fa78a24) — independently re-cloned and
-    checked: wire pack present, session wire-test files deleted, theme v2 in.
-    Todo commit block stripped.
-  - DevKit.gd case rename committed + pushed (git mv on laptop; the
-    core.ignorecase fresh-clone trap from s31/s32 is closed).
-  - W18 PASSED: far-date claim → 400 bad_date, real date → 200. Proves the
-    s31 dev deploy. (TestUser coins > lifetime on dev = SQL top-up artefact,
-    not a bug — top-ups don't touch lifetime.)
-
-TILE 4.26 — NOTIFICATIONS (crude/local): BUILT, DEVICE-PARTIAL. Time: ~3h
-(ESTIMATE — correct at close).
-  - Design doc NEW + AUTHORITY: four_tasks_notifications_design_notes.md.
-    Morgan decisions locked: 6:30am morning / 8:00pm evening (fixed v1.0;
-    constants are the v1.x customisation seam); lowercase copy drafted;
-    permission requested at boot; suppression conditional everywhere; lapse
-    decay daily×7 → gap grows +1/nudge (9,12,16,21,27,34) → weekly (41,48,
-    55), horizon 56, both notifications fire on lapse days.
-  - Plugin: godot-mobile-plugins/godot-notification-scheduler (Godot-4
-    cengiz-pz lineage). Unified Android/iOS interface (iOS = Phase 5 export
-    job), cancel-by-id, permission signals, reboot persistence, default
-    icon shipped, auto-falls-back to inexact alarms (no scary permissions).
-  - Gradle: Android Build Template installed + Use Gradle Build ON (laptop;
-    ONE-TIME PER MACHINE — home PC needs the same click before its first
-    gradle export). android/ stays git-ignored: editor-generated,
-    version-tied, nothing hand-authored lives in it (earlier commit advice
-    this session was wrong and withdrawn).
-  - Notifications.gd autoload shipped — fully self-contained, ZERO edits to
-    existing files (hooks State signals + FOCUS_IN directly). Model:
-    re-derive, never remember — every relevant change cancels the
-    deterministic id range (bases 1000/2000 + day offset, sweep 0-60) and
-    reschedules the full forward window from State. Suppression is
-    STRUCTURAL: day-0 morning is never scheduled at all (app open IS the
-    claim); evening skips 4/4, rest day, past-8pm; mock clock = schedule
-    nothing (DevKit clock games stay silent). Fingerprint-gated rebuilds
-    keep repeat focus-ins free.
-  - DEVICE: D-N1 (permission), D-N2 (evening fired 8:02 — inexact window,
-    in spec), D-N3 (4/4 suppression), D-N4 (rest-day suppression) GREEN.
-    D-N5/6/7 + swipe-kill (both phones) deferred to AMBIENT testing — leaf
-    subsystem, nothing downstream depends on results; tracked in the todo
-    open-tests block. Two of three self-test in normal daily-driver use.
-
-TILE 4.25 — WALKBACK SPAN-SEALING, SERVER HALF: SHIPPED + FULLY
-WIRE-VERIFIED. Time: ~2.5h (ESTIMATE — correct at close).
-  - index.ts: single-target walkback + evaluateRescue + sealTarget REPLACED
-    by buildSpan (anchor = last sealed day, or oldest row on fresh installs;
-    strict date < local_date invariant preserved) + evaluateSpanRescue (the
-    exactly-one pre-scan) + sealSpan (per-day streak walk oldest-first, one
-    atomic batch, ONE shared sealed_at across every row it seals) +
-    computeDayPayout (payout extracted per-day so target and shadowed
-    accounted days share one implementation — same single-derivation
-    principle as deriveTier).
-  - Behaviour deltas vs s30/s31 wire: never-opened days get rows CREATED
-    sealed grey accounted_for=0 (declined gaps included — old code left
-    holes rowless); pending_rescue.target_date/tier nullable (first-contact
-    hole); streak_at_stake = running streak AT the breaker (refinement:
-    accounted partials earlier in the span advance it first); bought gap
-    days write accounted_for=1 but never present as sealed_day.
-  - Pre-flight before deploy: untouched regions verified byte-identical to
-    the uploaded source; typecheck added zero new error kinds; pre-scan +
-    streak walk extracted and run against all five wire scenarios in node.
-  - WIRE (dev, all PASSED s33): W13r accept (streak 4, shared sealed_at,
-    bought day purple/accounted=1, payout maths exact) + decline (grey row
-    created accounted=0, streak 1, no charge); W14r (no offer at 2 holes,
-    contiguous grey fill, streak 1); W19 decline (sealed_day null, streak 0,
-    zero coin movement) + accept (sealed_day null, streak HELD 3, coins
-    10,000, lifetime untouched); W20 (pre-scan suppresses at gap+grey, both
-    seal grey one batch, streak 0); W11/W12 RE-PROVEN under span code (grey
-    convert presents purple, streak held / decline presents grey, streak 0).
-    Wire pack amended: W19/W20 seed SQL filled in (was "exact at build
-    time"), rows marked passed.
-  - Diagnostic worth keeping: claim-sealed rows share ONE sealed_at;
-    seed-sealed rows step by exactly 86,400. Instant tell for "did the
-    scenario reseed actually run".
-  - REMAINS (pass 2): client deltas — rescue_confirm copy without the "and
-    yesterday seals as X" framing when target is null; verify the
-    coordinator's resolve → sealed_day:null path winds down with no
-    ceremony. Then device pass.
-
-DESIGN NOTE (no change needed): partner multiplier across absences —
-already settled by the same-date-read model. Grey days have 0 base so the
-multiplier question never arises; the first worked day back reads the
-partner's REAL same-date completion. Nobody is disadvantaged by absence;
-nothing to exploit.
-
-Session 33 time: ~7h (ESTIMATE — correct at close; s32's ~6h estimate also
-still owed its correction).
-Running total: ~169.75h (BOTH estimates pending correction).
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 34 — 2026-06-12 (mobile/work; build-ahead authorised)
-4.24 DECIDED+BUILT · 4.27 + 4.23 BUILT · 4.25 traced to device-only · week-mode LOCKED
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-ALL s34 CODE ★UNVERIFIED — ledger D-S1-D-S6 in the todo OPEN TESTS
-block; clear next laptop session before anything ships further.
-
-TILE 4.27 — SAFE-AREA TOP INSET (status bar / camera cutout): BUILT.
-Time: ~30min (ESTIMATE — correct at close).
-  - Layout.safe_top_inset(): DisplayServer.get_display_safe_area() top
-    edge, physical→design via design-height/window-height, gated to 0
-    off-mobile (desktop safe-area = monitor geometry, meaningless here).
-  - App._apply_safe_area_inset(): inset onto each panel's Layout VBox
-    (backgrounds stay full-bleed under the translucent bar); SAME amount
-    off each tray's runtime custom_minimum_size — the Layout.gd tray
-    budget has 11px slack, an inset eats it, and TASKS_TRAY_MIN_HEIGHT
-    is the documented dial. Boot print "[App] safe_top_inset=".
-  - CAVEAT recorded: Godot's Android report is cutout-driven; a
-    barred-but-cutoutless device can report 0 (theoretical for the test
-    pool). Loader/onboarding eyeballed on the same device pass.
-
-TILE 4.24 — DEAD-CELL TREATMENT + OFF-MONTH NAV: DECIDED + BUILT.
-Time: ~1h (ESTIMATE — correct at close).
-  - Authority NEW: four_tasks_calendar_cells_design_notes.md (supersedes
-    the s14 comment-level lock). Decisions (Morgan): one flat dead-inert
-    treatment for pre-install + sealed-0-tick + off-month (deliberate
-    flattening — a worked May 31 and a skipped May 30 look identical in
-    June's grid; the nav-tap reveals truth); sealed skips UNINTERACTABLE
-    (no tray); off-month tap = navigate to home month then delegate as an
-    in-month tap (direction-agnostic; nav-only when the day is grey/
-    pre-install at home); GREY STAMP TIER LATENT — only positives are
-    memorialised, 0 falls silent; server untouched, stub forever, NO grey
-    pool authoring (stamp_tier doc amended; 4.C art drops to five tiers).
-  - Colour question DISSOLVED: under span-sealing only TODAY is ever
-    UNMARKED, and the existing dead treatment (muted date text + overlay)
-    is already the needed distinction. No new colour.
-  - Build: day_cell.gd (SEALED_GREY state; DEAD_HISTORICAL→OFF_MONTH;
-    desaturated historical variant RETIRED; is_interactive rejects
-    SEALED_GREY + DEAD_PRE_INSTALL, keeps OFF_MONTH) + calendar_grid.gd
-    (sealed_at!=null + 0 ticks + !rest → SEALED_GREY in
-    _derive_active_state — the rows that used to fall through to
-    UNMARKED; _navigate_home_if_off_month in the tap/long-press relays,
-    re-emitting only if the day is interactive at home). App UNTOUCHED —
-    the grid owns month display, so the delegate lives in its relays.
-
-TILE 4.23 — DATE-ROLLOVER WATCHER: BUILT. Time: ~30min (ESTIMATE —
-correct at close).
-  - App: _last_seen_date marker; _check_date_rollover() FIRST on every
-    FOCUS_IN — date moved either direction → both calendars
-    jump_to_today() (assumption flagged: "show today" over repaint-in-
-    place), open trays on now-future dates close. Skipped mid-ceremony
-    WITHOUT consuming the marker (retries next focus-in rather than
-    yanking the month from under beat 3).
-
-4.25 PASS 2 — RESOLVED BY TRACE; DEVICE PASS ONLY REMAINS.
-  - Item 1 (rescue_confirm null-target copy): NO-OP. The shipped dialog
-    reads only rescue_date/cost/streak_at_stake — all always present in
-    the s33 payload; target_date/target_tier (the nullables) are never
-    touched. Verified against a fresh upload (byte-identical). Decision:
-    leave the copy lean — the ceremony that follows IS the announcement.
-  - Item 2 (sealed_day:null wind-down): VERIFIED in code — resolve routes
-    through the same _on_claim_completed; null fails the dict guard →
-    morning_claimed.emit({}) → coordinator _finish(), no ceremony.
-  - FOUND + FIXED while tracing: the coordinator's empty branch skipped
-    refresh_after_morning() ("nothing changed visibly" — pre-span truth,
-    now false). A null-target resolve seals greys server-side that the
-    client has no rows for; with 4.24 live they'd sit looking untouched
-    until the next poll. Fix: empty branch now refreshes through the
-    poll merge (harmless extra poll on same-day second opens).
-    morning_sequence.gd, ★UNVERIFIED (D-S5).
-
-DESIGN TRACE (no change needed): rescue-then-worked double-payout worry
-CLEARED — the pre-scan seals NOTHING until resolve, so one claim-shaped
-response, one ceremony; bought days are excluded from presentation by
-construction (sealed_day = the worked day); beat-6 rewind =
-final − coins_earned, so the count-up shows exactly the presented payout
-and the rescue charge lands silently in the rewound baseline (the dialog
-already acknowledged it). W13r is the wire proof of this exact shape.
-
-WEEK MODE — MODEL B POPUP DETAIL LOCKED + DOC SYNCED (4.D2 doc debt
-cleared; build-only remains). Doc fully rewritten (791→~420 lines, Model
-A preserved as the superseded record per the doc's own decision rule).
-Morgan decisions 1-10: weekday-STRIP long-press trigger (strip currently
-inert, no collision); per-slot INDEPENDENT toggles + text (stock controls
-v1.0, richer treatment deferred); deactivate = pause-not-delete per slot;
-empty-on-blur reverts slot to inactive + ghosted standard-four
-placeholder (save normalises too — blank labels never render); inactive
-slots ghost the standard four; ONE whole-row save (PUT /users/:id/
-weekday_overrides/:weekday {task_labels[4], active_mask}, opening writes
-nothing); tick-greying — partial ticks lock ticked slots (one popup-
-opening = one semantics), ALL-four-ticked un-greys everything under a
-future-only copy line (the fourth tick unlocking the rest is correct: a
-finished day has nothing mid-flight to corrupt); subtle strip-label
-indicator when any slot active; cal-icon banner kept, copy reworked
-per-slot; week_mode_weekdays column RETIRED-DEAD (dropping a users
-column is a migration for zero benefit). Schema reshape at 4.D2:
-drop-and-recreate user_weekday_overrides with active_mask (no prod rows,
-nothing to migrate); overrides ship in self payload, EXCLUDED from
-partner payloads.
-
-CONTENT — STAMP/STREAK POOLS EXTRACTED from the prototype →
-stamp_streak_pools_working_draft.md (design-notes). Proto mapping:
-STAMP_MESSAGES=purple, COMPLETE=green, PARTIAL_1/2/3=red/orange/yellow,
-STREAK_MESSAGES=tile 4.9, MONTH_STAMP_RAINBOW=tile 4.10. Gap state:
-purple ~18 usable, green 19 of 40+, red+orange 2 each, yellow ZERO (both
-proto entries violate the locked no-near-miss tone target). Four review
-flags pending Morgan: profanity vs the 13+ line; yellow rewrites;
-EARNED/DESERVED on purple's moralising line; gendered Ayshi entries
-can't go universal — "partner-flavoured message packs" noted as a v1.x
-content-drop idea.
-
-DOCS SHIPPED: four_tasks_calendar_cells_design_notes.md (NEW),
-four_tasks_stamp_tier_design_notes.md (grey LATENT), week-mode doc
-(Model B rewrite), stamp_streak_pools_working_draft.md (NEW). Repo index
-sync deliberately DEFERRED (Morgan — hardly used).
-
-Session 34 time: ~3h (ESTIMATE — correct at close; s32 ~6h and s33 ~7h
-corrections still owed).
-Running total: ~172.75h (THREE estimates pending correction).
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-SESSION 35 — 2026-06-12 (mobile/work — content, deferral,
-two disjoint build-aheads, month-chrome design)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-POOLS RED-PENNED + LOCKED FOR LAUNCH. All four s34 review flags
-resolved: profanity CUT everywhere (clean content-rating posture);
-yellow near-miss ban upheld (proto entries + four fresh near-miss
-candidates all out); DESERVED/YOU EARNED IT cut, EARNED IT kept
-purple-only (earned REST has context); gendered/in-joke entries all
-cut from universal pools (partner-flavoured packs stay a v1.x
-content-drop idea). Also cut: BE PROUD (instructional), GOOD TRY
-(condescending), TRY AGAIN (game-over flavour). Final counts: purple
-18 / green 25 / yellow 4 / orange 3 / red 3 — LOCKED at these
-(Morgan): targets retired as gates, pools are server constants,
-append-over-time. MOTD expansion likewise dropped from the roster
-list. CONSTANTS UPDATE + DEPLOY NOW UNGATED (laptop step; bracket-
-stubs remain in PROD until it lands).
-
-TILE 4.9 STREAK POPUP — DEFERRED v1.x (Morgan): streak bar already
-shows the number; the milestone moment ships with the fuller v1.x
-milestone vision, not as a popup for its own sake. Red-penned streak
-pool + proto mechanics preserved as reference in the pools draft.
-Ripples: 4.12's confetti garnish defers with it (bug catcher closes
-on the 4.11 trigger alone, ~5min); disclosure doc day-5 slot dormant.
-
-4.20 PALETTE DERIVATION DEVTOOL — BUILT (build-ahead AUTHORISED,
-deliberately disjoint from every s34 unverified surface: two NEW
-files + one devkit_menu section, zero server). palette_derive.gd
-(class_name PaletteDerive — `Palette` taken by the constants
-autoload): the SHARED implementation 4.14b's bake MUST consume —
-int-exact exclusion (a8<255 OR r8==g8==b8), derive() (role ranking,
-deterministic RGB tie-break, overflow ranks 5+, neutral audit w/
-canonical-ramp tags, alpha counts, compressed-import flag),
-role_color() accent→tertiary fallback. devkit_palette_tool.gd:
-code-built overlay; sources res://assets/stickers (CONST — adjust
-if the folder differs) + user://palette_inbox (drop PNGs via file
-manager/adb, no rebuild — the production-loop path); preview,
-swatches w/ hex+count+%, CLOSE adjacent-rank advisory (≥0.8,
-advisory only), overflow as the AA-violation surface, lossy-import
-warning. ★UNVERIFIED — D-S7.
-
-4.10 RESHAPED — MONTH STAMP CUT (Morgan: a stamp over the month is
-a visual downgrade vs the eternalised themed month itself). PERFECT
-MONTH demoted to a single client flourish at 100% — the pools-draft
-month-stamp pool question CLOSED, no pool. New authority doc:
-four_tasks_month_stats_design_notes.md — month-name tier colour on
-COMPLETED months (% = ticks / 4×non-rest days, rest excluded from
-the denominator; bands at per-day-average midpoints 87.5/62.5/
-37.5/12.5); long-press any month title → stats popup (both panels).
-POPUP HALF BUILT: month_stats_popup.gd (code-built, reads State
-only, pays nothing) — %, tasks X/Y, best run (within-month,
-purple-BRIDGED, labelled to never collide with the real streak),
-bounded in-popup month nav, coins STUBBED. ★UNVERIFIED — D-S8.
-COINS FINDING: per-day amounts don't exist (computed at seal, paid
-to balance, discarded; client recompute wrong by design — baked
-multipliers unknowable). Mechanism decided for next index.ts
-unfreeze: per-day coins column at seal (exact, earn-day attribution)
-over Morgan's lifetime-watermark diff (claim-time attribution puts a
-roster-gap span's coins in the wrong month); both recorded in the
-doc. REMAINS on 4.10: header tint + long-press wiring (few lines in
-calendar_grid AFTER D-S2/D-S3) + coins column (post-D-S6).
-
-COMPLETED-MONTH CHROME — DESIGNED (theme doc v2, new section;
-replaces the cut stamp as the month-end payoff). Cells freeze
-per-day already (IMMUTABLE PAST); the new rule covers SCREEN-LEVEL
-slots: a completed month renders background/cards/popup/border from
-the day_theme_state of its last SEALED ACCOUNTED day — last day the
-user showed up, the outfit they were last seen in. accounted_for=1
-anchoring deliberately skips span-sealed backfill greys (which bake
-CLAIM-era theme); pre-seal interim renders live and self-heals at
-the claim; '{}' → stock via the existing absent-key rule; current
-month always live; PARTNER MONTHS included via the existing
-partner-render rule. Pure render policy — ZERO new data, zero
-server work; builds as one selection rule inside 4.14b (build-time
-check: days payload ships accounted_for, else one-liner at
-unfreeze). Keepsake/image EXPORT stays v1.x. Month-close disclosure
-note registered trigger-gated (one-shot, last day or eve, copy TBD
-— "today's look seals the month"; freeze technically lands at next
-claim, so last-day copy stays actionable).
-
-DOC DE-STALE (while editing anyway): disclosure doc day-5 streak
-slot DORMANT (4.9 deferral), day-30 leaderboard REMOVED (killed
-2026-06-10, doc still said deferred) — schedule terminates day 21.
-
-DOCS SHIPPED: four_tasks_month_stats_design_notes.md (NEW), theme
-doc v2 (COMPLETED-MONTH CHROME section), disclosure doc (month-close
-entry + de-stale), stamp_streak_pools_working_draft.md (red-penned →
-locked), todo (4.9 out / 4.10 reshape / D-S7+D-S8 / pools-locked /
-roster trim). CODE SHIPPED (★UNVERIFIED): palette_derive.gd NEW,
-devkit_palette_tool.gd NEW, month_stats_popup.gd NEW, devkit_menu.gd
-(Tools section, both triggers).
-
-Session 35 time: ~3h (ESTIMATE — correct at close; s32 ~6h, s33
-~7h, s34 ~3h corrections still owed).
-Running total: ~175.75h (FOUR estimates pending correction).
-
-SESSION 36 (2026-06-14, post-night-shift, laptop) — DEPLOY +
-FIRST PROD BOOT.
- 
-LEDGER CLEARED (device, single phone — south-phone repeats still
-owed): D-S1 safe-area PASS (inset 172, tray fits). D-S4 rollover
-PASS (payout ceremony one-shot, consumed at accounting; 2nd mock
-day re-rolls MOTD only — correct). D-S5 wind-down greys PASS. D-S6
-affordability dance PASS (grey rescue dialog: broke disarms SAVE
-button, LET IT GO seals missed + pays — CLOSES 4.25 client side).
-D-S7 palette tool PASS after RES_SCAN_DIR fix (res://assets/icons)
-+ globalize_path wrap on inbox load — CLOSES 4.20. CLOSE flag +
-AA-smell flag both fired correctly on placeholder stickers.
-PARKED (calendar-shape / seed-gated, not faults): D-S2 partner
-skip immutability (no partner skip seed), D-S3 backward off-month
-nav + today-overflow (June 1 = Mon, no leading dead cells — needs
-July, 1st is Wed), D-S8 long-press stats (verify at first real
-month seal; gate = title tier-recolour, sealed-only confirmed
-correct, DevKit in-progress view is dev convenience only).
- 
-CONSTANTS: stamp_messages.ts authored from locked pools (purple 18
-green 25 yellow 4 orange 3 red 3; grey silent placeholder). Dev +
-PROD deployed. Dev spot-check PASS (claim → "HALF AINT BAD", real
-string not stub). Prod devkit gating verified fail-closed (POST
-/devkit → 404). pickStampMessage untouched.
- 
-PROD BUILD: store preset (no devkit feature) → _base_url() returns
-PROD, [DEV] stripped, Internet perm on. First prod APK built +
-installed.
- 
-BLOCKER CHAIN (the session's real work — first-run path had NEVER
-executed against a real DB; devkit seeds bypass createUser
-entirely, so this was all invisible pre-prod):
- 1. Stale user_id from prior testing → user_not_found fatal on
-    empty prod. Cleared app data. (Latent bug: loader collapses
-    user_not_found into "couldn't reach server" — should route to
-    onboarding. TODO.)
- 2. createUser 500 — prod D1 had no schema. Applied schema.sql.
- 3. STILL failed: POST /users returned (tail "Ok" = handled
-    return, incl. 500) but 0 rows in users+pairs. ROOT CAUSE:
-    prod `days` table was a STALE pre-accounted_for version;
-    CREATE TABLE IF NOT EXISTS skipped it (wire-pack's own
-    warning, lived). createUser day-0 insert names accounted_for
-    → "no such column" → batch rollback → user row dies with it →
-    500 masked as "Failed to create user". Prod empty so DROP
-    TABLE days + re-apply from current file. Verified column
-    present, curl smoke create → ok:true + row persists. Smoke
-    user deleted, prod clean.
- 4. FIRST REAL PROD BOOT: onboarded past account creation,
-    reached app (safe_top_inset print). MILESTONE.
- 
-SCHEMA DRIFT FOUND: dev `days` has accounted_for appended at table
-END (hand-run ALTER in an old session, never folded to file) vs
-file's documented mid-table position. Functionally equal (named
-inserts), but schema-of-record was unreliable until prod's clean
-rebuild tonight. Pre-launch: adopt numbered migrations + one-time
-dev/file reconciliation. Once prod has a paying user, drop+reapply
-is gone.
- 
-OPEN (non-fatal): stickers don't render in MOTD picker +
-onboarding companions, BOTH builds, always have (water_bottle
-warning + spinner shows words). onboarding_companions.gd:185
-_load_sticker_texture — check constructed path vs real filenames
-(palette tool lists fine because it scans; loaders build exact
-path strings). Separate ticket.
- 
-Session 36 time: ~5h ESTIMATE (long debug haul, correct at close).
-Running total: ~180.75h (FIVE estimates pending correction).
-═══════════════════════════════════════════════════════════
-
-SESSION 37 (2026-06-14, laptop) — 4.SL SEALED LABELS +
-STANDARD-FOUR EDITOR.
-
-PROBLEM: task labels were global (users.task_labels); days stored
-no labels, so sealed days rendered labels LIVE — editing your four
-relabelled all history. The week-mode render rule (step 1) requires
-sealed days freeze their labels; the storage never existed.
-Invisible for 36 sessions because nothing edited labels post-
-onboarding (no editor until now).
-
-SHIPPED:
-- schema: days.sealed_labels (JSON[4], the RESOLVED four frozen at
-  seal; '[]' = no snapshot → render falls back to live). Both DBs
-  reset + reapplied from schema.sql via new reset.sql. Reset-not-
-  migrate is valid only until prod holds a real Ayshe pairing.
-- server (index.ts): sealSpan writes sealed_labels at all 3 seal
-  sites (never-opened INSERT, existing-row UPDATE, gap-rescue
-  INSERT); parseDayRow serialises it; seedDefaultSpread backfills
-  seeded sealed days — they're inserted straight as sealed and
-  BYPASS sealSpan, so without the backfill every seeded sealed day
-  is '[]' and falls back to live (the entire debug arc this
-  session: the freeze looked broken because none of Morgan's
-  sealed days had ever been through sealSpan). Deployed dev.
-- client: task_list.gd render rule (_resolve_labels_for_day:
-  sealed + 4-elem array → snapshot, else live). State.gd passes
-  sealed_labels through the server-controlled-field merges + snap-
-  shots at ceremony-seal time (_apply_seal_to_day /
-  _self_labels_snapshot).
-- UI: tasks_edit_dialog.gd NEW (all-code modal, rest_confirm
-  pattern — scrim + card + 4 LineEdits, validation mirrors server,
-  Backend.update_user on confirm). hamburger_button.gd NEW (top-
-  left 4-bar icon, long-press). App.gd wired; long-press opens the
-  editor directly. app_menu.gd DELETED (middleman menu removed).
-
-VERIFIED: dev morning_payout → claim. The day the scenario leaves
-UNSEALED, once claimed, came back with a populated snapshot — the
-backfill never touches unsealed rows, so that proves sealSpan
-writes the column itself (the seeded days prove the backfill).
-Both seal paths green server-side. Device: edited the four via the
-editor, sealed days held their labels, today changed. Freeze
-confirmed on hardware.
-
-OWED:
-- index.ts → PROD: npx wrangler deploy --env production (from
-  server/). Dev is on it.
-- ★ 4.D2 SEAL-SNAPSHOT RETROFIT: sealSpan snapshots the STANDARD
-  four (const sealedLabels = userRow.task_labels, computed ONCE
-  before the per-day loop). Correct only while overrides don't
-  exist. Once week mode ships, the snapshot must be the RESOLVED
-  four per-day (standard ⊕ that weekday's override) — move the
-  resolution inside the loop. Same retrofit on the seedDefault-
-  Spread backfill + client _self_labels_snapshot. Hook is
-  commented in index.ts. Miss it and an overridden day that seals
-  freezes the wrong labels. See four_tasks_week_mode_primer.md.
-
-NEXT: 4.D2 week mode (design LOCKED, Model B; 4.SL delivered
-render-rule step 1 + the standard-four editor as prerequisites).
-New tile 4.FT fourth-tick seal — route through the shared seal
-routine, never a parallel path (the 4.SL bug class).
-
-Session 37 time: ~5h ESTIMATE (correct at close).
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1437,3 +249,133 @@ NEXT: 4.D2 authoring UI (the editor modal + header long-press +
 bold + banner), then the doc rewrite, then the prod deploy.
 
 Session 38 time: ~Xh ESTIMATE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## Session 39 — 4.D2 week mode authoring UI + sealed-day immutability
+Time: ~5h ESTIMATE (correct at close).
+
+Closed 4.D2. s38 shipped the server + read-side mirror; this session
+built the authoring UI on top, then spent most of its length hunting —
+and finally fixing — a sealed-day immutability break that the new
+override layer exposed. MODEL A locked (Morgan): a sealed day PRESERVES
+its override; the snapshot IS the memory.
+
+SHIPPED — authoring UI (client):
+- weekday_edit_dialog.gd (NEW, all-code modal, cloned from the
+  tasks_edit_dialog house pattern — scrim 0.6 + centred card). Four
+  [checkbox][LineEdit] rows: inactive shows the standard label greyed +
+  locked; tick → editable; untick → PAUSE (typed text preserved for a
+  re-tick); empty-on-blur → revert to inactive. Save builds the server
+  invariant (4 non-empty + mask) and calls the optimistic write. A
+  zero-ticked save writes an all-inactive row = CLEARS the weekday's
+  override (the un-set path). NO today-disarm (deemed overkill; known
+  accepted seam: tick today, override that slot, untick → flips to the
+  override, because an unsealed day resolves live).
+- State.request_weekday_override(weekday, labels, mask) — OPTIMISTIC:
+  find-or-insert the local row, emit self_changed for instant repaint,
+  write via Backend, roll back the WHOLE override array on fail. New
+  signal weekday_override_failed. Snapshots the whole array (uniform
+  insert/update rollback; ≤7 tiny rows — clarity over cleverness). No
+  in-flight guard (a mid-write poll stomp self-corrects sub-second, same
+  accepted risk as self_user).
+- calendar_grid.gd — WeekdayStrip (the MON-SUN static labels that already
+  existed in calendar_grid.tscn) long-press HOSTED in the grid: timing in
+  _process, drag-cancel past TAP_DRAG_THRESHOLD, LONG_PRESS_DURATION;
+  emits weekday_long_pressed(1-7). SELF-GATED via _is_self() (user_id ==
+  self_user.user_id) — connections are made on both grids but the handler
+  no-ops on the partner grid, so the partner strip is inert. Active-
+  override header BOLD = colour step TEXT_WEEKDAY → TEXT_HEADER (no bold
+  font variant in Fonts.gd; tunable later, Morgan's call).
+- App.gd — opens the editor on weekday_long_pressed, same modal hygiene as
+  the hamburger (ceremony-inert, one editor at a time, cross-guarded vs
+  _tasks_edit). tasks_edit_dialog.gd — banner when today's weekday has an
+  active override (edits there reach only the non-overridden slots).
+
+THE IMMUTABILITY FIX (the session's hard problem):
+- BUG: a sealed day showed the LIVE override (e.g. "dsfaf" on a sealed
+  past Wednesday). The new override layer exposed a latent gap.
+- ROOT (two, conflated): (1) the resolver decided "is this day frozen?"
+  by SNAPSHOT-PRESENCE (sealed_labels is 4-elem), not by SEALED-NESS
+  (sealed_at != null). A sealed day with an empty '[]' snapshot — a row
+  sealed before the sealed_labels column existed, a seed-gap row, or a
+  PHANTOM rowless past day (getUserPayload ships every day from
+  {year-1}-01-01, so old test rows land in State.days with no real row) —
+  fell through to the override. (2) the unsealed/override branch had NO
+  past-guard, so today's override also leaked onto unsealed/phantom PAST
+  days.
+- FIX (State.resolve_labels_for_day rewritten, for_seal:bool=false param):
+  (1) gate on sealed_at — a sealed day returns its snapshot, or the
+  standard four if the snapshot is empty, but in NO case the override.
+  (2) DISPLAY-only past-guard — a past unsealed/phantom day shows the
+  standard four (no backward leak); normal operation never hits this (the
+  claim seals past days) so it only catches anomalies. (3) for_seal flag —
+  _apply_seal_to_day passes true, which SKIPS both the sealed-branch (the
+  row is still unsealed at freeze time — we're minting its snapshot) AND
+  the past-guard (a walkback day DID live under the override → its memory
+  should keep it). MODEL A.
+- _apply_seal_to_day REORDERED: resolve the labels WHILE the row is still
+  unsealed, THEN stamp sealed_at — else the new sealed-gate would take the
+  frozen branch, find no snapshot yet, and freeze the standard four,
+  dropping the override.
+- SERVER mirror (index.ts): resolveSealedLabels(standardJson, overrides,
+  date) + isoWeekdayOf(date) added — the seal snapshot is now the RESOLVED
+  four per-day (was the standard four computed once before the loop, the
+  4.SL retrofit owed since s37). Applied at ALL THREE seal sites: the
+  sealSpan loop, and the gap-rescue breaker INSERT in resolveClaim
+  (handledExternally bypasses the loop, resolved separately). Grey-rescue
+  rides the loop. devkitWipeStatements already clears the override table,
+  so the seed backfill (standard four) stays correct — no seed change. The
+  server does NOT past-guard (every sealSpan day is past by construction;
+  guarding would mean overrides never freeze, which Model A rejects) — it
+  matches the client for_seal path so the two snapshots agree.
+
+VERIFIED (device):
+- Editor: long-press a weekday header on the SELF panel opens it;
+  activate/type/save → live override renders + header bolds; pause/re-tick
+  restores text; empty-on-blur reverts.
+- Immutability: phantom past days now show the standard four (was the
+  bug); real seeded sealed days show their snapshot.
+- SEAL-THROUGH (the gate Morgan wanted closed before dogfooding): set an
+  override on today's weekday, DevKit "Today +1 day" → bg/fg the app →
+  the real claim walked back and sealed today via sealSpan. DB confirmed
+  the frozen snapshot: sealed_labels = ["asdaw","walk 20 min","read a
+  chapter","fsadf"] — MIXED per-slot freeze (slots 0,3 overridden; 1,2
+  standard). Proves resolveSealedLabels' per-slot mask logic AND that the
+  client and server snapshots agree (held through the beat-12 poll, no
+  flicker). This was the path s38's seed tooling couldn't produce —
+  reached via the mock-clock, not a reseed (the morning-payout scenario
+  wipes the override).
+
+PROCESS NOTE (cost ~3 false bug-hunts before the real fix landed):
+autoloads do NOT hot-reload. State.gd edits require Project → Reload
+Current Project (NOT stop-scene) before they're live — a running editor
+keeps the old singleton in memory. The "deployed and still broken"
+symptom across multiple attempts was a stale on-disk State.gd the whole
+time; a server deploy can't change a client-side label resolve. Lesson:
+when something is "deployed but still broken," disk-verify the CLIENT
+file (Select-String for a unique token) and ground-truth the DB FIRST,
+theorise after. Three correct fixes sat un-run because the file wasn't
+live. Adding a boot version stamp was floated and declined (would be
+forgotten).
+
+NOT DONE (carried — NONE block dogfooding except the prod deploy):
+- index.ts → PROD + prod schema RESET (reset.sql then schema.sql,
+  --remote --env production; prod has no real pairing yet so a reset is
+  safe and is what adds the columns/tables). THE DOGFOODING GATE — until
+  this ships, a prod seal freezes wrong labels / an override write 500s.
+- Partner-render on PROD never exercised by two real users (built +
+  verified solo via the dev seed's fake partner; first thing to watch
+  when Morgan + Ayshe pair).
+- WEEK-MODE DOC REWRITE: four_tasks_week_mode_design_notes.md still has
+  the 5 "personal/not shared" passages (false since s38), and MODEL A
+  currently lives ONLY in a State.gd code comment — it must become the
+  doc's authority (incl. the for_seal display-vs-freeze split + why).
+
+NEXT: prod deploy + reset (the gate), then Morgan + Ayshe dogfood on
+prod. Then the doc rewrite. 4.FT fourth-tick seal still open —
+_apply_seal_to_day is now the proven client seal path (resolves while
+unsealed, then stamps); route the server trigger through sealSpan so it
+inherits resolveSealedLabels.
+
+Session 39 time: ~5h ESTIMATE (correct at close).
