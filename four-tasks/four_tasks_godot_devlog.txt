@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Devlog (v3)
 ==============================
-Last edit: 2026-06-14 AWST (session 37, laptop)
-Last updated: session 37 — 4.SL SEALED LABELS + STANDARD-FOUR EDITOR. New days.sealed_labels column freezes the resolved four at seal ('[]' = live fallback); sealSpan writes it (3 seal sites) + parseDayRow serialises + seedDefaultSpread backfills seeded-sealed days (they bypass sealSpan — that was the debug arc). Client: task_list render rule (sealed → snapshot, else live) + State passthrough/ceremony snapshot. NEW tasks_edit_dialog.gd (all-code modal) via hamburger long-press; app_menu.gd DELETED. Both DBs reset from schema.sql (new reset.sql; reset-not-migrate, no real pairing yet). Dev deployed + DEVICE-VERIFIED (sealed held, today changed; the claim-sealed day returned a populated snapshot — proves sealSpan, not just the backfill). OWED: index.ts → PROD; 4.D2 must retrofit the snapshot to the RESOLVED four per-weekday (hook commented in index.ts). Next: 4.D2 week mode (design LOCKED). New tile 4.FT fourth-tick seal.
+Last edit: 2026-06-15 AWST (session 38, laptop)
+Last updated: session 38 — 4.D2 WEEK MODE server + read-side client (authoring UI → s39). ★ PILLAR CORRECTION: week mode is NOT "personal/not shared" — the partner panel must FAITHFULLY RECONSTRUCT the partner's calendar (default + overridden + sealed, exactly as it renders in their app). "No cross-user reads in v1.0" KILLED (partner reactions still cut). SHIPPED + DEVICE-VERIFIED (dev): schema +active_mask; PUT /users/:id/weekday_overrides/:weekday (9/9 wire); GET ships self + partner override sets; State.resolve_labels_for_day = single resolution authority (keyed by uid → partner resolves against partner data); seal retrofit (resolved four); CalendarMath.iso_weekday. Partner's overridden Wed ("HER WED") renders on the partner panel. BUG FOUND+FIXED: _on_poll_completed didn't ingest overrides (survived boot, died on poll). OWED: authoring UI, week-mode doc rewrite (5 privacy passages now wrong), index.ts → PROD (s37+s38).
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1311,3 +1311,129 @@ New tile 4.FT fourth-tick seal — route through the shared seal
 routine, never a parallel path (the 4.SL bug class).
 
 Session 37 time: ~5h ESTIMATE (correct at close).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## Session 38 — 4.D2 week mode: server + read-side client
+Time: ~Xh ESTIMATE.
+
+★ PILLAR CORRECTION (Morgan, this session). Week mode is NO LONGER
+"personal / not shared." The partner panel must be a FAITHFUL
+RECONSTRUCTION of the partner's own calendar — their default,
+overridden, AND sealed-immutable days, rendered exactly as they
+appear in the partner's app. This is a hard reversal of the locked
+week-mode doc, which argued privacy in five passages (those are now
+WRONG — rewrite owed). The "no cross-user reads in v1.0" line is
+DEAD. Partner reactions remain scope-cut; calendar mirroring is a
+v1.0 pillar. Surfaced when Morgan, mid-build, stated partner
+calendar fidelity is non-negotiable; the privacy framing was an
+earlier-session decision that didn't reflect this.
+
+What the mirror actually requires, per day, per slot:
+  - sealed day      → partner's frozen days.sealed_labels (already
+                      rode the partner payload — faithful already)
+  - live, override  → partner's standard four ⊕ partner's weekday
+                      override (THE gap this session filled)
+  - live, no overr. → partner's standard four (task_list was already
+                      partner-aware via _resolve_task_labels)
+
+SHIPPED — SERVER (index.ts, schema.sql; dev deployed + verified):
+- schema.sql: user_weekday_overrides +active_mask INTEGER NOT NULL
+  DEFAULT 0 (bit i = slot i active). week_mode_weekdays comment →
+  RETIRED-DEAD. sealed_labels comment corrected (s37 reset, not a
+  "migration 001" — there is no migration regime yet). Both DBs
+  reset (reset.sql + schema.sql; reset-not-migrate, no real pairing).
+- PUT /users/:id/weekday_overrides/:weekday — self-write, whole-row
+  idempotent upsert {task_labels[4], active_mask 0-15}. Router match
+  placed BEFORE the bare PUT /users/:id catch-all + the day route.
+  INVARIANT: every slot always NON-EMPTY — validateTaskLabels (the
+  same helper the standard four uses) rejects empties, so a paused
+  slot keeps its text with its mask bit cleared and a never-authored
+  slot carries the standard-four placeholder; the mask ALONE decides
+  active/inactive. Stronger than the doc's "normalise empty active →
+  inactive": empties can't enter at all.
+- GET /users/:id payload now ships weekday_overrides (self) AND
+  partner_weekday_overrides (the mirror). fetchWeekdayOverrides is
+  generic by uid, called for both sides of the pair; solo branch
+  sends []. (Earlier this session it was briefly self-only with a
+  "structural partner exclusion" — reversed wholesale by the pillar
+  correction.)
+- 9/9 wire tests green on dev: round-trip write, GET-carries-it,
+  upsert-overwrites-no-dupe, mask>15 → 400, wrong label count → 400,
+  empty-string label → 400 (invariant proven), weekday out of range
+  → 400 (router), partner mirror (her override in YOUR payload).
+
+SHIPPED — READ-SIDE CLIENT (device-verified):
+- CalendarMath.iso_weekday(date) → 1=Mon..7=Sun (matches the
+  override column convention; 0 on malformed → no match).
+- State: self_weekday_overrides + partner_weekday_overrides, keyed
+  by uid. State.resolve_labels_for_day(uid, day_row, date) is now
+  THE single authority for week-mode label resolution (sealed
+  snapshot → override bit-set+non-empty → standard four, per slot),
+  consumed by BOTH the live render and the seal-snapshot so they
+  cannot drift. Helpers _overrides_for / _override_row_for /
+  _standard_four / _sealed_labels_of, all uid-keyed (partner
+  resolves against partner data — the mirror).
+- ★ SEAL RETROFIT DONE: _apply_seal_to_day now snapshots the
+  RESOLVED four (resolve_labels_for_day for the sealing day's
+  weekday), not the flat standard four. _self_labels_snapshot
+  DELETED (superseded). This is the retrofit owed from s37 — it
+  became load-bearing the moment overrides went live, because a
+  wrongly-frozen own-day would then mis-mirror on the partner panel.
+- task_list._resolve_labels_for_day delegates to State; task_list's
+  own _resolve_task_labels + _extract_sealed_labels DELETED (logic
+  centralised; file shrank ~47 lines).
+- Backend.write_weekday_override + weekday_override_written/_failed
+  signals (for the s39 editor).
+
+BUG FOUND + FIXED (this session, on device): the partner's override
+rendered on neither boot nor poll at first. Cause: I updated the
+boot ingest (_on_user_loaded) but the periodic POLL uses a separate
+handler (_on_poll_completed, a selective merge) that I'd missed —
+it ingested self/partner/pair/days/economy but NOT the override
+arrays. So overrides could survive a cold boot and then get dropped
+on the very next poll. Fixed: _on_poll_completed now ingests both
+override sets (server-authoritative, take-as-is, same as boot).
+After the fix: partner's overridden Wednesday slot 3 reads "HER WED"
+while the other three show her standard four — the mirror confirmed
+on screen.
+
+Lesson (logged): when adding a server field the client must hold,
+EVERY ingest path needs it — boot (load_user → _on_user_loaded) AND
+poll (poll_completed → _on_poll_completed). They're separate
+handlers by design (full reset vs selective merge); a field added to
+one silently dies on the other.
+
+Also surfaced (→ todo, launch-hardening, NOT this tile): the client
+conflates "network unreachable" with "server returned 404 for my
+stored user_id." A DB reset wipes the server but the device keeps
+its saved id, so boot calls load_user(saved_id), gets nothing, and
+parks on "Couldn't reach the server. Tap to retry." — which is why a
+reset does NOT route to onboarding (onboarding is gated on local
+identity absence, not server absence). Harmless in dev (re-seed) but
+in prod a deleted/dangling account traps a real user on infinite
+retry. Fix before launch: distinguish 404-on-load (→ onboarding /
+"account no longer exists") from a real network error (→ retry).
+
+OWED:
+- AUTHORING UI (4.D2 remainder, s39): override editor modal (a
+  SECOND modal cloned from the tasks_edit_dialog scaffold — checkbox
+  column + pause semantics + the new endpoint; NOT a mode-flag on the
+  standard-four dialog, against clarity-over-cleverness); weekday-
+  HEADER long-press → opens it scoped to that weekday (the MON-SUN
+  header row ALREADY EXISTS in calendar_grid.tscn as static labels —
+  it is NOT a strip to build; wire a long-press onto the labels);
+  active-override weekday header BOLDED (treatment tunable later);
+  hamburger-editor banner gated on today's weekday having an active
+  override.
+- WEEK-MODE DOC REWRITE: kill the 5 privacy passages, replace with
+  the faithful-mirror pillar. Pair-key section stays correct
+  (overrides are visible but do NOT participate in pair-key hashing).
+- index.ts → PROD: now carries 4.SL seal-write AND 4.D2. npx
+  wrangler deploy --env production (from server/). Prod schema add
+  is still a reset (no real pairing yet).
+
+NEXT: 4.D2 authoring UI (the editor modal + header long-press +
+bold + banner), then the doc rewrite, then the prod deploy.
+
+Session 38 time: ~Xh ESTIMATE.

@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-14 AWST (session 37, laptop)
-Last updated: session 37 — 4.SL SEALED LABELS + STANDARD-FOUR EDITOR. New days.sealed_labels column freezes the resolved four at seal ('[]' = live fallback); sealSpan writes it at all 3 seal sites + parseDayRow serialises + seedDefaultSpread backfills seeded-sealed days (they bypass sealSpan — the debug arc: every seeded sealed day was '[]' → live → looked broken). Client: task_list render rule (sealed → snapshot, else live) + State passthrough/ceremony snapshot. NEW UI: tasks_edit_dialog.gd (all-code modal) via hamburger_button.gd long-press; app_menu.gd DELETED. Both DBs reset from schema.sql (new reset.sql; reset-not-migrate — no real pairing yet). Dev deployed + DEVICE-VERIFIED (sealed held, today changed; the claim-sealed day returned a populated snapshot → proves sealSpan, not just the backfill). CLOSED s37: 4.SL. OWED: index.ts → PROD (dev only so far); 4.D2 must retrofit the snapshot to the RESOLVED four per-weekday (hook commented). NEW tile: 4.FT fourth-tick seal. Next build: 4.D2 week mode (design LOCKED). Session 37 time: ~5h ESTIMATE.
+Last edit: 2026-06-15 AWST (session 38, laptop)
+Last updated: session 38 — 4.D2 WEEK MODE: SERVER + READ-SIDE CLIENT (authoring UI deferred to s39). ★ PILLAR CORRECTION: week mode is NO LONGER "personal/not shared" — the partner panel must be a FAITHFUL RECONSTRUCTION of the partner's own calendar (their default, overridden, and sealed-immutable days exactly as they render in their app). Morgan's call, hard reversal of the locked design doc's privacy framing; "no cross-user reads in v1.0" is DEAD (partner reactions remain scope-cut, but calendar mirroring is the pillar). SHIPPED + DEVICE-VERIFIED: schema.sql +active_mask on user_weekday_overrides (DBs reset, reset-not-migrate); PUT /users/:id/weekday_overrides/:weekday (9/9 wire-passed: round-trip, GET-carries, upsert, mask/label/weekday validation, partner-exclusion-now-INCLUSION); GET payload ships BOTH weekday_overrides (self) + partner_weekday_overrides (mirror). Client read path: State holds both override sets + resolve_labels_for_day(uid,row,date) is the SINGLE resolution authority (sealed snapshot → weekday override → standard four, per slot, keyed by uid so partner resolves against partner data); task_list delegates to it; CalendarMath.iso_weekday added; ★ SEAL RETROFIT DONE (snapshot now the RESOLVED four). DEVICE-VERIFIED: partner's overridden Wednesday ("HER WED", slot 3) renders on the partner panel exactly as authored. BUG FOUND+FIXED mid-session: poll handler (_on_poll_completed) didn't ingest overrides → they survived boot but died on next poll; now ingested on both paths. OWED: AUTHORING UI (4.D2 remainder — editor modal, weekday-header long-press, bold treatment, banner); week-mode DOC REWRITE (5 "private" passages now wrong); index.ts → PROD (still owed from s37, now carries 4.D2 too). Session 38 time: ~Xh ESTIMATE.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -56,10 +56,28 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       the affordance). Confirm title-recolour + long-press read the
       SAME sealed-state flag when it first fires.
 
-  [ ] index.ts → PROD deploy owed (s37): the 4.SL seal-write is on dev +
+  [ ] index.ts → PROD deploy owed (s37 + s38): the 4.SL seal-write AND the
+      4.D2 week-mode endpoint + partner-override mirror are on dev +
       device-verified, prod NOT yet deployed. npx wrangler deploy --env
-      production from server/. Folds into the next prod deploy; until then
-      a real prod seal would not freeze labels.
+      production from server/. Until then a real prod seal would not freeze
+      labels AND prod has no week-mode endpoint. NOTE prod schema: prod still
+      holds no real Ayshe pairing, so the active_mask add is still a reset
+      (reset.sql + schema.sql --remote --env production) NOT a migration —
+      the instant prod holds a real pairing this flips (see schema policy).
+
+  [ ] [CODE] LOAD-FAILURE vs ACCOUNT-NOT-FOUND conflation (s38 finding,
+      launch-hardening). The client stores user_id locally; on boot it
+      load_user(saved_id). A 404 / user-not-found from the server is
+      currently rendered identically to a network failure — "Couldn't reach
+      the server. Tap to retry." — which is a LIE and an infinite trap: the
+      row is gone, retry never recovers. Harmless from a dev DB reset (you
+      re-seed), but in PROD a deleted account / dangling-id unpair edge /
+      any legit "no such user for this stored id" path traps a real user
+      forever. FIX: Loader/Identity must distinguish a 404-on-load (→ treat
+      local identity as invalid: route to onboarding, or a "this account no
+      longer exists — start fresh?" screen) from a genuine network error (→
+      retry). Not on 4.D2 critical path; do before store launch. Invisible
+      until someone hits it, then a support nightmare.
 
   [ ] Time-log corrections owed at close: s32 ~6h, s33 ~7h, s34 ~3h,
       s35 ~3h, s36 ~5h, s37 ~5h (all ESTIMATES — SIX pending).
@@ -187,9 +205,47 @@ before code). Realistic store launch: Sept-Oct 2026.
 [x] 4.14c [CODE] Future cells non-tappable. day_cell.is_interactive() rejects taps + long-presses on DEAD_FUTURE. Device-verified session 31. ~0h.
 [x] 4.SL [CODE] Sealed label snapshot + standard-four editor — s37. days.sealed_labels (JSON[4], the resolved four frozen at seal; '[]' → live fallback). Server (index.ts): sealSpan writes 3 seal sites + parseDayRow serialises + seedDefaultSpread backfills seeded-sealed days (they bypass sealSpan — every seeded sealed day was '[]' → live → looked broken; that was the debug arc). Client: task_list render rule (_resolve_labels_for_day) + State passthrough/ceremony snapshot. NEW tasks_edit_dialog.gd (all-code modal) reached via hamburger_button.gd long-press; app_menu.gd DELETED (long-press opens editor directly). Both DBs reset from schema.sql (new reset.sql; reset-not-migrate). DEVICE-VERIFIED: sealed days held, today changed; the claim-sealed day returned a populated snapshot (proves sealSpan, not just backfill). OWED: index.ts → PROD. Authority: four_tasks_task_label_editing_design_notes.md. Time: ~5h EST.
 [ ] 4.FT [CODE] Fourth-tick seal — completing the active four seals the day immediately with the FULL seal behaviour (stamp / theme snapshot / label snapshot / payout / sealed_at). Currently tasks stay mutable for testing. RULE: route through the SAME seal routine as sealSpan — trigger inside the day-write endpoint when a write fills the four; never a hand-rolled "seal today" that sets sealed_at and forgets the snapshots (the exact 4.SL bug class). Client mirrors via _apply_seal_to_day. Forks to settle at build: (a) idempotency vs the 4.25 walkback — a self-sealed today must be skipped next morning, no double stamp/payout; (b) commitment/undo — the fourth tick locks the day instantly, decide confirm/grace window vs intended feel. (~3-5h)
-[ ] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10, Morgan; against forecast-review pressure to defer). Per-weekday task-label overrides that propagate to all matching not-yet-sealed weekdays. Personal not shared. Schema ready-ish: `user_weekday_overrides` table needs the 4.D2 reshape (per-slot text + active bitmask; explicit drop-and-recreate — IF NOT EXISTS won't restructure) + its write endpoint; `week_mode_weekdays` bitmask RETIRED-UNUSED under Model B. NOTE (s36): the "IF NOT EXISTS won't restructure" hazard just bit PROD for real — treat the 4.D2 reshape as a proper migration, not a re-apply (see ACTIVE schema-migrations item).
-    Interaction-model fork RESOLVED: Model B — single POPUP off the weekday header, four task slots with per-slot override controls (Morgan 2026-06-10; staggered-disclosure doc synced s32: day-2 long-press relays into the popup, one-time intro line replaces the tutorial flow). Doc sync + popup detail DONE s34 (week-mode doc fully rewritten to Model B; Morgan decisions 1-10 locked: per-slot independent toggles + text, empty-on-blur revert, ghost placeholders, tick-greying w/ all-ticked-unlocks rule, one whole-row save, PUT /users/:id/weekday_overrides/:weekday, week_mode_weekdays column retired-dead). REMAINS: the build. (~8-12h)
-    s37: 4.SL delivered render-rule STEP 1 (sealed-day label freeze via days.sealed_labels) + the standard-four editor (the doc's "cal-icon editor"; shipped on a HAMBURGER long-press, not a cal-icon — reconcile entry point at build, cheap to keep hamburger + attach the banner there). 4.D2 builds render STEP 2 (live override layer), the popup, the PUT endpoint, and the user_weekday_overrides reshape (+active_mask — schema is one column short; reset, no migration, no real pairing). ★ SEAL-SNAPSHOT RETROFIT OWED: sealSpan snapshots the STANDARD four (computed once before the per-day loop); once overrides exist it must snapshot the RESOLVED four per-day (move resolution inside the loop) — same on the seedDefaultSpread backfill + client _self_labels_snapshot. Hook commented in index.ts. Miss it → overridden days freeze wrong labels. Primer: four_tasks_week_mode_primer.md.
+[~] 4.D2 [CODE] Week mode — STAYS v1.0 (2026-06-10). Per-weekday per-slot
+    task-label overrides that propagate to all matching not-yet-sealed
+    weekdays. ★ PILLAR CORRECTION (s38, Morgan): NO LONGER "personal/not
+    shared" — the partner panel is a FAITHFUL RECONSTRUCTION of the partner's
+    own calendar (default + overridden + sealed-immutable, exactly as it
+    renders in their app). "No cross-user reads in v1.0" KILLED (partner
+    reactions stay scope-cut; calendar mirroring is the pillar). Design doc's
+    5 privacy passages are now WRONG — REWRITE OWED.
+    SERVER DONE + DEVICE-VERIFIED (s38, dev): schema.sql +active_mask (DBs
+    reset); PUT /users/:id/weekday_overrides/:weekday (self-write, whole-row
+    idempotent upsert, 9/9 wire-passed); GET ships weekday_overrides +
+    partner_weekday_overrides (fetchWeekdayOverrides generic by uid, called
+    for both sides; solo branch sends []). INVARIANT: every slot always
+    NON-EMPTY (validateTaskLabels rejects empties) — paused slot keeps text
+    w/ mask bit cleared, never-authored carries the standard-four placeholder;
+    mask alone decides active/inactive (stronger than the doc's "normalise
+    empty active → inactive": empties can't enter). Backend.write_weekday_
+    override + signals wired.
+    READ-SIDE CLIENT DONE + DEVICE-VERIFIED (s38): State holds self_/partner_
+    weekday_overrides (ingested on BOTH _on_user_loaded AND _on_poll_completed
+    — the poll path was the s38 bug: overrides survived boot, died on poll);
+    State.resolve_labels_for_day(uid,row,date) = THE single resolution
+    authority (sealed snapshot → override bit-set+non-empty → standard four,
+    per slot, keyed by uid → partner resolves against partner data = the
+    mirror); task_list._resolve_labels_for_day delegates to it (task_list
+    shrank, its own _resolve_task_labels/_extract_sealed_labels DELETED);
+    CalendarMath.iso_weekday(date)→1-7 added. ★ SEAL RETROFIT DONE:
+    _apply_seal_to_day snapshots the RESOLVED four (was the flat standard
+    four; _self_labels_snapshot DELETED, superseded). VERIFIED: partner's
+    overridden Wednesday slot 3 ("HER WED") renders on the partner panel.
+    AUTHORING UI REMAINS (s39): the override editor modal (second modal,
+    cloned from tasks_edit_dialog scaffold — checkbox column + pause
+    semantics + the new endpoint; NOT a mode-flag on the standard-four
+    dialog); weekday-HEADER long-press → opens it scoped to that weekday (the
+    MON-SUN header row already exists in calendar_grid.tscn as static labels,
+    NOT a strip to build — wire a long-press onto the labels); active-override
+    weekday header BOLDED (treatment tunable later); hamburger-editor banner
+    gated on today's weekday having ≥1 active override. Authority:
+    four_tasks_week_mode_design_notes.md (REWRITE the privacy sections first).
+    Primer: four_tasks_week_mode_primer.md. Time so far: ~Xh EST.
+    Interaction-model fork RESOLVED: Model B — single POPUP off the weekday header, four task slots with per-slot override controls (Morgan 2026-06-10; staggered-disclosure doc synced s32: day-2 long-press relays into the popup, one-time intro line replaces the tutorial flow). Doc sync + popup detail DONE s34 (week-mode doc fully rewritten to Model B; Morgan decisions 1-10 locked: per-slot independent toggles + text, empty-on-blur revert, ghost placeholders, tick-greying w/ all-ticked-unlocks rule, one whole-row save, PUT /users/:id/weekday_overrides/:weekday, week_mode_weekdays column retired-dead). REMAINS: the authoring UI (see tile head). (~6-9h left of original ~8-12h est).
 [~] 4.23 [CODE] App local-date-change watcher — BUILT s34, DEVICE-VERIFIED s36 (D-S4 PASS): _last_seen_date marker + _check_date_rollover() first on every FOCUS_IN: date moved EITHER direction → both calendars jump_to_today(); open trays on now-future dates close; payout ceremony is one-shot, consumed at accounting (2nd mock-day re-rolls MOTD only, correct). Skipped mid-ceremony WITHOUT consuming the marker. Time: ~30min.
 [~] 4.24 [CODE] Dead-cell treatment + off-month nav — DECIDED + BUILT s34, DEVICE-PARTIAL s36. Authority: four_tasks_calendar_cells_design_notes.md. Sealed 0-tick days → dead-inert, uninteractable, no tray; pre-install identical; off-month flattened, tap = grid navigates home then delegates as in-month tap (direction-agnostic; navigation-only when grey/pre-install at home); grey stamp tier LATENT. Build: day_cell.gd (SEALED_GREY, OFF_MONTH, flattened dead visual, F1 DeadOverlay MOUSE_FILTER_IGNORE fix s35) + calendar_grid.gd (sealed branch, nav-delegate). DEVICE s36: grey skips dead self-panel PASS; FORWARD off-month tap (trailing → navs + tray) PASS, F1 fix proven live. PARKED: partner-panel grey immutability (D-S2, no seed), BACKWARD off-month + today-overflow (D-S3, needs July). Time: ~1h.
 [~] 4.25 [CODE] Walkback span-sealing — SERVER HALF DONE s33 (wire-passed) + CLIENT DEVICE-VERIFIED s36 (D-S6 PASS, tile CLOSED): grey rescue dialog fires correct (grey tier, streak-at-stake 3, cost 50000); broke balance DISARMS the SAVE button (affordability gate working — only arms when affordable); LET IT GO seals the missed day + runs payout (decline path, streak→0, no charge); funded accept → rest-day beat (separately seen). Server: buildSpan + evaluateSpanRescue + sealSpan, per-day streak walk, shared sealed_at, W13r/W14r/W19/W20/W11/W12 wire-passed s33; wind-down null-target greys paint via refresh_after_morning (D-S5 PASS). DONE.
