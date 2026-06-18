@@ -1,20 +1,26 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-18 AWST (session 40)
-Last updated: session 40 — MOTD STICKER RENDER shipped + the prod-deploy
-DOGFOODING GATE CLOSED. The MOTD's emoji slot now renders as inline sticker
-ART on every surface (picker reel, header subtitle, sealed tray, ceremony
-beats 7/10), not the raw id-string. Full-stack: days.motd_sticker (frozen at
-seal); index.ts createUser/writeDay/claim-payload + parseDayRow spread; client
-stickers.gd (NEW resolver) + msg_wheel STICKER RenderKind + msg_picker text/
-sticker split + State.set_motd(motd,sticker) + motd_sticker_slot.gd (NEW). NEW
-hard-dep files: stickers.gd + motd_sticker_slot.gd. Prod+dev D1 reset + both
-Workers redeployed (folds 4.SL + 4.D2 + motd_sticker); prod re-onboard pending.
-REEL device-verified; header/tray/ceremony render UNVERIFIED (the flash-then-
-gone was schema drift, fixed by the reset). Plus a repo-recovery morning
-(reflog -> 97f86fb, force-pushed source of truth). OWED: week-mode doc rewrite;
-4.FT. NEXT: device-verify the sticker render, then stand up a Play Store
-internal-testing track (the new priority — OTA patching now dogfooding is live).
+Last edit: 2026-06-18 AWST (session 41)
+Last updated: session 41 — COMPLETION-SEAL + STICKER-POOL + SHOP subsystem
+(tile 4.SH server side + 4.D client read path + leader slot/selector), all on
+DEV, wire-proven. The fourth tick now PICKS + FREEZES a deterministic sticker
+into days.completion_sticker (the COMPLETION seal — distinct from the morning
+ACCOUNTING seal; sealed_at stays null at completion), content-locks the day
+(writeDay + setRestDay both 409 day_complete), and the calendar cell + hero
+beat render that real frozen sticker via Stickers.texture_for (placeholder star
+= the explicit art-missing fallback). A `stickers` catalogue table + per-user
+owned_stickers (entitlement) vs active_stickers (the selected pool) back a
+working SHOP (GET /shop, POST /shop/buy — coins → owned+selected, 409
+already_owned/insufficient_coins) and a leader-slot/long-press SELECTOR (top-
+right, mirrors the hamburger; set leader via active_leader w/ pair-key rotation,
+toggle pool via active_stickers, empty-pool guarded). Client pick RE-DERIVED
+locally (CalendarMath.pick_completion_sticker, byte-identical to the server
+hash) so the hero lands the right sticker INSTANTLY without the write round-
+trip; the permanent cell reads the server's frozen value (source of truth).
+NEW hard-dep files: sticker_selector.gd, leader_slot.gd. ALL DEV-ONLY — NOT yet
+on PROD (prod holds Morgan+Ayshe dogfood data; a reset is the deploy). NEXT:
+the THIRD swipe panel (App.gd 2→3-panel swipe rewrite) armed with the sticker
+SHOP — own focused session. OWED still: week-mode doc rewrite; 4.FT.
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -457,3 +463,167 @@ is live (primer: four_tasks_play_store_testing_primer.md). Then the week-mode
 doc rewrite.
 
 Session 40 time: ~5h ESTIMATE.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## Session 41 — Completion-seal + sticker pool + shop (server tile + client read + selector)
+Time: ~7h ESTIMATE (full server tile + wire test + client read path + selector/leader slot + 3 regression fixes; correct at review).
+
+The fourth tick now seals the day's CONTENT and freezes a sticker; the cell +
+hero render that real sticker; a catalogue/owned/pool model backs a working
+shop and a leader-slot selector. Everything DEV-only, server side wire-proven
+end to end. ALL ON THE dev DB + dev Worker — prod is untouched (it holds the
+Morgan+Ayshe dogfood pairing; deploying here means a reset, deferred).
+
+DESIGN — TWO-SEAL MODEL (four_tasks_completion_seal_and_sticker_pool_design_
+notes.md, NEW — authored this session, NOT yet committed to the repo / index):
+- "Seal" splits into TWO events. (1) COMPLETION seal at the FOURTH TICK:
+  content locks, a sticker is PICKED from the pool and FROZEN into
+  days.completion_sticker, immutable instantly (survives overnight / unpair /
+  unsub). The hero fires here. (2) ACCOUNTING seal at the morning claim:
+  payout/streak/stamp/sealed_at/day_theme_state — the existing sealSpan,
+  UNCHANGED. Rationale: the claim/span/rescue machinery rests on "today never
+  seals" (buildSpan upper bound date < localDate STRICT); making the 4th tick
+  set sealed_at would mean rewriting that fragile walkback. So completion is a
+  SEPARATE lighter mechanism (a new column + edit rejection), not sealed_at.
+- PICK = DERIVE-then-FREEZE. stable_hash(date) % pool.length indexes
+  active_stickers, deterministic per date, then frozen. NOT pure re-derive
+  (that would reshuffle past days when the pool changes, breaking immutable-
+  past). Sticker identity FREEZES (its input, the pool, is mutable); placement
+  RE-DERIVES (its input, the date, is immutable). The two are different on
+  purpose.
+- NO morning promotion. completion_sticker is a PERMANENT column the seal never
+  touches — already the forever home. The client reads completion_sticker for
+  ALL days (one source). An earlier draft had a day_theme_state promotion step;
+  CANCELLED as redundant (verified sealSpan never writes the column).
+
+SHIPPED — SCHEMA (schema.sql, applied to dev D1 via reset+reseed):
+- NEW `stickers` catalogue table (sticker_id PK, display_name, price_coins
+  DEFAULT 1, subscriber_only, ships_extra, status 'live'/'queued', released_at)
+  — the source of truth for buyable stickers + prices, NOT content_drops. 11
+  baseline rows seeded, matching the client onboarding CATALOGUE const exactly
+  (black_cat, blue_swamplight, chilli, fly, frog, green_glowbug, grey_cat,
+  orange_swamplight, skemli, vampire, water_bottle).
+- days: +completion_sticker TEXT DEFAULT '' (the frozen pick; immutable once
+  set; the seal never touches it).
+- users: +owned_stickers TEXT DEFAULT '[]' (entitlement) — distinct from
+  active_stickers (the selected pool that feeds completion picks + the MOTD
+  reel). Selected ⊆ owned.
+
+SHIPPED — SERVER (index.ts, dev Worker; WIRE-PROVEN):
+- writeDay: on the write that takes a day to 4 ticks, pickCompletionSticker
+  freezes completion_sticker. Content-lock rejects further edits 409
+  day_complete (detects via existing completion_sticker OR 4 stored ticks).
+  stableHash ported to TS (Math.imul / >>>0) — VERIFIED byte-identical to the
+  GDScript hash across dates.
+- setRestDay: also 409 day_complete on a completed day (the second edit path —
+  a four-tick worked day can't toggle to rest).
+- Shop: GET /users/:id/shop (listShop — live catalogue minus owned) + POST
+  /users/:id/shop/buy (buySticker — verify coins, atomic relative debit +
+  append to owned+active, 409 already_owned / insufficient_coins / 404
+  sticker_not_found).
+- Selector writes: NO new endpoints — PUT /users/:id (updateUser) ALREADY
+  handles active_leader (w/ pair-key rotation) + active_stickers.
+- BUGS found via wire test + fixed: parseUserRow now parses owned_stickers
+  (was returning a raw JSON string → client would choke); createUser + BOTH
+  DevKit seeds now populate owned_stickers = the starter active_stickers (the
+  starter set is OWNED, not just selected — closes Morgan's "stickers living
+  outside the ecosystem" flag; onboarding flow UNCHANGED, the granted stickers
+  are now first-class catalogue members).
+
+SHIPPED — CLIENT (read path, tile 4.D):
+- day_cell.gd: configure(d, s, sticker_id); the sticker is driven by
+  completion_sticker != "" (truer than the GREEN tier — fires at four ticks
+  regardless of seal, and correctly shows on a sealed past day); real art via
+  Stickers.texture_for, placeholder star = explicit art-missing fallback; only
+  the monochrome star is tinted, never real art.
+- calendar_grid.gd: passes completion_sticker into configure via
+  _completion_sticker_for(date) (reads the day row it already fetches).
+- hero_beat.gd: play(from_rect, date, kind, sticker_id); real art + star
+  fallback; tints star only.
+- App.gd: hero RE-DERIVES the pick locally (CalendarMath.pick_completion_
+  sticker, mirrors the server pick exactly — verified gives "chilli" for
+  2026-06-18, matching the wire test) so it lands INSTANTLY at the 4th tick,
+  BEFORE the server's completion_sticker round-trips. The permanent cell still
+  reads the server's frozen value (source of truth). Worked-only (rest carries
+  no completion sticker).
+- State.gd: _new_day_row template carries completion_sticker; _on_day_written
+  INGESTS it (server-controlled field) — the "ingest every new server field in
+  BOTH boot and write/poll handlers" footgun, hit again and closed.
+
+SHIPPED — CLIENT (selector, tile 4.D — the real interface, not a stub):
+- leader_slot.gd (NEW, class_name): top-right leader-sticker button MIRRORING
+  the hamburger (same SIZE, same top inset, gesture vocabulary). Long-press
+  opens the selector; tap inert. Repaints its art live off State.self_changed.
+- sticker_selector.gd (NEW, class_name): vertical owned-sticker list (scrim +
+  centred card, house modal pattern). Each row: art, name, tap-to-set-leader,
+  pool toggle. Owns its OWN writes via State.request_user_update (no App
+  handler needed — no coordination App must own, unlike rest_confirm).
+  Refreshes on self_changed. Empty-pool guard: refuses to remove the last pool
+  member (a zero pool would starve completion picks + the MOTD reel).
+- App.gd hosts the leader slot + selector lifecycle (NOT DevKit — an earlier
+  pass wrongly stubbed it in the DevKit menu; corrected to the real top-right
+  slot + long-press).
+
+NEW FILES (hard deps): sticker_selector.gd, leader_slot.gd.
+
+VERIFIED (device): the cell renders the real frozen sticker (chilli, hand-
+placed, persists across mock-forward+reload — proving the State ingestion, not
+just the local prediction); the hero lands the real sticker INSTANTLY at the
+4th tick (after the re-derive fix; before it, the sticker only appeared on a
+later reload because the hero read State before the write response landed); the
+leader slot shows the leader top-right and long-press opens the selector; set-
+leader repaints the slot live; pool toggle changes which sticker future
+completions draw from.
+
+VERIFIED (wire, dev Worker — full sequence): GET /shop → 11, then 7 after
+owned populated; 4-tick today → completion_sticker:"chilli" with sealed_at:null
+(two-seal confirmed); 5th edit → 409 day_complete; rest toggle → 409
+day_complete; buy green_glowbug → coins 4250→4249, added to owned+active,
+dropped off buyable; re-buy → 409 already_owned; owned_stickers returns as a
+parsed array post-fix.
+
+PROCESS NOTE: a phantom parse-error storm (calendar_grid "Cannot find member
+CellState") was the class_name-not-reregistered footgun AGAIN — a parse error
+makes the whole file's symbol references report at the USE site, and a stale
+class_name (day_cell defines DayCell) cascades to every referencing file.
+Reload Current Project cleared it; nothing was wrong with the files. Same
+lesson as s39's autoload reload: after dropping a class_name script, reload
+before trusting any error.
+
+PER-DATE DETERMINISM (parked, not a bug): the sticker is deterministic per
+date by design (re-derive-never-remember). Re-ticking the same date always
+gives the same sticker in the same spot — that IS the invariant (immutable
+past). With only a 4-sticker starter pool it reads repetitive; resolves as the
+catalogue + pool grow. Morgan parked it ("until it casts a PROPER shadow").
+
+OPEN (carried):
+- THIRD swipe panel + sticker SHOP — the next build. App.gd's 2-panel swipe
+  becomes 3-panel (container 3-wide, current_view third state, commit
+  thresholds third target — a real swipe-state-machine change, costed). Then
+  populate from GET /shop, tap→buy. Preview window DEFERRED (needs the palette/
+  retint pipeline, 4.14b/4.20). OWN FOCUSED SESSION — invasive on core nav.
+- PROD deploy of the s41 work — dev-only now; prod reset required (holds the
+  dogfood pairing). Sequence with the other pending prod work.
+- COMMIT the design note four_tasks_completion_seal_and_sticker_pool_design_
+  notes.md to pickle-moon-design-notes + add to the repo index (currently only
+  a working file, never committed).
+- Q6 (deferred): onboarding's free allocation vs the paid shop AT CATALOGUE
+  SCALE. Onboarding picks ~5 free from the full catalogue (fine at 11; at the
+  planned ~100, "pick 5 free from 100" guts the cheap shop + bloats the
+  screen). Likely a `starter_eligible` flag + a fixed small free allocation.
+  NOT a now-problem; flow stays as-is.
+- WEEK-MODE DOC REWRITE — still owed s38/s39/s40.
+- 4.FT fourth-tick seal still open (NOTE: the COMPLETION seal shipped here is
+  the content-lock + sticker freeze; 4.FT is the morning ACCOUNTING-seal hero
+  beat, separate).
+
+NEXT: the third swipe panel armed with the sticker shop (own session — swipe
+surgery). Then prod deploy + reset to fold s41. Then the week-mode doc rewrite.
+
+Session 41 time: ~7h ESTIMATE.
+
+Running total at session 41 close: ~207.75h
+(s40 ~5h + s41 ~7h, BOTH ESTIMATES. Builds on the s39-close ~195.75h. The
+EIGHT-PLUS time-debts since s32 are still a smell — one reconciliation pass
+owed, now spanning s32-s41.)

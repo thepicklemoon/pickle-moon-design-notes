@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-18 AWST (session 40)
-Last updated: session 40 — MOTD STICKER RENDER shipped (emoji slot -> inline sticker art on every surface) + the s37/38/39 PROD-DEPLOY DOGFOODING GATE CLOSED. Full-stack: days.motd_sticker (frozen at seal); index.ts createUser/writeDay/claim-payload + parseDayRow spread (poll/fetch carry it); client — stickers.gd (NEW texture resolver), msg_wheel STICKER RenderKind (emoji reel -> TextureRect), msg_picker composed_text()/selected_sticker() split, State.set_motd(motd, sticker), motd_sticker_slot.gd (NEW — wraps a subtitle Label + trailing sticker, reads the label's pack flag so it matches centred header / left tray), panel_heading + tasks_tray same-row render, morning_sequence sets the sticker WITH the beat-7 (tray) + beat-10 (header) glitches, App passes the header slot. NEW hard-dep files: stickers.gd, motd_sticker_slot.gd. PROD+DEV D1 reset (reset.sql then schema.sql, --remote) + both Workers redeployed — folds 4.SL + 4.D2 (active_mask, sealed_labels, weekday_overrides, resolveSealedLabels) AND motd_sticker; prod re-onboard + re-pair PENDING. VERIFIED: picker reel renders sticker art on device. UNVERIFIED: header/tray/ceremony render surfaces (the split-second-then-gone was SCHEMA DRIFT — deployed DB lacked the column, poll wiped the local value; fixed by the reset). Repo-recovery morning (VS-Code-sync two-machine divergence; reflog-recovered to 97f86fb, force-pushed source of truth). OWED still: week-mode DOC REWRITE; 4.FT. Session 40 time: ~5h ESTIMATE.
+Last edit: 2026-06-18 AWST (session 41)
+Last updated: session 41 — COMPLETION-SEAL + STICKER-POOL + SHOP subsystem, DEV-only, wire-proven. The FOURTH TICK now freezes a deterministic sticker into days.completion_sticker (the COMPLETION seal, distinct from the morning ACCOUNTING seal — sealed_at stays null at completion) + content-locks the day (writeDay + setRestDay both 409 day_complete). Cell + hero render the real frozen sticker via Stickers.texture_for (star = art-missing fallback); hero RE-DERIVES the pick locally (CalendarMath.pick_completion_sticker, byte-identical to the server hash) so it lands INSTANTLY without the write round-trip, cell reads the server's frozen value. NEW `stickers` catalogue table + users.owned_stickers (entitlement) vs active_stickers (selected pool) back a working SHOP (GET /shop, POST /shop/buy — coins→owned+selected, 409 already_owned/insufficient_coins) + a leader-slot/long-press SELECTOR (leader_slot.gd top-right mirrors the hamburger; sticker_selector.gd vertical list; set leader via active_leader w/ rotation, toggle pool via active_stickers, empty-pool guarded). Selector writes reuse PUT /users (no new endpoints). BUGS fixed: parseUserRow now parses owned_stickers; createUser + both DevKit seeds populate owned_stickers = starter active_stickers (closes the "stickers outside the ecosystem" flag; onboarding flow UNCHANGED). NEW hard-dep files: sticker_selector.gd, leader_slot.gd. ALL DEV-ONLY — prod untouched (holds the dogfood pairing; deploy = reset). Design note four_tasks_completion_seal_and_sticker_pool_design_notes.md authored but NOT yet committed. Session 41 time: ~7h ESTIMATE.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -22,6 +22,27 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
 
   [ ] W10 (optional) Thursday cron — commands in wire_regression_pack.md,
       or let a real Thursday prove it on dev.
+
+  ── s41 COMPLETION-SEAL + SHOP + SELECTOR (DEV; mostly verified, gaps below) ──
+  [x] Server tile WIRE-PROVEN on dev (full sequence: shop list, 4-tick
+      freeze w/ sealed_at null, both 409 day_complete locks, buy debit +
+      owned/active append, already_owned, owned_stickers parsed). Done s41.
+  [x] Cell + hero render the real frozen sticker on device; hero lands it
+      instantly (re-derive fix); sticker persists across mock-forward+reload
+      (State ingestion proven). Done s41.
+  [x] Leader slot top-right + long-press opens selector; set-leader repaints
+      live; pool toggle changes future picks. Done s41.
+  [ ] Add the s41 server endpoints to wire_regression_pack.md (shop list/
+      buy, the two 409 day_complete locks, the freeze) — re-runnable pack,
+      not just this session's ad-hoc commands.
+  [ ] PROD never exercised — all s41 work is dev-only. When prod is reset to
+      fold s41: re-verify the freeze + shop + selector on prod, and watch
+      owned_stickers populate on a REAL onboard (the createUser fix).
+  [ ] Selector/leader-slot UI is FUNCTIONAL, not polished — no slide
+      animation, no die-cut in-pool indicator, no tap-context-menu, leader
+      slot draws over the partner panel too (consistent w/ the hamburger,
+      but leader is self-only — decide if it hides on the partner panel).
+      All deferred UI; logged so it's not re-reported as unfinished.
   [ ] Emoji glyphs missing on work-laptop Android export (🔥/🟡 streak bar
       + CoinFX flights invisible; ★ fine). Check Godot version/export
       parity vs home PC BEFORE any release build from the laptop.
@@ -230,7 +251,10 @@ before code). Realistic store launch: Sept-Oct 2026.
 [~] 4.10 [CODE] Month colour + stats popup — RESHAPED s35 (authority NEW four_tasks_month_stats_design_notes.md): month STAMP CUT (visual downgrade vs eternalised themed month; PERFECT MONTH survives as a single client flourish at 100% — pools-doc month-stamp question CLOSED, no pool). Popup half BUILT s35, DevKit in-progress view DEVICE-VERIFIED s36 (D-S8 dev-side: %, X/Y, best run, coins '—', elapsed denominator all correct): month_stats_popup.gd, code-built overlay (bug_catcher pattern), bounded in-popup month nav, static month_stats()/tier_for_percent() helpers the header wiring imports. coins STUBBED '—' (no per-day coins server-side; per-day column = mechanism A at next index.ts unfreeze, doc records the lifetime-watermark alternative B). REMAINS: (a) header wiring — month-name tier tint (completed months only, band consts in the popup) + long-press relay, few lines in calendar_grid AFTER D-S2/D-S3 verify [confirm tint + long-press read the SAME sealed flag]; (b) coins column server-side post per-day unfreeze; (c) COMPLETED-MONTH CHROME — DESIGNED s35 (theme doc v2 authority), builds inside 4.14b; (d) D-S8 SHIPPING-trigger verify at first real month seal. Month-close disclosure copy TBD (roster content list). Time: ~1.5h popup (ESTIMATE).
 [ ] 4.11 [CODE] Help menu — two-tier, six subjects, [g]glitch[/g] markup (consumes 4.1). Copy = roster-week content list. (~4-6h)
 [~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: real-UI trigger (one line, lands with 4.11's help menu). Confetti garnish DEFERRED with 4.9 (s35) — no one-off particles; rides the shared system if 4.9 revives. (~5min left, inside 4.11)
-[ ] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h)
+[~] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h) — LARGELY ABSORBED by the s41 SELECTOR (sticker_selector.gd + leader_slot.gd): owned-sticker list, pool toggle w/ floor-of-1 (empty-pool guard), set-leader. Built as the real top-right leader-slot/long-press interface, not the inline picker originally pictured. REMAINS as 4.14a-proper: the themed-sticker marker (APPtrioc pull) + whatever inline-on-panel placement the original tile wanted vs the modal selector shipped — reconcile when the panel UI is designed. Pool toggle + leader are DONE (s41, dev-verified).
+
+[ ] 4.SH [CODE] Sticker SHOP — the THIRD swipe panel (SHOP ← calendarYOU ↔ calendarPARTNER). SERVER DONE + wire-proven s41 (GET /users/:id/shop = live catalogue minus owned; POST /users/:id/shop/buy = verify coins, atomic relative debit + append to owned+active, 409 already_owned/insufficient_coins/404 sticker_not_found; `stickers` catalogue table is the price/availability authority). REMAINS — CLIENT: App.gd's 2-panel swipe becomes 3-panel (container 3-wide, current_view gains a third state, commit thresholds + snap targets get a third position — a REAL swipe-state-machine change, invasive on core nav, NOT free; own focused session). Populate the panel from the catalogue read (all live minus owned), tap a sticker → cost + buy, balance updates. Preview window DEFERRED (needs the palette/retint pipeline, 4.14b/4.20 — ships buy-without-preview until then). Prices are a 1-coin stub now (real prices = economy doc). Authority: four_tasks_completion_seal_and_sticker_pool_design_notes.md (§5 shop, §8 build order step 7). THE NEXT BUILD. (~5-7h client)
+
 [x] 4.14c [CODE] Future cells non-tappable. day_cell.is_interactive() rejects taps + long-presses on DEAD_FUTURE. Device-verified session 31. ~0h.
 [x] 4.SL [CODE] Sealed label snapshot + standard-four editor — s37. days.sealed_labels (JSON[4], the resolved four frozen at seal; '[]' → live fallback). Server (index.ts): sealSpan writes 3 seal sites + parseDayRow serialises + seedDefaultSpread backfills seeded-sealed days (they bypass sealSpan — every seeded sealed day was '[]' → live → looked broken; that was the debug arc). Client: task_list render rule (_resolve_labels_for_day) + State passthrough/ceremony snapshot. NEW tasks_edit_dialog.gd (all-code modal) reached via hamburger_button.gd long-press; app_menu.gd DELETED (long-press opens editor directly). Both DBs reset from schema.sql (new reset.sql; reset-not-migrate). DEVICE-VERIFIED: sealed days held, today changed; the claim-sealed day returned a populated snapshot (proves sealSpan, not just backfill). OWED: index.ts → PROD. Authority: four_tasks_task_label_editing_design_notes.md. Time: ~5h EST.
 [ ] 4.FT [CODE] Fourth-tick seal — completing the active four seals the day immediately with the FULL seal behaviour (stamp / theme snapshot / label snapshot / payout / sealed_at). Currently tasks stay mutable for testing. RULE: route through the SAME seal routine as sealSpan — trigger inside the day-write endpoint when a write fills the four; never a hand-rolled "seal today" that sets sealed_at and forgets the snapshots (the exact 4.SL bug class). Client mirrors via _apply_seal_to_day. Forks to settle at build: (a) idempotency vs the 4.25 walkback — a self-sealed today must be skipped next morning, no double stamp/payout; (b) commitment/undo — the fourth tick locks the day instantly, decide confirm/grace window vs intended feel. s39 NOTE: _apply_seal_to_day is now the proven client seal path (resolves WHILE unsealed via for_seal=true, then stamps — preserves the override into the snapshot); 4.FT's client mirror routes through it unchanged. Server: route the fourth-tick trigger through sealSpan so it inherits resolveSealedLabels for free. (~3-5h)
@@ -479,3 +503,9 @@ Running project total at session 39 close: ~195.75h
 close, so EIGHT corrections now owed: s32-s39. The total assumes s38
 ~5h; correct it when reconciling. The six-plus time-debts are a smell
 — worth one reconciliation pass rather than carrying forever.)
+Running project total at session 40 close: ~200.75h
+(s40 ~5h ESTIMATE — MOTD sticker render.)
+Running project total at session 41 close: ~207.75h
+(s41 ~7h ESTIMATE — completion-seal + sticker pool + shop server tile +
+client read path + selector. TEN time-debts now owed since s32 — the
+reconciliation pass is overdue.)
