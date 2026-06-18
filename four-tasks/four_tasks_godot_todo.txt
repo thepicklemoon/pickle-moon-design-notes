@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-16 AWST (session 39, laptop)
-Last updated: session 39 — 4.D2 WEEK MODE AUTHORING UI shipped + SEALED-DAY IMMUTABILITY fixed. 4.D2 CLOSED (feature-complete, device-verified incl seal-through). Authoring UI: weekday_edit_dialog.gd (NEW all-code modal, tasks_edit_dialog house pattern — four [checkbox][LineEdit] rows, pause-not-delete, empty-on-blur revert, zero-ticked clears the weekday); optimistic State.request_weekday_override (+whole-array rollback, weekday_override_failed signal); calendar_grid.gd WeekdayStrip long-press (hosted in the grid, self-GATED via _is_self, partner strip inert) → weekday_long_pressed(1-7); active-override header BOLD (colour step TEXT_WEEKDAY→TEXT_HEADER, no bold font); App.gd opens it (ceremony-inert, one-editor-at-a-time); tasks_edit_dialog banner when today's weekday is overridden. ★ MODEL A LOCKED (s39, Morgan: "preserve the memory of the days gone by"): a sealed day PRESERVES its override — the snapshot IS the memory. Resolver REWRITTEN: gate on sealed_at (NOT snapshot-presence — that was the immutability bug, an empty-'[]' sealed day fell through to the override); display-only past-guard (phantom/stale past days show standard four, no backward leak); for_seal flag (=_apply_seal_to_day passes true) skips both branches so the override freezes into the snapshot; _apply_seal_to_day reordered (resolve WHILE unsealed, then stamp). Server (index.ts): resolveSealedLabels + isoWeekdayOf freeze the RESOLVED four per-day at ALL 3 seal sites (sealSpan loop + gap-rescue breaker; grey-rescue rides the loop) — mirrors the client so snapshots agree, no poll flicker. SEAL-THROUGH DEVICE-VERIFIED: mock-clock +1 → bg/fg → real claim → DB showed mixed per-slot freeze ["asdaw","walk 20 min","read a chapter","fsadf"] (proves per-slot mask + client/server agreement). CLOSED s39: 4.D2. OWED: index.ts → PROD + prod schema reset (DOGFOODING GATE); week-mode DOC REWRITE (Model A + the 5 stale "private" passages); 4.FT still open. PROCESS: autoloads don't hot-reload — State.gd edits need Project→Reload Current Project; verify a file-replace with Select-String before booting (a stale on-disk State.gd cost ~3 false bug-hunts this session). Session 39 time: ~5h ESTIMATE.
+Last edit: 2026-06-18 AWST (session 40)
+Last updated: session 40 — MOTD STICKER RENDER shipped (emoji slot -> inline sticker art on every surface) + the s37/38/39 PROD-DEPLOY DOGFOODING GATE CLOSED. Full-stack: days.motd_sticker (frozen at seal); index.ts createUser/writeDay/claim-payload + parseDayRow spread (poll/fetch carry it); client — stickers.gd (NEW texture resolver), msg_wheel STICKER RenderKind (emoji reel -> TextureRect), msg_picker composed_text()/selected_sticker() split, State.set_motd(motd, sticker), motd_sticker_slot.gd (NEW — wraps a subtitle Label + trailing sticker, reads the label's pack flag so it matches centred header / left tray), panel_heading + tasks_tray same-row render, morning_sequence sets the sticker WITH the beat-7 (tray) + beat-10 (header) glitches, App passes the header slot. NEW hard-dep files: stickers.gd, motd_sticker_slot.gd. PROD+DEV D1 reset (reset.sql then schema.sql, --remote) + both Workers redeployed — folds 4.SL + 4.D2 (active_mask, sealed_labels, weekday_overrides, resolveSealedLabels) AND motd_sticker; prod re-onboard + re-pair PENDING. VERIFIED: picker reel renders sticker art on device. UNVERIFIED: header/tray/ceremony render surfaces (the split-second-then-gone was SCHEMA DRIFT — deployed DB lacked the column, poll wiped the local value; fixed by the reset). Repo-recovery morning (VS-Code-sync two-machine divergence; reflog-recovered to 97f86fb, force-pushed source of truth). OWED still: week-mode DOC REWRITE; 4.FT. Session 40 time: ~5h ESTIMATE.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -72,18 +72,26 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       the affordance). Confirm title-recolour + long-press read the
       SAME sealed-state flag when it first fires.
 
-  [ ] index.ts → PROD + prod schema RESET — DOGFOODING GATE (s37+s38+s39).
-      Dev carries the 4.SL seal-write, the 4.D2 endpoint + partner mirror,
-      AND s39's resolveSealedLabels (per-day RESOLVED snapshot) + the
-      immutability fix — all device-verified; prod has NONE of it. Sequence:
-      (1) reset prod D1 — reset.sql then schema.sql, --remote --env
-      production (prod holds no real Ayshe pairing yet, so this is a reset
-      NOT a migration — it adds active_mask + sealed_labels; flips to a
-      migration the instant prod has a real pairing, see schema policy);
-      (2) npx wrangler deploy --env production from server/. Until BOTH run,
-      a prod seal freezes wrong labels / an override write 500s on a missing
-      table. MORGAN+AYSHE DOGFOODING IS BLOCKED ON THIS — it's the last gate
-      before face-to-face use.
+  [x] index.ts → PROD + prod schema RESET — DOGFOODING GATE — DONE s40.
+      Prod + dev D1 reset (reset.sql then schema.sql, --remote) + both Workers
+      redeployed (--env production / bare-on-dev), folding 4.SL + 4.D2
+      (active_mask, sealed_labels, weekday_overrides table, resolveSealedLabels)
+      AND s40's days.motd_sticker. Prod re-onboard + re-pair PENDING (the reset
+      wiped dogfood data — first face-to-face pairing is the next real-world
+      step). GOTCHA logged: schema.sql is CREATE-TABLE-IF-NOT-EXISTS, so a bare
+      re-run won't add a column to a live table — the reset applies it (ALTER
+      TABLE ADD COLUMN is the non-destructive keep-data alternative).
+
+  [ ] MOTD STICKER RENDER — device-verify the render surfaces on a FRESH pick
+      (s40). REEL CONFIRMED on device (sticker art in the spinner). UNVERIFIED:
+      header subtitle + sealed-tray subtitle + ceremony beats 7 (tray) / 10
+      (header) showing the emoji as inline sticker art. They showed a split-
+      second-then-gone — that was SCHEMA DRIFT (deployed DB lacked motd_sticker
+      -> every poll round-tripped a row without it -> the selective merge took
+      the full server row + wiped the local value), now fixed by the s40 reset.
+      Test path: a day sealed BEFORE the column has motd_sticker='' baked in
+      (stays blank) — mock forward + pick a NEW MOTD so the write stores a real
+      id, then watch the header/tray + the two ceremony beats.
 
   [ ] [CODE] LOAD-FAILURE vs ACCOUNT-NOT-FOUND conflation (s38 finding,
       launch-hardening). The client stores user_id locally; on boot it
@@ -215,6 +223,7 @@ before code). Realistic store launch: Sept-Oct 2026.
 [x] 4.3 [CODE] CoinFX utility. Session 27. (Stub coin art; real sprite 4.A — swap _make_coin only.)
 [x] 4.4 [CODE] MOTD spinner. Sessions 25-26. ~6h. TUNING deferred (column widths, font, selector band, emoji reel TextureRect column). NOTE (s36): spinner shows WORDS where sticker art expected on prod build — same sticker-load gap as onboarding companions; see ACTIVE sticker-render bug.
 [~] 4.5 [CODE] MOTD reroll cost — SERVER HALF DONE (s29): POST /users/:id/motd/reroll (relative debit, 409 insufficient_coins, returns user + fresh roll); REROLL_COST=100 placeholder shipped via economy payload; fee-is-vent-not-protection decision recorded at the constant (free /motd/roll remains the first-spin path). CLIENT HALF remains: picker lock button + confirm popup wiring (ceremony-adjacent — with Morgan). MUST sealed-gate the edit surface (sealed-beats-clock, s31) AND serve as the recovery surface for a mid-ceremony kill (today's MOTD pick is lost if beats die before 9 — s31 finding). (~2h left)
+[~] 4.MS [CODE] MOTD sticker render — the MOTD's emoji slot renders as inline sticker ART on every surface (picker reel, header subtitle, sealed tray subtitle, ceremony beats 7/10), not the raw id-string. Full-stack s40, on make-the-data-say-what-it-means (motd_sticker is its OWN field, never parsed back out of the message). days.motd_sticker (frozen at seal); index.ts createUser day-0 + writeDay + claim/presented payload + parseDayRow spread (poll/fetch carry it free). Client: stickers.gd (NEW class_name resolver -> res://assets/icons/<id>/<id>_sticker.png, guarded + warn-once + cache); msg_wheel RenderKind {TEXT,STICKER} (emoji reel -> TextureRect per id, Label fallback, motion math untouched); msg_picker composed_text()/selected_sticker() split, both commit points write both fields via State.set_motd(motd, sticker); motd_sticker_slot.gd (NEW class_name — wraps a subtitle Label in a tight HBox + trailing sticker, reads the label's pack flag so it matches centred header AND left tray, no special-casing); panel_heading + tasks_tray render text+sticker from the SAME row; morning_sequence sets the sticker WITH the beat-7/beat-10 glitches; App passes the header slot through run(). NEW hard-dep files: stickers.gd, motd_sticker_slot.gd. REEL device-verified; render surfaces UNVERIFIED (see open tests — was schema drift, fixed by the s40 reset). Authority: four_tasks_motd_design_notes.md. Time: ~5h EST.
 [x] 4.6 [CODE] Morning sequence — coordinator. Sessions 26-28. ~11h + economy. OWED: in-context tuning (wobble dir, coin size, picker card width/entrance, MOTD font, beat-5a hold); cross-month verified-on-real-1st only. Interruption = freeze/resume (doc synced s32).
 [x] 4.7 [CODE] Stamp slap — folded into 4.6 beat 7. Session 26. Placeholder art; real stamps 4.C. Messages AUTHORED + live s36 (see stamp_messages.ts; pools locked).
 [~] 4.8 [CODE] Rest day system — MECHANISM DONE (s28) + session-29 hardening (free-rest hole closed, per-op rollback, server-shipped cost, anim-leak fix). Time: ~2h. Device test = S29 ledger D7/D8. DEFERRED: rest-day task-label content swap (~15-30 phrases; felt cheesy).
@@ -335,7 +344,7 @@ ACTIVE — ad-hoc items found during the port
 
 [ ] user_not_found should route to ONBOARDING, not the reach-server error screen (s36). State.gd:548 _on_user_load_failed / Backend.gd:493 _request collapse all load failures into "Couldn't reach the server." Latent — only bites a device holding a stale user_id against an empty/reset DB (genuinely-fresh install has no id → onboards fine), but real cases exist: server-side account deletion/unpair, any prod reset. Fix = branch: network/timeout → retry screen; clean user_not_found from a reachable server → onboarding. (~few lines)
 
-[ ] STICKERS not rendering at runtime — MOTD picker + onboarding companions, BOTH dev AND prod builds, non-fatal (falls back to text/warning). onboarding_companions.gd:185 _load_sticker_texture; water_bottle the live example ("sticker art missing at res://assets/icons/water_bottle/water_bottle_sticker.png"). Root cause TBD: constructed path template vs actual filenames (loaders build an exact path string; palette tool lists them fine because it SCANS — different mechanism). Check the path template against disk + confirm water_bottle's file follows the <name>/<name>_sticker.png convention. NOT export-stripping (fails in both builds).
+[~] STICKERS not rendering at runtime — PICKER REEL RESOLVED s40 (stickers.gd resolver + msg_wheel TextureRect render sticker art on device; the path template res://assets/icons/<id>/<id>_sticker.png was correct all along — the reel had been Label-only). REMAINING: onboarding companions still use inline load() (the deferred fold onto stickers.gd) — re-verify companions render separately. Original note: MOTD picker + onboarding companions, BOTH dev AND prod builds, non-fatal (falls back to text/warning). onboarding_companions.gd:185 _load_sticker_texture; water_bottle the live example ("sticker art missing at res://assets/icons/water_bottle/water_bottle_sticker.png"). Root cause TBD: constructed path template vs actual filenames (loaders build an exact path string; palette tool lists them fine because it SCANS — different mechanism). Check the path template against disk + confirm water_bottle's file follows the <name>/<name>_sticker.png convention. NOT export-stripping (fails in both builds).
 
 [ ] FIRST-RUN SURFACE broadly unverified (s36). Devkit seeds bypass createUser / first-pair / day-0. createUser PROVEN s36 (curl smoke + first prod boot); pairing, join_by_values, recovery_flow still only device-tested, not first-contact-proven against an empty prod DB. Expect more first-contact bugs as Morgan + Ayshe dogfood. Watch these paths specifically during pairing.
 

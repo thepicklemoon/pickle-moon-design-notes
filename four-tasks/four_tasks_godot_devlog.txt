@@ -1,22 +1,20 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-16 AWST (session 39, laptop)
-Last updated: session 39 — 4.D2 WEEK MODE CLOSED (authoring UI shipped)
-+ SEALED-DAY IMMUTABILITY fixed. s38 shipped the server + read-side
-partner mirror; s39 built the authoring UI (weekday_edit_dialog.gd, a
-new all-code modal; weekday-header long-press, self-gated; optimistic
-State.request_weekday_override; active-override header bold) then fixed
-an immutability break the override layer exposed. MODEL A LOCKED
-(Morgan: "preserve the memory of the days gone by") — a sealed day
-PRESERVES its override; the snapshot IS the memory. Resolver rewritten:
-gate on sealed_at NOT snapshot-presence (the bug), display-only past-
-guard, for_seal flag freezes the override into the snapshot. Server
-mirror: resolveSealedLabels freezes the RESOLVED four per-day at all 3
-seal sites (the 4.SL retrofit). Seal-through DEVICE-VERIFIED via mock-
-clock +1 → real claim → DB mixed per-slot freeze. OWED: index.ts →
-PROD + prod schema reset (the dogfooding gate); week-mode doc rewrite
-(Model A + the 5 stale "private" passages). 4.FT still open. NEXT: prod
-deploy, then Morgan + Ayshe dogfood on prod.
+Last edit: 2026-06-18 AWST (session 40)
+Last updated: session 40 — MOTD STICKER RENDER shipped + the prod-deploy
+DOGFOODING GATE CLOSED. The MOTD's emoji slot now renders as inline sticker
+ART on every surface (picker reel, header subtitle, sealed tray, ceremony
+beats 7/10), not the raw id-string. Full-stack: days.motd_sticker (frozen at
+seal); index.ts createUser/writeDay/claim-payload + parseDayRow spread; client
+stickers.gd (NEW resolver) + msg_wheel STICKER RenderKind + msg_picker text/
+sticker split + State.set_motd(motd,sticker) + motd_sticker_slot.gd (NEW). NEW
+hard-dep files: stickers.gd + motd_sticker_slot.gd. Prod+dev D1 reset + both
+Workers redeployed (folds 4.SL + 4.D2 + motd_sticker); prod re-onboard pending.
+REEL device-verified; header/tray/ceremony render UNVERIFIED (the flash-then-
+gone was schema drift, fixed by the reset). Plus a repo-recovery morning
+(reflog -> 97f86fb, force-pushed source of truth). OWED: week-mode doc rewrite;
+4.FT. NEXT: device-verify the sticker render, then stand up a Play Store
+internal-testing track (the new priority — OTA patching now dogfooding is live).
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -379,3 +377,83 @@ unsealed, then stamps); route the server trigger through sealSpan so it
 inherits resolveSealedLabels.
 
 Session 39 time: ~5h ESTIMATE (correct at close).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## Session 40 — MOTD sticker render (emoji slot → inline sticker art)
+Time: ~5h ESTIMATE (feature build + a repo-recovery morning; correct at review).
+
+The MOTD's emoji slot renders as the user's sticker ART everywhere it appears —
+not the raw id-string. Full-stack, four stages, on the make-the-data-say-what-
+it-means rule: motd_sticker is its OWN stored field, never recovered by parsing
+the message string.
+
+SHIPPED — STORAGE (schema.sql, index.ts):
+- schema.sql days: +motd_sticker TEXT NOT NULL DEFAULT '' (frozen at seal
+  alongside motd — the snapshot is the memory, same model as labels).
+- index.ts: motd_sticker validated + persisted in createUser day-0 INSERT and
+  writeDay UPDATE (NFC+trim, ≤64, '' default); carried in the claim/presented
+  ceremony payload. parseDayRow spreads ...row, so poll + fetch return it with
+  no per-endpoint mapping — the field rides the general serializer.
+
+SHIPPED — CLIENT:
+- stickers.gd (NEW, class_name): static texture_for(id) → res://assets/icons/
+  <id>/<id>_sticker.png, ResourceLoader-guarded, null-on-miss + warn-once +
+  success-cache. The single sticker-texture authority.
+- msg_picker: composed_text() (3 word reels) + selected_sticker() (emoji reel
+  id) exposed SEPARATELY; both commit points (onboarding_motd + morning
+  _commit_today_motd) write both via State.set_motd(date, motd, motd_sticker).
+  composed_message() (the old joined string) DELETED.
+- msg_wheel: RenderKind {TEXT, STICKER} — emoji reel builds a TextureRect per id
+  (unpainted → Label fallback); ALL spin/drag/snap/wrap motion math untouched
+  (it works in rows, agnostic to content).
+- motd_sticker_slot.gd (NEW, class_name): wraps a subtitle Label in a tight HBox
+  + trailing sticker; reads the label's own pack flag so it matches the centred
+  header AND the left tray with no special-casing. The label keeps driving its
+  text (incl. the glitch); the slot only owns the sticker.
+- panel_heading + tasks_tray: render text+sticker from the SAME row (header
+  walk-back = today's-or-most-recent-prior; tray per-day). morning_sequence sets
+  the sticker WITH the beat-7 (tray) + beat-10 (header) glitches so it rides in,
+  not pops at release; App passes the header slot through run().
+
+NEW FILES (hard deps — nothing parses without them): stickers.gd,
+motd_sticker_slot.gd.
+
+VERIFIED (device): the picker reel renders the emoji as sticker art (the s36
+"spinner shows words" gap is closed by the stage-3 TextureRect path).
+
+UNVERIFIED: header subtitle, sealed tray, ceremony beats 7/10. They showed a
+split-second-then-gone — SCHEMA DRIFT, not code: the deployed DB lacked
+motd_sticker, so every poll round-tripped a row without it and the selective
+merge took the full server row, wiping the local optimistic value. Resolved by
+the reset below; wants a fresh-ceremony device pass to close.
+
+SCHEMA / DEPLOY (the s39 dogfooding gate — DONE): prod + dev D1 reset (reset.sql
+then schema.sql, --remote) + both Workers redeployed — folds the s39 4.SL + 4.D2
+server AND the s40 motd_sticker column. Prod re-onboard + re-pair pending (reset
+wiped dogfood data). Gotcha logged: CREATE-TABLE-IF-NOT-EXISTS won't add a column
+to a live table — the reset applies it (ALTER TABLE ADD COLUMN is the non-
+destructive keep-data alternative).
+
+REPO RECOVERY (housekeeping, logged for the time it cost): a VS-Code-sync + two-
+machine divergence orphaned the good commit; recovered via reflog to 97f86fb
+(week mode + stickers both present, git-confirmed) + force-pushed as source of
+truth. Re-confirmed: pull before work / push after, per machine; the Sync button
+MERGES — the terminal force-push is the source-of-truth hammer.
+
+OPEN (carried):
+- DEVICE-VERIFY the render surfaces (header/tray/ceremony) on a fresh MOTD pick —
+  the test-ledger gate (reel already green).
+- WEEK-MODE DOC REWRITE — still owed s38/s39 (5 stale privacy passages; Model A
+  still only in a code comment).
+- 4.FT fourth-tick seal still open.
+- onboarding companions inline load() → fold onto stickers.gd.
+- Launch-hardening: 404-on-load vs network-error (a reset/dangling account traps
+  a real user on infinite retry).
+
+NEXT: device-verify the sticker render surfaces, then stand up the Play Store
+internal-testing track — the new priority, for OTA patching now that dogfooding
+is live (primer: four_tasks_play_store_testing_primer.md). Then the week-mode
+doc rewrite.
+
+Session 40 time: ~5h ESTIMATE.
