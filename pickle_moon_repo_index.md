@@ -5,8 +5,10 @@ Claude pulls design docs on demand. This file supersedes the old
 `pickle_moon_repo_index.md` (same name, kept so existing references resolve).
 
 Kept in the Project's files so it's always in front of Claude. Morgan
-refreshes the map manually (see REFRESHING, bottom). Last synced from
-`git ls-files`: **2026-06-14 (session 37)**.
+refreshes the map manually (see REFRESHING, bottom). Last reconciled by
+raw-fetch probe: **2026-06-19 (session 42)** — devlog-archive paths and the
+seal/sticker doc corrected against the live repo. Last full `git ls-files`
+sync: 2026-06-14 (session 37).
 
 ═══════════════════════════════════════════════════════════════
 FOR CLAUDE — READ THIS FIRST
@@ -36,7 +38,7 @@ Fetch a doc = base + its MAP path:
   curl -sS "$B/four-tasks/four_tasks_week_mode_design_notes.md" -o /tmp/wk.md
   # then `view /tmp/wk.md` (or head/grep it)
 
-Gotchas (all proven this session):
+Gotchas (all proven):
   - Use **bash `curl`**, not `web_fetch` — `web_fetch` is gated; the raw
     GitHub host IS in the bash network allowlist.
   - **Spaces in a path** must be URL-encoded: `a quiet week/` →
@@ -49,6 +51,11 @@ Gotchas (all proven this session):
     principle but this environment's egress IP is shared and hits GitHub's
     unauthenticated 60/hr limit — it will often fail. The MAP in this file
     is the authoritative list; raw per-file fetches are the reliable path.
+  - **When in doubt, probe before trusting a path.** A `curl -o /dev/null
+    -w "%{http_code}"` loop over candidate paths costs nothing and catches
+    a stale MAP entry before it becomes a wrong assumption. The
+    devlog-archive paths in this file were wrong for several sessions
+    because nobody probed.
 
 ═══════════════════════════════════════════════════════════════
 FETCH — WHEN
@@ -88,8 +95,9 @@ MAP — four-tasks/  ·  STATE & WORKING FILES
 ═══════════════════════════════════════════════════════════════
 
   four-tasks/four_tasks_godot_devlog.txt
-      THE devlog (v3). Read first at session start — AI Reading Guide +
-      summary block at top, sessions append chronologically.
+      THE devlog (v4). Read first at session start — AI Reading Guide +
+      summary block at top, sessions append chronologically. (Header still
+      says it carries "sessions 38 onward"; live through s41.)
   four-tasks/four_tasks_godot_todo.txt
       THE todo. Phase-structured tile list, test ledger (top block),
       ACTIVE/PARKED/DEFERRED tiers, running hour total (bottom).
@@ -99,7 +107,8 @@ MAP — four-tasks/  ·  STATE & WORKING FILES
   four-tasks/four_tasks_test_matrix.md
       Device/wire test matrix.
   four-tasks/wire_regression_pack.md
-      Re-runnable server wire tests (PowerShell/curl), added s32.
+      Re-runnable server wire tests (PowerShell/curl), added s32. The s41
+      shop/seal endpoints are NOT yet folded in (open todo item).
   four-tasks/stamp_streak_pools_working_draft.md
       Stamp + streak message pools (working draft; launch pools locked
       into stamp_messages.ts in the private repo).
@@ -119,6 +128,16 @@ MAP — four-tasks/  ·  ACTIVE DESIGN DOCS (AUTHORITY)
       rotation, re-entrant transaction-wrapped writes.
   four_tasks_economy_redesign_notes.md
       Coin / streak / rescue AUTHORITY. Any number or multiplier reads it.
+      Also the PRICE authority for the shop (sticker prices are a 1-coin
+      stub until wired to this doc).
+  four_tasks_completion_seal_and_sticker_pool_design_notes.md
+      COMPLETION-seal + sticker-pool + shop/selector AUTHORITY (authored
+      s41, committed since). Two-seal model (completion at 4th tick freezes
+      days.completion_sticker; accounting at morning claim = sealSpan,
+      unchanged); derive-then-freeze pick; `stickers` catalogue,
+      owned_stickers (entitlement) vs active_stickers (pool). §5 shop, §6
+      selector, §8 build order (steps 1-6 DONE, step 7 = tile 4.SH = the
+      current build).
   four_tasks_morning_sequence_design_notes.md
       12-beat ceremony + post-sequence presentation queue (beat-collision
       resolution).
@@ -129,7 +148,9 @@ MAP — four-tasks/  ·  ACTIVE DESIGN DOCS (AUTHORITY)
       propagation).
   four_tasks_week_mode_design_notes.md
       Per-slot per-weekday label overrides. DESIGN LOCKED (Model B, popup
-      detail s34). Build = tile 4.D2. See four_tasks_week_mode_primer.md.
+      detail s34). Build = tile 4.D2. Read-side built + wire-verified;
+      authoring UI still owed. DOC REWRITE owed (stale privacy passages,
+      flagged s38-s41).
   four_tasks_task_label_editing_design_notes.md
       days.sealed_labels snapshot + standard-four editor (tile 4.SL, s37).
   four_tasks_calendar_cells_design_notes.md
@@ -145,7 +166,9 @@ MAP — four-tasks/  ·  ACTIVE DESIGN DOCS (AUTHORITY)
   four_tasks_notifications_design_notes.md
       Local scheduled reminders, v1.0 (tile 4.26); server push deferred.
   four_tasks_onboarding_design_notes.md
-      8-screen solo-as-default flow; validation rules.
+      8-screen solo-as-default flow; validation rules. The client CATALOGUE
+      const (onboarding_companions.gd) must stay coupled to the server
+      `stickers` catalogue rows — see seal/sticker doc §9.
   four_tasks_recovery_design_notes.md
       Two-tier recovery flow.
   four_tasks_rate_limiting_design_notes.md
@@ -153,6 +176,7 @@ MAP — four-tasks/  ·  ACTIVE DESIGN DOCS (AUTHORITY)
   four_tasks_theme_design_notes.md
       Theme system v2 (THE authority): 4-role weighted colour system, v1.0
       7-slot catalogue, pre-bake retint, R2 runtime delivery. Gates 4.14b.
+      The shop's sticker PREVIEW window is blocked on this pipeline.
   four_tasks_tracking_design_notes.md
       Per-user stat tracking; week mode framed as the anti-scope-creep
       counterexample.
@@ -167,9 +191,32 @@ MAP — four-tasks/  ·  ACTIVE DESIGN DOCS (AUTHORITY)
   four_tasks_marketing_notes.md
       Go-to-market, APPtrioc launch sequence.
 
-  four_tasks_week_mode_primer.md   ← may not be pushed yet (created s37)
-      Handoff primer: 4.SL recap + the 4.D2 week-mode build, with the
-      seal-snapshot retrofit called out. Fetch when starting 4.D2.
+REFERENCED BUT NOT IN REPO (probed s42, both 404 — either never pushed or
+renamed; do not bake these paths in as resolvable):
+  four_tasks_week_mode_primer.md          — cited in this index + devlog as
+      "may not be pushed yet (created s37)". Still absent. Fetch attempt 404s.
+  four_tasks_play_store_testing_primer.md — cited in the s40 devlog block as
+      the Play-Store internal-testing handoff primer. Absent. Fetch 404s.
+  If Morgan needs either, the content lives in the devlog session blocks /
+  must be re-authored; don't promise a fetch.
+
+═══════════════════════════════════════════════════════════════
+MAP — four-tasks/archived/  ·  DEVLOG ARCHIVES (superseded live files)
+═══════════════════════════════════════════════════════════════
+
+CORRECTED s42: these live under `archived/` (NOT `deferred/`), and the real
+filenames use `_session_` (NOT the `_v1_sessions_`/`_v2_sessions_` form the
+devlog header and the old index both claimed). All three probe 200 at the
+paths below. Read only to reconstruct HOW a past decision was reached.
+
+  four-tasks/archived/four_tasks_godot_devlog_session_1-9.txt
+      Devlog v1 archive — sessions 1-9.
+  four-tasks/archived/four_tasks_godot_devlog_session_10-25.txt
+      Devlog v2 archive — sessions 10-25.
+  four-tasks/four_tasks_godot_devlog_v3_sessions_26-37.txt
+      Devlog v3 archive — sessions 26-37. NOTE: this one sits at the
+      four-tasks/ ROOT, not in archived/ (probe-confirmed). The v3 file DOES
+      use the `_v3_sessions_` naming; only the v1/v2 files use `_session_`.
 
 ═══════════════════════════════════════════════════════════════
 MAP — four-tasks/deferred/  ·  v1.x OR KILLED
@@ -179,11 +226,11 @@ MAP — four-tasks/deferred/  ·  v1.x OR KILLED
   four_tasks_leaderboard_design_notes.md         KILLED for v1.0
   four_tasks_coin_name_design_notes.md           coin-name generator (v1.x)
   four_tasks_achievements_brainstorm.md          speculative, may never ship
-  four_tasks_godot_devlog_session_1-9.txt        devlog v1 archive (s1-9)
-  four_tasks_godot_devlog_session_10-25.txt      devlog v2 archive (s10-25)
-      NOTE: the v3 devlog header refers to these as `_v1_sessions_1-9` /
-      `_v2_sessions_10-25` — the real filenames are the above, in
-      deferred/. Fetch by the real path.
+
+  (The devlog archives previously listed here were NEVER in deferred/ —
+  moved to the archived/ block above with corrected paths. If a stale
+  reference to `deferred/four_tasks_godot_devlog_session_*` appears
+  anywhere, it is wrong; use the archived/ paths.)
 
 ═══════════════════════════════════════════════════════════════
 MAP — four-tasks/archive/  ·  SUPERSEDED
@@ -191,6 +238,11 @@ MAP — four-tasks/archive/  ·  SUPERSEDED
 
   four_tasks_write_rules_design_notes.md
       Superseded field-write-rules doc; background only.
+
+  (Note the THREE distinct folders, easy to confuse:
+     archived/  — devlog v1/v2 archives (live files, rolled over)
+     archive/   — one superseded design doc
+     deferred/  — v1.x / killed design docs)
 
 ═══════════════════════════════════════════════════════════════
 MAP — four-tasks/privacy/

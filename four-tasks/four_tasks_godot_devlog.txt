@@ -1,26 +1,27 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-18 AWST (session 41)
-Last updated: session 41 — COMPLETION-SEAL + STICKER-POOL + SHOP subsystem
-(tile 4.SH server side + 4.D client read path + leader slot/selector), all on
-DEV, wire-proven. The fourth tick now PICKS + FREEZES a deterministic sticker
-into days.completion_sticker (the COMPLETION seal — distinct from the morning
-ACCOUNTING seal; sealed_at stays null at completion), content-locks the day
-(writeDay + setRestDay both 409 day_complete), and the calendar cell + hero
-beat render that real frozen sticker via Stickers.texture_for (placeholder star
-= the explicit art-missing fallback). A `stickers` catalogue table + per-user
-owned_stickers (entitlement) vs active_stickers (the selected pool) back a
-working SHOP (GET /shop, POST /shop/buy — coins → owned+selected, 409
-already_owned/insufficient_coins) and a leader-slot/long-press SELECTOR (top-
-right, mirrors the hamburger; set leader via active_leader w/ pair-key rotation,
-toggle pool via active_stickers, empty-pool guarded). Client pick RE-DERIVED
-locally (CalendarMath.pick_completion_sticker, byte-identical to the server
-hash) so the hero lands the right sticker INSTANTLY without the write round-
-trip; the permanent cell reads the server's frozen value (source of truth).
-NEW hard-dep files: sticker_selector.gd, leader_slot.gd. ALL DEV-ONLY — NOT yet
-on PROD (prod holds Morgan+Ayshe dogfood data; a reset is the deploy). NEXT:
-the THIRD swipe panel (App.gd 2→3-panel swipe rewrite) armed with the sticker
-SHOP — own focused session. OWED still: week-mode doc rewrite; 4.FT.
+Last edit: 2026-06-19 AWST (session 42)
+Last updated: session 42 — TILE 4.SH client: the sticker SHOP as a THIRD
+swipe panel (SHOP ← calendarYOU ↔ calendarPARTNER), all on DEV. Server was
+done + wire-proven (s41); this session is entirely client. App.gd's 2-panel
+swipe became 3-panel (named view consts, boots on calendarYOU as the middle
+panel, drag machine + clamp + day-carry + ceremony snap-home all generalised
+to three views). The shop is a SCENE (shop_panel.tscn, class_name ShopPanel):
+a full-width calendar CLONE for preview backdrop with a translucent sticker
+rail SUPERIMPOSED over its left (model B — the user's sketch). DECISION B —
+the panel OWNS its catalogue locally; buyable = catalogue MINUS owned, derived
+per repaint (that derivation IS "the bought sticker leaves the shop"). TAP a
+rail sticker = SELECT (preview render INERT — needs the retint pipeline,
+4.14b/4.20); LONG-PRESS = buy-confirm → optimistic buy (coins moved, "shop|id"
+snapshot rollback on reject). Backend gained list_shop / buy_sticker; State
+gained request_shop_list / request_buy + the _buys_in_flight guard. The
+HAMBURGER + LEADER SLOT moved off the App root onto PanelYou so they swipe WITH
+the you panel (were floating over every panel). VERIFIED device: boots on your
+calendar, you↔partner swipe UNCHANGED, shop reachable, buy loop works on the
+long-press path, coins deduct. 4.SH ships PARTIAL — spine + swipe + rail done;
+shop VISUAL polish + the select→preview render DEFERRED. ALL DEV-ONLY — prod
+untouched (dogfood pairing; deploy = reset, folds s41+s42). OWED still:
+week-mode doc rewrite; 4.FT; wire-pack shop endpoints; the s32-s42 time recon.
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -28,9 +29,9 @@ Target stores: Google Play, Apple App Store
 This is devlog v4 (live). Prior files are archive-only — read them for
 historical reconstruction of HOW a decision was reached, not for the
 decision itself:
-  - `four_tasks_godot_devlog_v1_sessions_1-9.txt`    — sessions 1-9
-  - `four_tasks_godot_devlog_v2_sessions_10-25.txt`  — sessions 10-25
-  - `four_tasks_godot_devlog_v3_sessions_26-37.txt`  — sessions 26-37
+  - `archived/four_tasks_godot_devlog_session_1-9.txt`     — sessions 1-9
+  - `archived/four_tasks_godot_devlog_session_10-25.txt`   — sessions 10-25
+  - `four_tasks_godot_devlog_v3_sessions_26-37.txt`        — sessions 26-37 (repo root)
 
 This live file carries: the carried-forward SUMMARY (baseline state, last
 fully refreshed at session 25 close — still the architectural baseline,
@@ -627,3 +628,159 @@ Running total at session 41 close: ~207.75h
 (s40 ~5h + s41 ~7h, BOTH ESTIMATES. Builds on the s39-close ~195.75h. The
 EIGHT-PLUS time-debts since s32 are still a smell — one reconciliation pass
 owed, now spanning s32-s41.)
+
+## Session 42 — Tile 4.SH: the sticker shop as the third swipe panel (client)
+Time: ~6h ESTIMATE (plumbing + the 2→3-panel swipe surgery + three layout reverts; light session, correct at review).
+
+Shipped the client half of tile 4.SH: the sticker SHOP as a third swipe
+panel (SHOP ← calendarYOU ↔ calendarPARTNER). Server was already done +
+wire-proven (s41); this session is entirely client. The shop SPINE is
+complete and device-verified end to end; the shop's VISUAL polish + the
+sticker-preview render are explicitly deferred (4.SH ships PARTIAL).
+
+DESIGN DECISIONS LOCKED:
+- DECISION B — the shop panel OWNS its catalogue locally; State does NOT
+  hold it. Nothing else in the app reads a "buyable list", so parking it
+  in State would carry transient panel state in the global store. The panel
+  fetches via State.request_shop_list(), catches the live catalogue on
+  shop_list_ready, stores it, and derives BUYABLE = catalogue MINUS
+  self_user.owned_stickers on every repaint. That derivation IS the "bought
+  sticker leaves the shop" mechanism — a buy grows owned, fires self_changed,
+  the panel re-derives, the sticker filters out. No manual row removal, no
+  re-fetch, no buy-success signal.
+- INTERACTION: TAP a rail sticker = SELECT (preview hook, INERT this session
+  — the calendar-clone preview RENDER needs the palette/retint pipeline,
+  4.14b/4.20). LONG-PRESS = buy-confirm overlay → confirm → buy. Mirrors the
+  house gesture vocabulary (Layout.LONG_PRESS_DURATION / TAP_DRAG_THRESHOLD),
+  so a horizontal swipe begun on a rail sticker is neither tap nor hold — it
+  falls through to App's panel swipe and the whole frame slides back to you.
+- BUY is optimistic WITH the coins moved (unlike the rest toggle, whose coins
+  can't be guessed up-front because a refund's sign is ambiguous). The price
+  is known from the catalogue row, so the debit is exact: subtract price,
+  append to owned+active, emit self_changed for instant feedback; the server
+  response then supersedes the guess; rejection rolls the whole self_user back
+  from a "shop|<id>" snapshot. Same accepted poll-stomp posture as the other
+  self_user optimistic writes (the buy window is poll-stompable; the response
+  resettles — sub-second against a 30s poll).
+- LAYOUT (model B, the user's sketch): the preview calendar sits in the SAME
+  dimensions as the real you/partner panels (full width), and the sticker rail
+  is SUPERIMPOSED over its left as a translucent overlay. NOT a side-by-side
+  width-split (tried, looked worse — see process note). The shop has no tasks
+  tray, so a BottomSpacer fills the void the tray occupies on the real panels.
+- DROPPED the ScrollContainer from the rail: a scroll region inside a swipe
+  panel is inherent gesture contention, and the project already rejected
+  intent-locking. The current buyable set (~7) fits a fixed rail; catalogue
+  SCALE (the ~100 case) resolves via curation (featured/rotating), not a
+  100-item vertical scroll — deferred, not this session's problem.
+
+SHIPPED — BACKEND.gd:
+- list_shop(user_id) → GET /users/:id/shop; buy_sticker(user_id, id) →
+  POST /users/:id/shop/buy. Two signal pairs (shop_listed/shop_list_failed,
+  sticker_bought/sticker_buy_failed). Uncached (a buy changes what's buyable;
+  a cache would re-offer an owned sticker). Mechanical — mirrors set_rest_day.
+
+SHIPPED — STATE.gd:
+- request_shop_list() (thin forward) + request_buy(sticker_id, price)
+  (optimistic self_user debit+grant, "shop|<id>" snapshot, rollback on fail).
+  _buys_in_flight guard (sticker-id keyed, SEPARATE from the day-keyed
+  _writes_in_flight the poll-merge reads). Re-broadcast signals shop_list_ready
+  / shop_list_failed / sticker_buy_failed for the panel. A successful buy needs
+  no shop-specific signal — it merges the server user and emits self_changed.
+
+SHIPPED — shop_panel.gd + shop_panel.tscn (NEW, class_name ShopPanel):
+- Two-layer scene: BACK = a calendar-clone (PreviewCalendar, a real
+  calendar_grid.tscn instance bound to self) for preview backdrop; FRONT = the
+  translucent rail overlay holding buyable stickers. Built as a SCENE (not
+  code) because it embeds a real calendar_grid instance — a bare script can't.
+- Inner class ShopRailItem (tap+long-press gesture detection, mirrors
+  leader_slot). Inline buy-confirm overlay (self-contained, no App involvement,
+  matches the selector's own-writes pattern; shows "can't afford" state).
+- Selecting a sticker is the INERT preview seam (_on_sticker_selected) the
+  retint pipeline plugs into; tracks selection + a selected ring for now.
+
+SHIPPED — App.gd (the 2→3-panel swipe surgery — invasive on core nav):
+- Named view constants VIEW_SHOP=0 / VIEW_YOU=1 / VIEW_PARTNER=2 /
+  VIEW_HOME=VIEW_YOU. App boots showing calendarYOU (the MIDDLE panel): panels
+  at local x 0/W/2W, container width 3W, container boots at -W. current_view
+  defaults to VIEW_HOME.
+- _setup_shop_panel instances the shop SCENE into PanelContainer at slot 0.
+- Drag machine generalised: _end_drag steps one neighbour each way, clamped at
+  both ends; _snap_to target = -W*view; the LIVE-DRAG CLAMP rewritten to
+  intersect a per-drag adjacency bound (±1 panel from drag start) with the
+  global edge wall ([-2W, 0] + give) — the old fixed two-panel clamp walled the
+  finger immediately when dragging from the partner panel.
+- _carry_open_day_across_panels GATED to skip the shop (the shop has no
+  calendar/tray) and re-derived from MEANING, not the old 0/1 shorthand — under
+  the new numbering 0 is the SHOP, so every old `== 0` ("the you panel") had to
+  be rewritten to VIEW_YOU. The ceremony snap-home likewise: _snap_to(VIEW_HOME),
+  NOT _snap_to(0) (0 is now the shop). go_to_view guard widened to 0..2.
+- HAMBURGER + LEADER SLOT re-parented from the App ROOT onto PanelYou, so they
+  travel WITH the you panel on swipe and are off-screen on the shop/partner
+  panels (they were floating over every panel). Safe — the morning input
+  blocker (z=200, App root) still covers PanelYou's children during the
+  ceremony, and their handlers already gate on _morning_active.
+
+VERIFIED (device, dev): app boots on your calendar; you↔partner swipe feel
+UNCHANGED (incl. the open-tray day-carry across panels); swipe-right reaches
+the shop, swipe-left returns; the buy loop works on the NEW long-press path
+(long-press → confirm → coins deduct → sticker leaves the rail → appears in
+the selector's owned list); hamburger + leader slot now ride PanelYou (gone on
+shop/partner, back on you). Coins subtract correctly.
+
+NOT VERIFIED / DEFERRED:
+- Shop VISUAL polish — rail/sticker sizing, exact overlay tuning. Functional
+  and readable but not final; the rail superimpose-over-full-calendar layout
+  is settled (model B), fine-tuning of offsets/sizes is open.
+- The SELECT→preview RENDER (the sticker painting onto the calendar clone) —
+  the whole point of the two-layer structure, but BLOCKED on the palette/retint
+  pipeline (4.14b/4.20). The seam (_on_sticker_selected) exists, inert.
+- Preview-calendar cells are still live (tapping one off-rail can month-nav) —
+  harmless, not gated; one-line follow-up if it bothers real use.
+- PROD: still dev-only (carries from s41). Prod reset folds s41+s42 together.
+
+PROCESS NOTE (the cost this session): the shop LAYOUT was iterated three times
+the WRONG direction. The user showed a working version (full-width calendar +
+superimposed rail = model B, their sketch). I argued into a side-by-side
+width-split (model A) over a preview-COLLISION concern — but the preview render
+isn't built, so there was nothing to collide. A made it worse twice (incl. an
+anchors_preset=0 bug that collapsed the rail to a cramped box: a negative
+offset_bottom measures from the TOP when anchor_bottom=0, not the bottom).
+Reverted to B. LESSON: when the user has a working layout and the objection is
+about a feature that doesn't exist yet, leave it alone — don't optimise a
+solved layout against a hypothetical.
+
+PROCESS NOTE (str_replace doubling): a str_replace doubled the _setup_shop_panel
+body (two shop panels instanced → "one calendar across all three panels", on
+top of an anchors=15 full-rect-stretch bug that smeared the shop across the
+whole 3-wide container). Caught by a duplicate-line scan. Whole-file diffs
+against the on-disk mirror after every edit remain the discipline that catches
+these.
+
+OPEN (carried):
+- 4.SH PARTIAL — spine + swipe + rail SHIPPED + verified; visual polish + the
+  select→preview render DEFERRED (the latter blocked on 4.14b/4.20).
+- PROD deploy of s41+s42 — dev-only; prod reset required (holds the dogfood
+  pairing). Sequence with the other pending prod work.
+- Add the s41 shop endpoints to wire_regression_pack.md (still open from s41).
+- WEEK-MODE DOC REWRITE — still owed s38-s41.
+- 4.FT fourth-tick ACCOUNTING-seal hero beat still open.
+
+REPO INDEX corrected this session (probe-verified against the live repo): the
+devlog ARCHIVES live under archived/ as _session_1-9 / _session_10-25 (NOT
+deferred/ with the _v1_sessions_ / _v2_sessions_ names the old index +
+the devlog head both claim); v3 sits at four-tasks/ root. The seal/sticker
+design note (committed since s41) added to the authority list. Three confusingly
+-named folders flagged: archived/ (devlog rollovers) vs archive/ (one superseded
+doc) vs deferred/ (v1.x/killed). Committed to the repo + Project copy.
+
+NEXT: finish 4.SH's visual polish (rail/sticker tuning) if wanted, else it's
+shippable-partial. Then either the prod deploy+reset to fold s41+s42, or the
+week-mode doc rewrite (overdue). The select→preview render waits on the theme/
+retint pipeline (4.14b).
+
+Session 42 time: ~6h ESTIMATE (light session — plumbing + the swipe surgery +
+three layout reverts).
+
+Running total at session 42 close: ~213.75h
+(s42 ~6h ESTIMATE. ELEVEN time-debts now owed since s32 — the reconciliation
+pass is well overdue, spanning s32-s42.)

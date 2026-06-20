@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-18 AWST (session 41)
-Last updated: session 41 — COMPLETION-SEAL + STICKER-POOL + SHOP subsystem, DEV-only, wire-proven. The FOURTH TICK now freezes a deterministic sticker into days.completion_sticker (the COMPLETION seal, distinct from the morning ACCOUNTING seal — sealed_at stays null at completion) + content-locks the day (writeDay + setRestDay both 409 day_complete). Cell + hero render the real frozen sticker via Stickers.texture_for (star = art-missing fallback); hero RE-DERIVES the pick locally (CalendarMath.pick_completion_sticker, byte-identical to the server hash) so it lands INSTANTLY without the write round-trip, cell reads the server's frozen value. NEW `stickers` catalogue table + users.owned_stickers (entitlement) vs active_stickers (selected pool) back a working SHOP (GET /shop, POST /shop/buy — coins→owned+selected, 409 already_owned/insufficient_coins) + a leader-slot/long-press SELECTOR (leader_slot.gd top-right mirrors the hamburger; sticker_selector.gd vertical list; set leader via active_leader w/ rotation, toggle pool via active_stickers, empty-pool guarded). Selector writes reuse PUT /users (no new endpoints). BUGS fixed: parseUserRow now parses owned_stickers; createUser + both DevKit seeds populate owned_stickers = starter active_stickers (closes the "stickers outside the ecosystem" flag; onboarding flow UNCHANGED). NEW hard-dep files: sticker_selector.gd, leader_slot.gd. ALL DEV-ONLY — prod untouched (holds the dogfood pairing; deploy = reset). Design note four_tasks_completion_seal_and_sticker_pool_design_notes.md authored but NOT yet committed. Session 41 time: ~7h ESTIMATE.
+Last edit: 2026-06-19 AWST (session 42)
+Last updated: session 42 — TILE 4.SH client: the sticker SHOP as a THIRD swipe panel (SHOP ← calendarYOU ↔ calendarPARTNER), DEV-only. Server was done + wire-proven s41; this session is all client. App.gd's 2-panel swipe became 3-panel (named view consts VIEW_SHOP/YOU/PARTNER, boots on calendarYOU as the MIDDLE panel, drag machine + live-drag clamp + cross-panel day-carry + ceremony snap-home all generalised to three views). The shop is a SCENE (shop_panel.tscn, class_name ShopPanel): a full-width calendar CLONE for preview backdrop with a translucent sticker rail SUPERIMPOSED over its left (model B — the user's sketch; a side-by-side width-split was tried and reverted). DECISION B — the panel OWNS its catalogue locally (State doesn't); buyable = catalogue MINUS owned, derived per repaint (that derivation IS "the bought sticker leaves the shop"). TAP a rail sticker = SELECT (preview RENDER inert — blocked on the retint pipeline 4.14b/4.20); LONG-PRESS = inline buy-confirm → optimistic buy (coins moved, "shop|id" snapshot rollback on reject). Backend gained list_shop/buy_sticker; State gained request_shop_list/request_buy + _buys_in_flight guard. HAMBURGER + LEADER SLOT moved off the App root onto PanelYou so they swipe WITH the you panel (were floating over every panel). VERIFIED device: boots on your calendar, you↔partner swipe UNCHANGED (incl. open-tray day-carry), shop reachable both ways, buy loop works on the long-press path, coins deduct. 4.SH ships PARTIAL — spine + swipe + rail done + verified; shop VISUAL polish + the select→preview render DEFERRED. ALL DEV-ONLY — prod untouched (deploy = reset, folds s41+s42). Session 42 time: ~6h ESTIMATE.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -58,6 +58,27 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       keep it). NOTE: store preset is devkit-clean as of s36 (verified
       via [Loader] devkit=false on the prod APK); this stays open as the
       standing per-build reminder.
+
+  ── s42 TILE 4.SH — THIRD SWIPE PANEL + SHOP (DEV; spine verified) ──
+  [x] App.gd 2→3-panel swipe: boots on calendarYOU (middle); you↔partner
+      swipe feel UNCHANGED incl. open-tray day-carry across panels; shop
+      reachable swipe-right, returns swipe-left. Device s42.
+  [x] Buy loop on the NEW long-press path: long-press rail sticker → confirm
+      → coins deduct → sticker leaves the rail → appears in selector owned
+      list. Coins subtract correctly. Device s42.
+  [x] Hamburger + leader slot re-parented onto PanelYou: gone on shop/partner,
+      ride the you panel on swipe. Device s42.
+  [ ] Shop VISUAL polish UNVERIFIED-as-final — rail/sticker sizing + overlay
+      offsets functional + readable (model B settled) but not tuned final.
+      Open for a polish pass; not blocking.
+  [ ] The select→preview RENDER not built — the sticker painting onto the
+      calendar clone (the point of the two-layer structure) is BLOCKED on the
+      palette/retint pipeline (4.14b/4.20). The seam (_on_sticker_selected)
+      exists, inert. Build when the pipeline lands.
+  [ ] Preview-calendar cells still LIVE — tapping one off-rail can month-nav
+      the clone. Harmless, not gated; one-line follow-up if it confuses use.
+  [ ] PROD never exercised (carries from s41) — all s42 client work is dev.
+      When prod resets to fold s41+s42: re-verify the shop + swipe on prod.
 
   [ ] 4.D2 week mode — PARTNER-RENDER on PROD never exercised by two real
       users (s39). Self + partner override resolution is built and verified
@@ -253,7 +274,7 @@ before code). Realistic store launch: Sept-Oct 2026.
 [~] 4.12 [CODE] Bug catcher — MECHANISM DONE (s29): bug_catcher.gd (code-built, self-contained compose→sending→thanks/failed, 2000-cap counter, ONE_SHOT teardown on every exit), triggered from DevKit → Dialogs. Test = D11. REMAINS: real-UI trigger (one line, lands with 4.11's help menu). Confetti garnish DEFERRED with 4.9 (s35) — no one-off particles; rides the shared system if 4.9 revives. (~5min left, inside 4.11)
 [~] 4.14a [CODE] Basic sticker picker — tap-to-toggle pool membership ONLY. Floor of 1. Themed-sticker marker rendered (APPtrioc conversion pull). Build against 4 existing stickers + stub PNGs; sparse is valid. (~4-6h) — LARGELY ABSORBED by the s41 SELECTOR (sticker_selector.gd + leader_slot.gd): owned-sticker list, pool toggle w/ floor-of-1 (empty-pool guard), set-leader. Built as the real top-right leader-slot/long-press interface, not the inline picker originally pictured. REMAINS as 4.14a-proper: the themed-sticker marker (APPtrioc pull) + whatever inline-on-panel placement the original tile wanted vs the modal selector shipped — reconcile when the panel UI is designed. Pool toggle + leader are DONE (s41, dev-verified).
 
-[ ] 4.SH [CODE] Sticker SHOP — the THIRD swipe panel (SHOP ← calendarYOU ↔ calendarPARTNER). SERVER DONE + wire-proven s41 (GET /users/:id/shop = live catalogue minus owned; POST /users/:id/shop/buy = verify coins, atomic relative debit + append to owned+active, 409 already_owned/insufficient_coins/404 sticker_not_found; `stickers` catalogue table is the price/availability authority). REMAINS — CLIENT: App.gd's 2-panel swipe becomes 3-panel (container 3-wide, current_view gains a third state, commit thresholds + snap targets get a third position — a REAL swipe-state-machine change, invasive on core nav, NOT free; own focused session). Populate the panel from the catalogue read (all live minus owned), tap a sticker → cost + buy, balance updates. Preview window DEFERRED (needs the palette/retint pipeline, 4.14b/4.20 — ships buy-without-preview until then). Prices are a 1-coin stub now (real prices = economy doc). Authority: four_tasks_completion_seal_and_sticker_pool_design_notes.md (§5 shop, §8 build order step 7). THE NEXT BUILD. (~5-7h client)
+[~] 4.SH [CODE] Sticker SHOP — the THIRD swipe panel (SHOP ← calendarYOU ↔ calendarPARTNER). SPINE + SWIPE + RAIL SHIPPED + device-verified s42; visual polish + the select→preview render DEFERRED. SERVER done + wire-proven s41 (GET /users/:id/shop, POST /users/:id/shop/buy; `stickers` table = price/availability authority). CLIENT (s42): App.gd 2→3-panel swipe (named view consts, boots calendarYOU as middle, drag/clamp/day-carry/ceremony-snap-home all generalised — the live-drag clamp intersects a ±1-panel adjacency bound with the global edge wall; day-carry GATED to skip the shop). shop_panel.tscn + .gd (class_name ShopPanel) = full-width calendar clone (preview backdrop) + translucent rail superimposed left (model B). DECISION B — panel owns the catalogue; buyable = catalogue minus owned, derived per repaint. Backend list_shop/buy_sticker; State request_shop_list/request_buy (optimistic, "shop|id" rollback, _buys_in_flight guard). TAP = select (preview INERT — needs 4.14b/4.20); LONG-PRESS = inline buy-confirm → buy. Hamburger + leader slot re-parented onto PanelYou (swipe with it). DEFERRED: shop visual polish (rail/sticker sizing, overlay tuning — layout settled, fine-tuning open); the select→preview RENDER (blocked on the retint pipeline); preview-calendar cells still live (off-rail tap can month-nav — harmless). Prices a 1-coin stub (real = economy doc). Authority: four_tasks_completion_seal_and_sticker_pool_design_notes.md (§5 shop, §8 step 7). Time: ~6h (s42, partial).
 
 [x] 4.14c [CODE] Future cells non-tappable. day_cell.is_interactive() rejects taps + long-presses on DEAD_FUTURE. Device-verified session 31. ~0h.
 [x] 4.SL [CODE] Sealed label snapshot + standard-four editor — s37. days.sealed_labels (JSON[4], the resolved four frozen at seal; '[]' → live fallback). Server (index.ts): sealSpan writes 3 seal sites + parseDayRow serialises + seedDefaultSpread backfills seeded-sealed days (they bypass sealSpan — every seeded sealed day was '[]' → live → looked broken; that was the debug arc). Client: task_list render rule (_resolve_labels_for_day) + State passthrough/ceremony snapshot. NEW tasks_edit_dialog.gd (all-code modal) reached via hamburger_button.gd long-press; app_menu.gd DELETED (long-press opens editor directly). Both DBs reset from schema.sql (new reset.sql; reset-not-migrate). DEVICE-VERIFIED: sealed days held, today changed; the claim-sealed day returned a populated snapshot (proves sealSpan, not just backfill). OWED: index.ts → PROD. Authority: four_tasks_task_label_editing_design_notes.md. Time: ~5h EST.
@@ -509,3 +530,8 @@ Running project total at session 41 close: ~207.75h
 (s41 ~7h ESTIMATE — completion-seal + sticker pool + shop server tile +
 client read path + selector. TEN time-debts now owed since s32 — the
 reconciliation pass is overdue.)
+
+Running project total at session 42 close: ~213.75h
+(s42 ~6h ESTIMATE — tile 4.SH client: 2→3-panel swipe surgery + shop
+plumbing + the shop panel scene. ELEVEN time-debts now owed since s32 —
+the reconciliation pass is well overdue, spanning s32-s42.)
