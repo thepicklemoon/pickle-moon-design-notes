@@ -233,3 +233,71 @@ Scenarios reseed coins to 4,250 (below cost) so the 409 path tests first.
 To exercise the accept path ON DEVICE: run scenario → open app → KILL at the
 rescue dialog (nothing sealed — pending is stateless) → top-up SQL
 (conventions) → relaunch → the offer re-fires → accept with funds.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+W21-W23 — completion seal + sticker shop (NEW s44)
+(Folds the s41 ad-hoc dev verification into a re-runnable block. Endpoints:
+ the fourth-tick freeze inside PUT /users/:id/days/:date, the two
+ day_complete locks, GET /users/:id/shop, POST /users/:id/shop/buy.
+ REQUIRES the `stickers` catalogue seeded on dev — see seed_devkit.sql; if
+ the shop lists empty, run add_stickers.sql first.)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+CONTENT seal (completion_sticker, frozen at the 4th tick) is distinct from the
+ACCOUNTING seal (sealed_at, set at the morning claim). The fourth tick locks the
+day's content + freezes the sticker; sealed_at stays NULL until claim. The pick
+is deterministic over date + the user's active_stickers pool.
+
+W21 — fourth-tick freeze + both day_complete locks (NEW s44):
+  (a) FREEZE on a clean future date (writeDay has no same-day bound — cf. W1):
+      $SD = "2026-07-20"
+      npx wrangler d1 execute four-tasks-dev --remote --command "DELETE FROM days WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001' AND date='2026-07-20'"
+      '{"tasks_done":[true,true,true,true]}' | Out-File -Encoding ascii -NoNewline body.json
+      curl.exe -s -X PUT "$BASE/users/$U/days/$SD" -H "Content-Type: application/json" --data-binary "@body.json"
+      Verify completion_sticker NON-EMPTY + sealed_at NULL:
+      npx wrangler d1 execute four-tasks-dev --remote --command "SELECT date, completion_sticker, sealed_at FROM days WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001' AND date='2026-07-20'"
+      Cross-check the frozen id is in the pool:
+      npx wrangler d1 execute four-tasks-dev --remote --command "SELECT active_stickers FROM users WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001'"
+      EXPECT: completion_sticker is a member of active_stickers; sealed_at = (null).
+  (b) WRITE-PATH lock — re-PUT the now-complete day; EXPECT 409 day_complete:
+      curl.exe -s -X PUT "$BASE/users/$U/days/$SD" -H "Content-Type: application/json" --data-binary "@body.json"
+      (the day is terminal: a frozen completion_sticker rejects any further owner write.)
+  (c) REST-PATH lock — runs on TODAY (rest enforces date==local_date BEFORE the
+      completion check, so a future date 400s not_same_day first). Complete today,
+      then try to rest it; EXPECT 409 day_complete — NOT insufficient_coins (the
+      lock precedes the coin check, so the seeded 4,250 is fine):
+      npx wrangler d1 execute four-tasks-dev --remote --command "DELETE FROM days WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001' AND date='$TODAY'"
+      '{"tasks_done":[true,true,true,true]}' | Out-File -Encoding ascii -NoNewline body.json
+      curl.exe -s -X PUT "$BASE/users/$U/days/$TODAY" -H "Content-Type: application/json" --data-binary "@body.json"
+      '{"rest_day":true,"local_date":"' + $TODAY + '"}' | Out-File -Encoding ascii -NoNewline rest.json
+      curl.exe -s -X POST "$BASE/users/$U/days/$TODAY/rest" -H "Content-Type: application/json" --data-binary "@rest.json"
+      EXPECT 409 day_complete.
+  Reseed after — today is left complete:
+      curl.exe -s -X POST "$BASE/devkit/scenario/default"
+
+W22 — sticker shop list (NEW s44):
+  (curl.exe -s "$BASE/users/$U/shop" | ConvertFrom-Json).data.stickers | ConvertTo-Json -Depth 5
+  EXPECT live catalogue MINUS owned; each row { sticker_id, display_name,
+  price_coins, subscriber_only }. Cross-check nothing owned leaks in:
+  npx wrangler d1 execute four-tasks-dev --remote --command "SELECT owned_stickers FROM users WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001'"
+  (none of those ids should appear in the shop list.)
+
+W23 — sticker buy: debit + owned/active append + 409s (NEW s44):
+  Pick any sticker_id from W22 as $SID (price stub = 1 coin):
+      $SID = "<id from W22>"
+  (a) sticker_not_found — bogus id; EXPECT 404 sticker_not_found:
+      '{"sticker_id":"definitely_not_a_sticker"}' | Out-File -Encoding ascii -NoNewline buy.json
+      curl.exe -s -X POST "$BASE/users/$U/shop/buy" -H "Content-Type: application/json" --data-binary "@buy.json"
+  (b) insufficient_coins — drain, buy $SID (still UNOWNED), restore; EXPECT 409:
+      npx wrangler d1 execute four-tasks-dev --remote --command "UPDATE users SET coins=0 WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001'"
+      '{"sticker_id":"' + $SID + '"}' | Out-File -Encoding ascii -NoNewline buy.json
+      curl.exe -s -X POST "$BASE/users/$U/shop/buy" -H "Content-Type: application/json" --data-binary "@buy.json"
+      npx wrangler d1 execute four-tasks-dev --remote --command "UPDATE users SET coins=4250 WHERE user_id='aaaaaaaa-0000-4000-8000-000000000001'"
+  (c) HAPPY — buy $SID; EXPECT ok, coins = previous − price, $SID in owned + active:
+      curl.exe -s -X POST "$BASE/users/$U/shop/buy" -H "Content-Type: application/json" --data-binary "@buy.json"
+      (the response is the flat updated user — coins dropped by the price (4,250 → 4,249
+       at the seeded balance), and owned_stickers AND active_stickers both gained $SID.)
+  (d) already_owned — buy $SID again; EXPECT 409 already_owned:
+      curl.exe -s -X POST "$BASE/users/$U/shop/buy" -H "Content-Type: application/json" --data-binary "@buy.json"
+  Reseed after — $SID now owned + coins debited:
+      curl.exe -s -X POST "$BASE/devkit/scenario/default"
