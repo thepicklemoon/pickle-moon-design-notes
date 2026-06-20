@@ -1,27 +1,20 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-19 AWST (session 42)
-Last updated: session 42 — TILE 4.SH client: the sticker SHOP as a THIRD
-swipe panel (SHOP ← calendarYOU ↔ calendarPARTNER), all on DEV. Server was
-done + wire-proven (s41); this session is entirely client. App.gd's 2-panel
-swipe became 3-panel (named view consts, boots on calendarYOU as the middle
-panel, drag machine + clamp + day-carry + ceremony snap-home all generalised
-to three views). The shop is a SCENE (shop_panel.tscn, class_name ShopPanel):
-a full-width calendar CLONE for preview backdrop with a translucent sticker
-rail SUPERIMPOSED over its left (model B — the user's sketch). DECISION B —
-the panel OWNS its catalogue locally; buyable = catalogue MINUS owned, derived
-per repaint (that derivation IS "the bought sticker leaves the shop"). TAP a
-rail sticker = SELECT (preview render INERT — needs the retint pipeline,
-4.14b/4.20); LONG-PRESS = buy-confirm → optimistic buy (coins moved, "shop|id"
-snapshot rollback on reject). Backend gained list_shop / buy_sticker; State
-gained request_shop_list / request_buy + the _buys_in_flight guard. The
-HAMBURGER + LEADER SLOT moved off the App root onto PanelYou so they swipe WITH
-the you panel (were floating over every panel). VERIFIED device: boots on your
-calendar, you↔partner swipe UNCHANGED, shop reachable, buy loop works on the
-long-press path, coins deduct. 4.SH ships PARTIAL — spine + swipe + rail done;
-shop VISUAL polish + the select→preview render DEFERRED. ALL DEV-ONLY — prod
-untouched (dogfood pairing; deploy = reset, folds s41+s42). OWED still:
-week-mode doc rewrite; 4.FT; wire-pack shop endpoints; the s32-s42 time recon.
+Last edit: 2026-06-20 AWST (session 43)
+Last updated: session 43 — FOUR threads, all DEV. (1) 4.SH shop POLISH: the
+preview backdrop went from a calendar-only clone to a FULL silent dupe of the
+you-panel (PanelHeading + StreakBar + a static-open TasksTray now fill the slots
+the retint pipeline will skin); the SAME one-time mouse_filter=IGNORE on the whole
+PreviewLayout subtree CLOSED the s42 live-cell month-nav bug. (2) Shop rail origin
+moved to the hamburger line (safe_top_inset()+24). (3) Sticker NAMING CONVENTION
+locked: snake_case, id BYTE-IDENTICAL across folder / <id>_sticker.png / catalogue
+sticker_id (camelCase was the import-miss root cause); add_stickers.sql adds four
+catalogue rows. (4) 4.D SELECTOR reskinned from a centred modal to the RIGHT-edge
+mirror of the shop rail — top leader DUPE = open/close, rail = owned stickers
+(incl. leader) with tap->crown context menu (sets leader LIVE) + long-press pool
+toggle; App passes the slot's global rect so the dupe parks over it. Threads 1-3
+device-VERIFIED by Morgan; the selector reskin ships UNVERIFIED (reload first).
+Session 43 time: ~5h ESTIMATE.
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -784,3 +777,99 @@ three layout reverts).
 Running total at session 42 close: ~213.75h
 (s42 ~6h ESTIMATE. ELEVEN time-debts now owed since s32 — the reconciliation
 pass is well overdue, spanning s32-s42.)
+
+## Session 43 — 4.SH polish (full dupe backdrop + rail origin) · sticker naming convention · 4.D selector reskinned to the shop-mirror rail
+Time: ~5h ESTIMATE (threads 1-3 device-verified by Morgan; the selector reskin is UNVERIFIED — verification firms the figure).
+
+Four threads, all on DEV. Three verified on device by Morgan in-session; the
+fourth (the selector reskin) ships UNVERIFIED.
+
+SHOP PREVIEW PROMOTED TO A FULL SILENT DUPE (4.SH polish) — VERIFIED:
+The preview backdrop was a calendar-only clone; now it's a full dupe of the
+you-panel, so every surface the retint pipeline (4.14b/4.20) will skin is present
+to preview against. shop_panel.tscn: ShopTitle -> PanelHeading (side=self),
+StatusLabel -> StreakBar, BottomSpacer -> TasksTray, + a front-layer ShopStatus
+float for the shop's own status line (the duped header title is DROPPED — it
+collides). tasks_tray.gd gained show_static(date): the _animate_open content path
+(header + task list + stamp) MINUS the tween, card left at its container-laid
+position (sidesteps the _dock_y capture-timing trap; the preview tray never
+animates). shop_panel.gd sets the WHOLE PreviewLayout subtree to mouse_filter
+IGNORE ONCE in _ready — taps inert, drags fall through to App's swipe. This is the
+load-bearing detail: App's swipe is _unhandled_input, so a full-rect STOP blocker
+would have SWALLOWED the backdrop drag and broken swipe-from-shop; the persistent-
+cell architecture (cells/rows built once, updated in place, never recreated) is
+why the one-time inert sticks. That same inert subtree CLOSED the s42-logged
+live-cell month-nav bug (off-rail taps no longer month-nav the clone).
+
+SHOP RAIL ORIGIN MOVED TO THE HAMBURGER LINE — VERIFIED:
+Rail top now at Layout.safe_top_inset()+24 (the hamburger's y), set in
+shop_panel.gd _ready; .tscn baseline updated. FLAGGED not done (deferred): the
+PreviewLayout itself doesn't take App's safe-area inset shift the real panels get,
+so on a notched device the dupe content sits ~inset px high — one line when it
+bites.
+
+STICKER NAMING CONVENTION LOCKED + CATALOGUE ROWS ADDED — art renaming VERIFIED:
+New stickers weren't auto-registering. Two DECOUPLED systems: ART (client) =
+stickers.gd resolves res://assets/icons/<id>/<id>_sticker.png — the `_sticker`
+suffix is MANDATORY, misses re-checked each call (no restart); CATALOGUE (server)
+= the D1 `stickers` table, seeded in seed_devkit.sql, NOT touched by the DevKit
+scenarios. CONVENTION (locked): snake_case underscore (not hyphen, not camelCase),
+id BYTE-IDENTICAL in THREE places — folder name, file prefix <id>_sticker.png,
+catalogue sticker_id. camelCase was the import-miss root cause (folder/file/
+catalogue mismatch). water_bottle/button/cloud fixed + rendering; jesterHat/
+shadowMan FOLDERS still need renaming to jester_hat/shadow_man (Morgan, in the
+Godot dock so .import remaps). add_stickers.sql inserts four catalogue rows; these
+fold into seed_devkit.sql so they survive a reset (Morgan). This resolves the
+long-standing ACTIVE sticker-render path question.
+
+GOTCHA (re-confirmed): `wrangler d1 execute --file=` failed with Authentication
+error [code: 10000] on the /import endpoint (DB rolled back, NOTHING inserted)
+despite valid auth — the known D1 import-endpoint token quirk. Fix: --command
+(query path, sidesteps /import) or logout+login. Rows landed on the --command
+re-run.
+
+4.D SELECTOR RESKINNED TO THE SHOP-MIRROR RAIL — UNVERIFIED:
+The leader/pool selector was a centred modal (functional stub). Rebuilt as the
+RIGHT-edge mirror of the shop rail (sticker_selector.gd, full rewrite, code-built):
+  - TOP DUPE: a copy of the leader parked over the real leader slot (its GLOBAL
+    rect passed via setup — App now passes _leader_slot.get_global_rect()). It is
+    the OPEN/CLOSE button (tap closes); the real slot is covered while open.
+  - RAIL: translucent column below it (shop's stylebox), every OWNED sticker incl.
+    the leader — the DUPE: the top button is spent on open/close, so the leader
+    needs a rail presence for its context menu. In-pool = full opacity + ring,
+    out-of-pool = dimmed, leader = a ★ badge.
+  - TAP item -> one-entry context menu (the crown, popped to the item's left).
+    LONG-PRESS item -> pool toggle. The crown SETS THE LEADER LIVE (the write
+    exists; keeps pair_key rotation testable — the alternative was leaving leader-
+    setting behind an unbuilt picker, a regression). ★ = "is leader", crown =
+    "make leader" — distinct so the crown isn't overloaded.
+  - No scrim; an invisible full-rect catcher gives tap-outside-closes. A context
+    menu open absorbs its own tap-off (dismisses the menu only, not the selector).
+Writes UNCHANGED from the old selector (set leader -> request_user_update
+active_leader [rotates pair_key]; pool toggle -> active_stickers w/ never-empty
+guard). App is the ONLY caller (grep-confirmed) so the setup() signature change is
+safe. This is the precursor seam to 4.14b's full theme-manager context menu.
+
+UNVERIFIED (device — reload first, class_name caching):
+- The whole selector reskin: rail appears off the slot; top dupe + tap-outside
+  close; long-press = pool toggle (never-empty holds); tap -> crown card -> sets
+  leader (★ + dupe + slot repaint, crown greyed on the current leader); CONFIRM
+  the dupe lands exactly over the real slot (if offset, the panel's centred in a
+  wider viewport — the slot-rect wire is in place to fix it).
+
+OPEN (carried):
+- jesterHat/shadowMan folder renames; fold add_stickers.sql into seed_devkit.sql;
+  the s41 shop endpoints into wire_regression_pack.md (still open).
+- PROD deploy+reset to fold s41+s42(+s43) — dev-only; kills the dogfood pairing.
+- WEEK-MODE DOC REWRITE still owed s38-s42. 4.FT accounting-seal hero beat open.
+- The select->preview RENDER + 4.14b context menu wait on the retint pipeline.
+
+NEXT: device-verify the selector reskin. Then the folds above; then prod deploy+
+reset, or the week-mode doc rewrite (overdue). The retint pipeline (4.14b) unblocks
+the shop preview render + the selector's eventual theme context menu.
+
+Session 43 time: ~5h ESTIMATE (selector reskin UNVERIFIED — verification firms it).
+
+Running total at session 43 close: ~218.75h
+(s43 ~5h ESTIMATE. TWELVE time-debts now owed since s32 — the reconciliation pass
+spans s32-s43 and is well overdue.)
