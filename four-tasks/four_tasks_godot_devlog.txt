@@ -1,21 +1,26 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-20 AWST (session 44)
-Last updated: session 43 — FOUR threads, all DEV. (1) 4.SH shop POLISH: the
-preview backdrop went from a calendar-only clone to a FULL silent dupe of the
-you-panel (PanelHeading + StreakBar + a static-open TasksTray now fill the slots
-the retint pipeline will skin); the SAME one-time mouse_filter=IGNORE on the whole
-PreviewLayout subtree CLOSED the s42 live-cell month-nav bug. (2) Shop rail origin
-moved to the hamburger line (safe_top_inset()+24). (3) Sticker NAMING CONVENTION
-locked: snake_case, id BYTE-IDENTICAL across folder / <id>_sticker.png / catalogue
-sticker_id (camelCase was the import-miss root cause); add_stickers.sql adds four
-catalogue rows. (4) 4.D SELECTOR reskinned from a centred modal to the RIGHT-edge
-mirror of the shop rail — top leader DUPE = open/close, rail = owned stickers
-(incl. leader) with tap->crown context menu (sets leader LIVE) + long-press pool
-toggle; App passes the slot's global rect so the dupe parks over it. Threads 1-3
-device-VERIFIED by Morgan; the selector reskin device-VERIFIED s44 (all six
-checks). Session 43 time: ~5h. Session 44 (~1h): selector verified, W21-W23
-wire pack (s41 shop/seal endpoints) added + dev-passed.
+Last edit: 2026-06-21 AWST (session 45)
+Last updated: session 45 — 4.14b THEME SYSTEM LIVE on DEV (the big unblock). The
+retint pipeline (PaletteDerive/ThemeBake/ThemeManager, s35-s36 + s32 prep) gained
+its full CONSUMER layer, end to end. BUCKET-1 chrome recolour: the leader's derived
+palette recolours default surfaces by RANK — bg=0, calendar card=1, tray card=2,
+streak bar=3 (clamp-to-last; cells + rest/bonus purple + flame/coin semantics stay
+SACRED) — via new theme_colors.gd/themed_card.gd/themed_bg.gd + the streak-bar fill;
+RAW role colours, no softening (a gauche palette is the painter's signal to fix the
+STICKER). LEADER-DRIVEN: App._sync_theme_to_leader follows the committed active_leader
+(theme DERIVED, never stored; boot themes from it, no more white default). SELECTOR
+CONTEXT MENU: sticker_selector's crown card -> a die-cut icon PICKER whose cage scales
+to the entry count (PNG icon + emoji-glyph fallback). SHOP TRY-BEFORE-YOU-BUY: the
+long-blocked select->preview shipped SHOP-LOCAL — ThemeManager holds active+preview
+caches side by side, get_roles/get_baked take a preview flag, a new preview_changed
+signal, surfaces flagged _is_preview via set_preview_surface(); the shop walks its
+subtree (from self, to catch the root-level Background) marking preview surfaces, so a
+tried-on sticker retints the backdrop ALONE while the real panels keep the live theme
+— the first GLOBAL-preview cut flashed on swipe and was rejected. Device-VERIFIED
+through the shop preview. Bucket model (1 recolour / 2 painted retint / 3 art swap)
+locked — refines the theme doc. OPEN: strip themed_bg diagnostics; draw crown.png;
+bucket-2/3 painted art = Phase 4b. Session 45 time: ~5h ESTIMATE.
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -920,3 +925,119 @@ Session 44 time: ~1h ESTIMATE (verify + wire-pack fold + bookkeeping).
 Running total at session 44 close: ~219.75h
 (s44 ~1h ESTIMATE. THIRTEEN time-debts now owed since s32 — reconciliation still
 pending.)
+
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 45 — 2026-06-21 AWST — 4.14b theme system LIVE: bucket-1 recolour · leader-driven theming · scalable selector context menu · shop try-before-you-buy (DEV)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Time: ~5h ESTIMATE (the 4.14b CONSUMER layer + a mid-session shop-preview rebuild;
+device-verified through the shop preview — the final shop CalendarCard/Background
+attaches confirmed in-session).
+
+THE BIG UNBLOCK. 4.14b/4.20's retint pipeline — PaletteDerive + ThemeBake +
+ThemeManager (s35-s36 + the s32 theme prep) — already existed; this session built
+the CONSUMER layer that DRAWS it, end to end on DEV. The long-blocking select->
+preview render AND the selector's theme context menu both shipped.
+
+THREE BUCKETS LOCKED (refines the theme doc — palette->chrome recolour is now the
+PRIMARY mechanism; painted reference art demoted to opt-in skins):
+  - Bucket 1 (no art): the leader's derived palette recolours the DEFAULT surfaces,
+    RAW role colours applied as-is — a gauche palette is the painter's signal to fix
+    the STICKER, not the engine's job to soften.
+  - Bucket 2 (painted, role-mapped): per-sticker opt-in reference-painted card/bg art
+    retinted toward the palette (the existing ThemeBake path). No sticker ships real
+    art yet (theme_proof is the test fixture).
+  - Bucket 3 (own colours, art swap): semantic icons (flame, coin) + the leader
+    sticker.png — skinned by SWAPPING art, never retinted/palette-driven.
+
+BUCKET-1 CHROME RECOLOUR — VERIFIED:
+ROLE->SURFACE MAP LOCKED (roles ranked by pixel area, most->least; each surface
+clamps to the last colour the sticker actually has): bg=rank0, calendar card=rank1,
+tray card=rank2, streak/coin card=rank3 (a 3-colour sticker's streak card reuses the
+tray's rank-2). Cells + rest/bonus purple + flame-orange/coin-gold stay SACRED.
+NEW FILES: theme_colors.gd (class_name ThemeColors — role(roles,index,fallback)
+clamp-to-last + bg() convenience); themed_card.gd (extends Control — painted-skin
+StyleBoxTexture 9-slice -> palette-colour StyleBoxFlat recolour -> stock; bakeable_slot
++ card_role_index exports); themed_bg.gd (recolours a ColorRect / panel-stylebox
+Background to rank-0). streak_bar.gd themed its bar fill to rank-3.
+EDITOR WIRING (device-verified): themed_card on PanelYou + PanelPartner CalendarCard
+(slot4/role1) + the tasks_tray $Card (slot5/role2 — one attach = both trays) + the
+shop CalendarCard; themed_bg on PanelYou Background + the shop Background. Verified:
+chilli-red + frog-green bg; black_cat's grey/yellow/orange/red across bg + 3 cards.
+
+LEADER-DRIVEN THEMING — re-derive, never remember — VERIFIED:
+App._sync_theme_to_leader (persistent self_changed observer, change-guarded so
+unrelated writes — coins/poll/rename — don't re-bake): the live theme FOLLOWS the
+committed active_leader. The leader is the single source; the theme is DERIVED, not
+separately stored (no active_theme persistence for the basic leader theme). Every
+slot is set to the leader — slots the sticker has no art for bake to nothing and
+render stock, so it equals "palette source + whatever the leader can skin". Crown-
+press -> leader write -> theme repaints; boot themes from the persisted leader.
+
+SCALABLE SELECTOR CONTEXT MENU — VERIFIED:
+sticker_selector.gd's one-entry crown card -> a die-cut icon PICKER whose cage HEIGHT
+is computed from the entry count (margins + N*icon + gaps), so it grows with the
+sticker's action set. Compact, OPAQUE white (black icons read with zero contrast
+trouble), popped to the item's left. Entries come from _context_entries_for (today
+just the crown — set-leader); future actions (card style, custom bg/sounds) append.
+Icons load res://assets/ui/context_menu/<name>.png with an emoji-glyph FALLBACK (the
+menu works before the art lands). crown.png is Morgan's to draw; glyph live meanwhile.
+
+SHOP TRY-BEFORE-YOU-BUY — SHOP-LOCAL preview — VERIFIED ("looks awesome"):
+The shop's select->preview render, blocked since s42. FIRST cut was a GLOBAL preview
+(ThemeManager swaps what get_roles()/get_baked() return); REJECTED on device — the
+real off-screen panels shared the preview state, so any swipe either reverted-on-touch
+or flashed-on-settle. REBUILT shop-local:
+  - ThemeManager holds active + preview caches SIDE BY SIDE. get_roles(preview) /
+    get_baked(slot,preview) take a flag. theme_changed fires for the active theme; a
+    NEW preview_changed fires for the preview. begin_preview(theme) / end_preview().
+  - Surfaces carry _is_preview (set via set_preview_surface()): preview surfaces read
+    the preview source + listen to BOTH signals; live surfaces read active + listen
+    only to theme_changed. So a sticker tried on in the shop NEVER touches the real
+    panels — the two themes coexist, nothing to revert, no flash. App's swipe hooks
+    came OUT entirely.
+  - shop_panel walks its WHOLE subtree at boot marking every themed surface preview
+    (per-INSTANCE — the shop's shared tray/streak scenes become preview while the real
+    panels' identical scenes don't). Background is a root-level SIBLING of PreviewLayout,
+    so the walk runs from self, not $PreviewLayout (the load-bearing detail — an earlier
+    $PreviewLayout-scoped walk silently missed Background).
+  - Tap a sticker -> backdrop (cal card + tray + streak + bg) retints; tap it again ->
+    clears to the live theme (toggle); selecting another re-previews. Sticky on swipe.
+TOUCHED: ThemeManager.gd, shop_panel.gd, themed_card.gd, themed_bg.gd, streak_bar.gd,
+App.gd.
+
+DESIGN REFINED (riffed, not a new doc — captured here): the theme doc is INVERTED —
+palette->chrome recolour is now PRIMARY (bucket 1), painted reference art demoted to
+opt-in skins (bucket 2). Its "preview = global cache the getters consult first" is
+SUPERSEDED by the shop-local dual-signal model (the global version's transition flashes
+were why). Per-slot active_theme persistence stays a FUTURE concern (maximal-UI:
+sticker A's card art under sticker B's palette) — today theme = f(leader).
+
+UNVERIFIED / OPEN (this session):
+- themed_bg still carries DIAGNOSTIC prints ([themed_bg] node/preview/roles/colour) —
+  STRIP now the shop bg is confirmed previewing (the final attach + the [themed_bg]
+  preview=true console check was the last step, done in-session — Morgan confirmed).
+- crown.png black icon not drawn (glyph fallback live).
+- Bucket-3 coin-glyph skin slot not built (flame stub exists — clone it). Bucket-2/3
+  real painted art = Phase 4b content (no sticker ships it).
+- Per-slot active_theme persistence (the maximal-UI context menu: card style / custom
+  bg / custom sounds entries) — future.
+- Onboarding avatar picker = the preview path's second designed consumer — not built.
+
+OPEN (carried from s44):
+- Fold add_stickers.sql rows into seed_devkit.sql (PREREQ for the prod reset).
+  jesterHat/shadowMan folder renames. PROD deploy+reset to fold s41-s45 (kills the
+  dogfood pairing). Week-mode doc rewrite (overdue s38). 4.FT accounting-seal hero beat.
+
+NEXT: strip themed_bg diagnostics; draw crown.png. Then either the seed-fold + prod
+deploy+reset (fresh-brain), or bucket-2/3 painted art for the launch sticker set (4.D),
+or the coin-glyph skin + the onboarding avatar preview. Week-mode doc rewrite still owed.
+
+Session 45 time: ~5h ESTIMATE (the 4.14b consumer layer + the shop-local preview
+rebuild + device wiring; verified through the shop preview).
+
+Running total at session 45 close: ~224.75h
+(s45 ~5h ESTIMATE. FOURTEEN time-debts now owed since s32 — the reconciliation pass
+spans s32-s45 and is well overdue.)
