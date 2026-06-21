@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-21 AWST (session 45)
-Last updated: session 45 — 4.14b THEME SYSTEM LIVE on DEV (the big unblock). The retint pipeline (PaletteDerive/ThemeBake/ThemeManager, s35-s36) gained its CONSUMER layer, end to end. BUCKET-1 chrome recolour — the leader's derived palette recolours default surfaces by RANK (bg=0 / calendar card=1 / tray card=2 / streak bar=3, clamp-to-last; cells + rest/bonus purple + flame/coin semantics SACRED) via new theme_colors/themed_card/themed_bg + the streak-bar fill; RAW role colours, no softening (a gauche palette = the painter's signal to fix the STICKER). LEADER-DRIVEN: App._sync_theme_to_leader follows the committed active_leader (theme DERIVED, not stored; boot themes from it, no more white default). SELECTOR CONTEXT MENU: the crown card -> a die-cut icon PICKER whose cage scales to the entry count (PNG icon + emoji-glyph fallback). SHOP TRY-BEFORE-YOU-BUY: the long-blocked select->preview shipped SHOP-LOCAL — ThemeManager active+preview caches, get_roles/get_baked take a preview flag, a new preview_changed signal, surfaces flagged _is_preview via set_preview_surface(); the shop marks its backdrop preview (walk from self, to catch the root-level Background) so a tried-on sticker retints it ALONE while the real panels keep the live theme (the GLOBAL-preview first cut flashed on swipe — rejected). Device-VERIFIED through the shop preview. Bucket model (1 recolour / 2 painted retint / 3 art swap) locked. OPEN: strip themed_bg diagnostics; draw crown.png; bucket-2/3 painted art = Phase 4b. Session 45 time: ~5h ESTIMATE.
+Last edit: 2026-06-21 AWST (session 46)
+Last updated: session 46 — PARTNER PANEL gained its theme + status bar (UNVERIFIED; boots clean from editor, not yet phone-confirmed). The s45 theme consumer layer was SELF-only — the partner panel wore YOUR palette and had no status bar. THEME: ThemeManager grew a third lane (LANE_PARTNER alongside ACTIVE+PREVIEW, Lane enum) with its own derive+bake cache, apply_partner_theme(), partner_theme_changed; get_roles/get_baked now take a LANE arg (default ACTIVE — every existing self call unchanged), the preview bool GONE (folded into the enum). themed_bg/themed_card: _is_preview bool -> _lane int + set_partner_surface(). App._sync_partner_theme_to_leader reads partner.active_leader -> partner lane (clears to stock while solo); _tag_partner_theme_surfaces duck-types set_partner_surface() onto the PanelPartner subtree (no hard-coded paths). No backend change (partner.active_leader was always in the payload); no cell change (sacred ramp panel-identical by design). STREAK BAR: streak_bar.gd took a USER SOURCE — self (default, unchanged; still the beat-6 count-up target) vs partner (set_partner_source: reads State.partner_user, no ceremony/FX — a dumb live mirror); app.tscn PanelPartner StatusArea holds it in-slot. BONUSPILL REMOVED from that StatusArea (the streak bar displaced it; slot fits one widget) — it rendered the live coin-bonus multiplier their progress earns you; still exists as bonus_pill.tscn, unmounted; RE-HOME is an OPEN design decision. themed_bg DIAGNOSTIC prints STRIPPED (s45 cleanup done). Session 46 time: ~3h ESTIMATE (UNVERIFIED).
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -113,13 +113,33 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       select->preview render — CLOSED.
   [x] Shop CalendarCard themed_card + Background themed_bg attached (Background is a
       root-level sibling -> the marking walk runs from self). Device s45.
-  [ ] STRIP themed_bg DIAGNOSTIC prints ([themed_bg] node/preview/roles/colour) now
-      the shop bg is confirmed previewing. Standing cleanup, next theme touch.
+  [x] STRIP themed_bg DIAGNOSTIC prints ([themed_bg] node/preview/roles/colour) —
+      done s46 (the _is_preview -> _lane refactor removed them).
   [ ] crown.png black icon (res://assets/ui/context_menu/) not drawn — emoji-glyph
       fallback live. Morgan, in Aseprite.
   [ ] Bucket-3 coin-glyph skin slot not built (the flame stub exists — clone it).
   [ ] PROD never exercised (carries) — all s45 theme work is dev. The theme follows
       active_leader, so prod themes from whatever the dogfood leader is on first boot.
+
+  ── s46 PARTNER PANEL — theme lane + status bar (DEV; UNVERIFIED — boots clean, not yet phone-confirmed) ──
+  [ ] Partner theme lane: swipe to the partner panel -> bg + calendar card wear the
+      PARTNER's palette. ONLY visibly differs when you + Ayshe run DIFFERENT
+      active_leaders (same leader = identical palettes — correct, not a bug; change
+      one to actually test). Cells stay the sacred ramp both panels.
+  [ ] Partner streak bar: shows the partner's streak + coins, their palette, NO
+      ceremony / coin FX (it's a dumb live mirror). Refreshes as their data changes.
+  [ ] Partner tray height: _apply_safe_area_inset claws tray budget and PanelPartner
+      just gained a status bar it never had. If the partner tray CONTENT clips at
+      the reduced height, that's the dial (mirrors PanelYou, so it should fit).
+  [ ] Runtime pair: if a pair completes mid-session (not boot-paired), the partner
+      panel lights up its theme + streak bar on _bind_partner (idempotent re-tag +
+      re-sync). Confirm a fresh pair themes correctly without a restart.
+  [ ] BONUSPILL re-home [DECIDE] — the partner StatusArea's live coin-bonus
+      multiplier readout ("✨ ×1.3", hidden at 1.0) was DISPLACED by the partner
+      streak bar (slot fits one widget). Unmounted, not deleted (bonus_pill.tscn +
+      its ext_resource intact). Decide where the bonus readout lives now. Do NOT
+      re-stack in that StatusArea — that was the overlap bug. Real UX loss; revisit
+      before launch.
 
   [ ] 4.D2 week mode — PARTNER-RENDER on PROD never exercised by two real
       users (s39). Self + partner override resolution is built and verified
@@ -340,6 +360,7 @@ before code). Realistic store launch: Sept-Oct 2026.
 [~] 4.14b [CODE] Sticker picker context menu + theme manager. Long-press (500ms + vibration). Unlocked menu: per-slot icons, instant application + APPLY ALL. Locked menu: PREVIEW (~30s revert). Rotation fires on active_leader change ONLY.
     Design authority: theme doc v2 (THEME PREP resolved s32 — colour system, 7-slot catalogue, pre-bake retint, preview/marker rules; +s35 COMPLETED-MONTH CHROME — completed months source screen-level slots from the last sealed accounted day's day_theme_state, one selection rule inside the renderer; build-time check: days payload ships accounted_for, else one-line payload add at unfreeze). Build machinery against placeholder art. Owed at this tile per doc: icon art, marker style, 9-slice centre-mode convention, partner-render asset endpoint shape. (~10-15h)
     s45: CORE CONSUMER LAYER BUILT (dev-verified) — the retint pipeline's DRAW layer shipped: bucket-1 chrome recolour (theme_colors/themed_card/themed_bg + the role->surface rank map), leader-driven application (App._sync_theme_to_leader, theme=f(leader), no active_theme persistence yet), the selector's scalable crown context menu, and the shop-local PREVIEW path (ThemeManager active+preview caches + preview_changed + _is_preview surfaces). REMAINS: the FULL per-slot context menu (only the crown entry exists — per-slot card/bg/sound assignment + APPLY ALL + the locked/unlocked + 30s-preview distinction), per-slot active_theme persistence (maximal-UI: sticker A's card art under B's palette), bucket-2/3 painted art (Phase 4b content), the partner-render asset endpoint. Bucket model (1 recolour / 2 painted retint / 3 art swap) LOCKED this session — refines the theme doc.
+    s46: PARTNER CONSUMER LANDED (UNVERIFIED) — the partner panel now wears the PARTNER's palette, not yours. ThemeManager went from 2 lanes to 3: LANE_PARTNER alongside ACTIVE+PREVIEW (Lane enum), own derive+bake cache, apply_partner_theme(), partner_theme_changed; get_roles/get_baked take a LANE arg (preview bool removed, folded in). themed_bg/themed_card carry _lane + set_partner_surface(). App._sync_partner_theme_to_leader (partner.active_leader -> partner lane, stock while solo) + _tag_partner_theme_surfaces (duck-typed subtree walk). No backend change (partner.active_leader already in the payload); no cell change (sacred ramp panel-identical by design). The "partner-render asset endpoint" noted above as REMAINING is NOT needed for the chrome recolour — the partner's leader id is enough; an endpoint only matters if the partner ships per-slot PAINTED art the client doesn't have locally (bucket-2 concern, deferred). ALSO this session: streak_bar.gd took a user source so the partner StatusArea mirrors the partner's streak+coins (no ceremony/FX); BonusPill displaced from that slot — re-home is an open DECIDE item in the s46 ledger.
 [ ] 4.15 [CODE] Username + icon edit. Settings → triggers rotation. "Changes may take a minute" popup. (~3-4h)
 [~] 4.20 [CODE] Palette derivation devtool — BUILT s35, DEVICE-VERIFIED s36 (D-S7 PASS, tile CLOSED): tool opens DevKit→Tools, scans res://assets/icons recursively (RES_SCAN_DIR fixed s36 — was assets/stickers), renders nearest preview + role swatches w/ hex/count/%, neutral + alpha audits, CLOSE adjacent-rank advisory + AA-smell overflow surface all fired correctly on placeholder stickers. Inbox load (user://palette_inbox) fixed s36 — Image.load_from_file wrapped in ProjectSettings.globalize_path (Android user:// → OS path). palette_derive.gd NEW (class_name PaletteDerive): SHARED derivation 4.14b's renderer MUST consume — int-exact exclusion (a8<255 OR r8==g8==b8), derive() w/ role ranking + neutral audit + alpha + compressed-import flag, role_color() accent→tertiary fallback. NOTE: the two designated neutral greys must be present in PaletteDerive's exclusion set so documented greys drop to neutral (per pools/theme doc — confirm once). devkit_palette_tool.gd NEW + devkit_menu.gd Tools row. Time: ~2h.
 [ ] 4.21 [CODE] Un-pair flow — client UI (server endpoints done 1.3; initiator-notice fix s29). Initiator: long-press partner header → menu → Un-pair → confirm → change-username follow-up. Recipient: dismissable banner (one-shot, server-tracked). Reference: pair-key doc §17. (~3-4h)

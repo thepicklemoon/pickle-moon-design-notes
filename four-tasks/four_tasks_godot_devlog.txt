@@ -1,26 +1,32 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-21 AWST (session 45)
-Last updated: session 45 — 4.14b THEME SYSTEM LIVE on DEV (the big unblock). The
-retint pipeline (PaletteDerive/ThemeBake/ThemeManager, s35-s36 + s32 prep) gained
-its full CONSUMER layer, end to end. BUCKET-1 chrome recolour: the leader's derived
-palette recolours default surfaces by RANK — bg=0, calendar card=1, tray card=2,
-streak bar=3 (clamp-to-last; cells + rest/bonus purple + flame/coin semantics stay
-SACRED) — via new theme_colors.gd/themed_card.gd/themed_bg.gd + the streak-bar fill;
-RAW role colours, no softening (a gauche palette is the painter's signal to fix the
-STICKER). LEADER-DRIVEN: App._sync_theme_to_leader follows the committed active_leader
-(theme DERIVED, never stored; boot themes from it, no more white default). SELECTOR
-CONTEXT MENU: sticker_selector's crown card -> a die-cut icon PICKER whose cage scales
-to the entry count (PNG icon + emoji-glyph fallback). SHOP TRY-BEFORE-YOU-BUY: the
-long-blocked select->preview shipped SHOP-LOCAL — ThemeManager holds active+preview
-caches side by side, get_roles/get_baked take a preview flag, a new preview_changed
-signal, surfaces flagged _is_preview via set_preview_surface(); the shop walks its
-subtree (from self, to catch the root-level Background) marking preview surfaces, so a
-tried-on sticker retints the backdrop ALONE while the real panels keep the live theme
-— the first GLOBAL-preview cut flashed on swipe and was rejected. Device-VERIFIED
-through the shop preview. Bucket model (1 recolour / 2 painted retint / 3 art swap)
-locked — refines the theme doc. OPEN: strip themed_bg diagnostics; draw crown.png;
-bucket-2/3 painted art = Phase 4b. Session 45 time: ~5h ESTIMATE.
+Last edit: 2026-06-21 AWST (session 46)
+Last updated: session 46 — PARTNER PANEL gained its theme + status bar (UNVERIFIED;
+boots clean from editor, not yet phone-confirmed). The s45 theme consumer layer was
+SELF-only — the partner panel wore YOUR palette and had no status bar. THEME: ThemeManager
+grew a third lane (LANE_PARTNER alongside ACTIVE+PREVIEW, Lane enum) with its own
+derive+bake cache, apply_partner_theme(), partner_theme_changed; get_roles/get_baked
+now take a LANE arg (default ACTIVE — every existing self call unchanged) and the
+preview bool is GONE, folded into the enum. themed_bg/themed_card: _is_preview bool ->
+_lane int + set_partner_surface(). App._sync_partner_theme_to_leader reads
+partner.active_leader -> partner lane (clears to stock while solo); _tag_partner_theme_
+surfaces duck-types set_partner_surface() onto the PanelPartner subtree (no hard-coded
+paths). No backend change — partner.active_leader was always in the payload. No cell
+change — the sacred tier ramp is panel-identical by design. STREAK BAR: streak_bar.gd
+took a USER SOURCE — self (default, unchanged; still the beat-6 count-up target) vs
+partner (set_partner_source: reads State.partner_user, no ceremony/FX — a dumb live
+mirror). app.tscn PanelPartner StatusArea holds the StreakBar in-slot. BONUSPILL was
+REMOVED from that StatusArea (the streak bar displaced it; slot fits one widget) — it
+rendered the live coin-bonus multiplier their progress earns you; still exists as
+bonus_pill.tscn, unmounted, RE-HOME is an OPEN design decision. themed_bg DIAGNOSTIC
+prints STRIPPED (s45 cleanup). Session 46 time: ~3h ESTIMATE (UNVERIFIED).
+
+[s45 summary — superseded above; full detail in the SESSION 45 block below:
+4.14b theme consumer layer LIVE on dev: bucket-1 chrome recolour (palette recolours
+bg/cal card/tray card/streak bar by rank, clamp-to-last; cells + rest/bonus + flame/
+coin SACRED), leader-driven (theme=f(active_leader), derived not stored), scalable
+selector crown context menu, shop-local try-before-you-buy preview. Bucket model
+(1 recolour / 2 painted / 3 swap) locked. Session 45 time: ~5h ESTIMATE.]
 Engine: Godot 4.6
 Studio: THE PICKLE MOON
 Target stores: Google Play, Apple App Store
@@ -1041,3 +1047,94 @@ rebuild + device wiring; verified through the shop preview).
 Running total at session 45 close: ~224.75h
 (s45 ~5h ESTIMATE. FOURTEEN time-debts now owed since s32 — the reconciliation pass
 spans s32-s45 and is well overdue.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 46 — 2026-06-21 AWST — partner panel: theme lane + status bar (DEV)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UNVERIFIED until device-confirmed. Boots clean from the editor (after the scene
+fix below); not yet exercised on a phone.
+
+The s45 theme consumer layer was SELF-only by construction. The partner panel
+rendered YOUR palette (one global active theme, every surface read it) and had
+no status bar at all. This session made the partner panel show the PARTNER's
+palette and mirror their streak + coins — the partner panel is a v1 pillar (you
+see what your partner is up to, accurately), so both gaps are real, not cosmetic.
+
+THEME — THIRD LANE.
+ThemeManager grew LANE_PARTNER alongside ACTIVE + PREVIEW (a Lane enum). The
+partner lane is its own independent derive+bake cache (_partner_roles /
+_partner_baked), built by apply_partner_theme(), announced by a new
+partner_theme_changed signal. get_roles() / get_baked() now take a `lane` arg
+(default Lane.ACTIVE — so every existing self call site is unchanged); the old
+`preview: bool` is GONE, preview folded into the same enum (three lanes through
+one concept, not overloaded bools — clarity over cleverness).
+  - themed_bg, themed_card: the _is_preview bool became a _lane int; added
+    set_partner_surface() (one-way, points the surface at the partner lane +
+    subscribes partner_theme_changed). themed_bg's DIAGNOSTIC prints stripped
+    (the s45 carried cleanup — done).
+  - App._sync_partner_theme_to_leader(): mirrors _sync_theme_to_leader but reads
+    State.partner_user.active_leader and writes the partner lane; clears the lane
+    to stock while solo / before the partner loads (so no stale ex-partner
+    palette lingers). Change-guarded on the partner leader id.
+  - App._tag_partner_theme_surfaces(): walks the PanelPartner subtree and
+    duck-types set_partner_surface() onto any node that has it — NO hard-coded
+    Background/CalendarCard paths, so it survives scene-tree changes. Runs at
+    wire time + on every partner_changed + at _bind_partner (idempotent — tagging
+    is one-way, the theme sync guards on the leader id, so re-running is free and
+    self-heals a pair that completes at runtime).
+NO BACKEND CHANGE: /users/:id already returns parseUserRow(partnerRow) from
+SELECT *, so partner.active_leader (and active_theme, active_stickers) was always
+in the payload. Verified by reading getUserPayload — not assumed.
+NO CELL CHANGE: day_cell / calendar_grid don't consult ThemeManager. The sacred
+tier ramp (RED/ORANGE/YELLOW/GREEN/REST) is identical on both panels BY DESIGN —
+the cells were already correct on the partner side.
+
+STREAK BAR — PARTNER MIRROR.
+streak_bar.gd took a USER SOURCE:
+  - SELF (default): reads State.self_user, refresh on self_changed, still the
+    morning ceremony's beat-6 coin count-up target. Unchanged behaviour.
+  - PARTNER (set_partner_source()): reads State.partner_user, refresh on
+    partner_changed, reads LANE_PARTNER. Runs NONE of the ceremony / coin-FX
+    logic (gated on !_is_partner) — it's a dumb live read of their streak +
+    coins. App holds streak_bar_partner and calls set_partner_source() at wire
+    time. It uses its OWN setter (distinct from the generic surface tag, which
+    skips it — StreakBar has no set_partner_surface method), so no double-wiring.
+
+SCENE (app.tscn).
+PanelPartner/Layout/StatusArea now holds the StreakBar in-slot, structurally
+identical to PanelYou's StatusArea. The node had been placed wrong first (sibling
+of Layout, with stray -216 offsets flinging it into the header) — corrected to
+sit in the slot, offsets stripped.
+
+BONUSPILL REMOVED — PENDING DESIGN DECISION, NOT SETTLED.
+PanelPartner/Layout/StatusArea previously held BonusPill — the live coin-bonus
+multiplier the user is presently earning from the partner's progress ("✨ ×1.3
+coin bonus active", hidden when the multiplier is 1.0). That StatusArea fits ONE
+widget; the streak bar displaced it. BonusPill is now UNMOUNTED (still exists as
+bonus_pill.tscn; its ext_resource is left in app.tscn). This is a real UX loss —
+mirroring the self bar cost the partner panel its bonus readout. OPEN: where the
+bonus-multiplier readout lives now. Do NOT re-stack it in this StatusArea — that
+was the overlap bug. Revisit before launch.
+
+TOUCHED: ThemeManager.gd, themed_bg.gd, themed_card.gd, streak_bar.gd, App.gd,
+app.tscn.
+
+VERIFY ON DEVICE (the s46 ledger items):
+- Swipe to partner: bg + calendar card wear the PARTNER's palette. Only visibly
+  differs when you + Ayshe run DIFFERENT active_leaders — identical leaders =
+  identical palettes (correct, not a bug; change one to actually test).
+- Partner streak bar shows the partner's streak + coins, their palette, no FX.
+- Partner tray height — _apply_safe_area_inset claws tray budget, and PanelPartner
+  just gained a status bar it never had. If the partner tray content clips, that's
+  the dial.
+
+NEXT: device-verify (fills this session's time log). Then the BonusPill re-home
+decision this session created, or bucket-2/3 painted art (4.D), or the per-slot
+context menu, or the seed-fold + prod deploy. Week-mode doc rewrite still owed.
+
+Session 46 time: ~3h ESTIMATE (the three-lane refactor + the streak-bar user-source
+split + the scene fix; UNVERIFIED — device-verify firms it).
+
+Running total at session 46 close: ~227.75h
+(s46 ~3h ESTIMATE. FIFTEEN time-debts now owed since s32 — the reconciliation pass
+spans s32-s46 and is well, well overdue.)
