@@ -1132,9 +1132,29 @@ NEXT: device-verify (fills this session's time log). Then the BonusPill re-home
 decision this session created, or bucket-2/3 painted art (4.D), or the per-slot
 context menu, or the seed-fold + prod deploy. Week-mode doc rewrite still owed.
 
-Session 46 time: ~3h ESTIMATE (the three-lane refactor + the streak-bar user-source
+## Session [47(quick one)] — Ayshe prototype data port to prod
+
+Ported Ayshe's prototype May/June progress into the live prod pairing. Forward-only, no reset (prod holds the real Morgan+Ayshe dogfood pairing — migrate-not-reset in force).
+
+**Prod data changes (all on Ayshe, user_id 4746349c…):**
+- Sticker catalogue brought to dev parity: added `button`, `cloud`, `jester_hat`, `shadow_man` to prod `stickers` (INSERT OR IGNORE; existing 11 untouched). Prod catalogue now 15, matching dev.
+- Ayshe's `owned_stickers` + `active_stickers` expanded to the full 15.
+- 31 backdated sealed `days` rows reconstructed from the prototype screenshots (May 1–15, 24–31; June 1, 3, 4, 6, 8, 18, 19). Full-completion (`[true,true,true,true]`), `sealed_at` stepped per date at midday AWST, `completion_sticker` random from the 15, `sealed_labels='[]'` (renders against live task_labels — labels untouched per instruction). INSERT OR IGNORE preserved her two real recent rows (06-21, 06-22).
+- Install floor `created_at` moved to 1 May 2026 00:00 AWST (epoch 1777564800) — the fix for reconstructed days rendering grey. Days before the floor classify as DEAD_PRE_INSTALL; pushing the floor back cleared the gate and the reconstructed days derive real state (green on four-task days).
+- Coins ported to prototype balance: `coins` + `lifetime_coins` both set to 230,628 (was 6,027).
+- Real 06-21 row given a `completion_sticker` (`frog`) — was a genuinely-completed day with no sticker assigned from the prototype seal.
+
+**Diagnosis note (the grey-cell bug):** cell colour derives from CellState, not from `completion_sticker` — the two render paths are decoupled, so stickers filled while cells stayed grey. Root cause was the install-floor gate (DEAD_PRE_INSTALL), not malformed `tasks_done` (data was clean). Floor-push fixed it with no client change or redeploy.
+
+**Prod Worker:** running [version id from your last `--env production` deploy this session] — schema already current (all 11 tables, full users column set present), so no migration needed beyond the catalogue rows above.
+
+**Open / deferred:**
+- Rowless in-range gap days (e.g. May 16–23) render UNMARKED-white, not the dead-grey expected for missed days — derivation-semantics question, deferred to its own chat.
+- Morgan-side reconstruction not done — his prod May/June calendar still empty. Same pattern when wanted: calendar reconstruct + floor-push (catalogue already at parity).
+
+Session 47 time: ~3h ESTIMATE (the three-lane refactor + the streak-bar user-source
 split + the scene fix; UNVERIFIED — device-verify firms it).
 
-Running total at session 46 close: ~227.75h
-(s46 ~3h ESTIMATE. FIFTEEN time-debts now owed since s32 — the reconciliation pass
-spans s32-s46 and is well, well overdue.)
+Running total at session 47 close: ~228.75h
+ FIFTEEN time-debts now owed since s32 — the reconciliation pass
+spans s32-s46 and is well, well overdue
