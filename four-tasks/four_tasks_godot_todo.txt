@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-21 AWST (session 46)
-Last updated: session 46 — PARTNER PANEL gained its theme + status bar (UNVERIFIED; boots clean from editor, not yet phone-confirmed). The s45 theme consumer layer was SELF-only — the partner panel wore YOUR palette and had no status bar. THEME: ThemeManager grew a third lane (LANE_PARTNER alongside ACTIVE+PREVIEW, Lane enum) with its own derive+bake cache, apply_partner_theme(), partner_theme_changed; get_roles/get_baked now take a LANE arg (default ACTIVE — every existing self call unchanged), the preview bool GONE (folded into the enum). themed_bg/themed_card: _is_preview bool -> _lane int + set_partner_surface(). App._sync_partner_theme_to_leader reads partner.active_leader -> partner lane (clears to stock while solo); _tag_partner_theme_surfaces duck-types set_partner_surface() onto the PanelPartner subtree (no hard-coded paths). No backend change (partner.active_leader was always in the payload); no cell change (sacred ramp panel-identical by design). STREAK BAR: streak_bar.gd took a USER SOURCE — self (default, unchanged; still the beat-6 count-up target) vs partner (set_partner_source: reads State.partner_user, no ceremony/FX — a dumb live mirror); app.tscn PanelPartner StatusArea holds it in-slot. BONUSPILL REMOVED from that StatusArea (the streak bar displaced it; slot fits one widget) — it rendered the live coin-bonus multiplier their progress earns you; still exists as bonus_pill.tscn, unmounted; RE-HOME is an OPEN design decision. themed_bg DIAGNOSTIC prints STRIPPED (s45 cleanup done). Session 46 time: ~3h ESTIMATE (UNVERIFIED).
+Last edit: 2026-06-22 AWST (session 48)
+Last updated: session 48 — FULL-STACK BUG SWEEP + 5 fixes + NOTIFICATION RELIABILITY doc. Swept all .gd + the whole server; codebase healthy, most findings low-sev. SHIPPED (UNVERIFIED, ride the s46 batch): (1) THEME LANE ISOLATION — themed_bg/themed_card/streak_bar now disconnect the active lane (theme_changed) when re-laned to PARTNER/PREVIEW (_leave_active_lane), so a self theme change no longer spuriously repaints partner/preview surfaces. (2) SHOP STUCK PREVIEW — _reconcile_preview_selection() ends the preview when the tried-on sticker leaves the buyable set (the buy case left it stuck, clear affordance gone). (3) SHOP SAFE-AREA INSET — the shop's PreviewLayout now takes the safe-area top inset (the carried s43 item; Ayshe's Samsung shot showed it), mirroring App._apply_safe_area_inset. NOT FIXED (logged): seed-fold still owed (next reset loses 4 catalogue rows; prod has them via s47); State.yesterday_iso() dead + wrong docstring; buy coin-check pre-batch (accepted race); future rest-day notif reschedule (self-heals). NOTIFICATION RELIABILITY doc MERGED + REVERSES the s33 "inexact is fine" decision — exact alarms now REQUIRED (likely Ayshe-Samsung bug); 4-layer strategy, tiles N1-N4, N1 first. Session 48 time: ~Xh ESTIMATE (sweep + fixes + research + doc).
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -53,6 +53,16 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
         D-N7 reboot with app closed → scheduled nudge survives
         swipe-kill variant — Morgan's phone AND Ayshe's (OEM battery
         managers differ; her D-N1 permission flow rides her first build)
+  [ ] 4.26 DELIVERY matrix (NEW s48 — gates LAUNCH; tests delivery on real hardware,
+      not scheduling logic). Spec in the notifications doc (D-D1..D-D4):
+        D-D1 Pixel (stock): exact alarm fires at the minute, app closed, after reboot.
+        D-D2 Samsung One UI (Ayshe's + ideally one more): fires with the app (a) fresh,
+             (b) idle 3+ days (the sleep bucket — the actual failure mode), (c) after
+             reboot, (d) with "Never sleeping" applied vs not. THE real gate.
+        D-D3 permission-denied paths: POST_NOTIF denied → app works, no notif, re-ask
+             present; exact-alarm denied → graceful fallback, no crash, no block.
+        D-D4 Layer-4 net: force a missed nudge (deny/sleep) → open next morning →
+             streak + seal correct. Must pass everywhere even when delivery fails.
   [ ] Strip the devkit feature tag from the daily-driver/prod build
       (devkit entry point + prod DB is a fat-finger risk; dev builds
       keep it). NOTE: store preset is devkit-clean as of s36 (verified
@@ -95,9 +105,16 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
   [ ] jesterHat/shadowMan FOLDERS still camelCase — rename to jester_hat/shadow_man
       in the Godot dock (so .import remaps) before those two render.
   [ ] Fold add_stickers.sql rows into seed_devkit.sql so the catalogue survives a
-      DB reset (currently a one-off insert on dev only).
-  [ ] PreviewLayout doesn't take App's safe-area inset shift the real panels get —
-      on a notched device the dupe sits ~inset px high. One-line fix when it bites.
+      DB reset (currently a one-off insert on dev only). STATUS (s47/s48): PROD now
+      holds all 4 (button/cloud/jester_hat/shadow_man) via s47 INSERT OR IGNORE, so
+      prod is fine under migrate-not-reset — but seed_devkit.sql STILL lacks them
+      (s48 grep-0), so the next reset / fresh dev reseed loses them. Still the prereq
+      for any future reset.
+  [x] PreviewLayout doesn't take App's safe-area inset shift the real panels get —
+      on a notched device the dupe sits ~inset px high. FIXED s48 (shop-owned
+      _apply_safe_area_inset mirrors App; PreviewLayout.offset_top += inset + tray
+      min-height trim, guarded inset>0). UNVERIFIED — device-verify on a notched
+      phone (watch the preview tray bottom for clipping).
 
   ── s45 4.14b THEME SYSTEM — bucket-1 recolour + leader theming + selector menu + shop preview (DEV; verified through the shop preview) ──
   [x] Bucket-1 chrome recolour: the leader palette recolours bg(rank0)/calendar
@@ -139,7 +156,37 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       streak bar (slot fits one widget). Unmounted, not deleted (bonus_pill.tscn +
       its ext_resource intact). Decide where the bonus readout lives now. Do NOT
       re-stack in that StatusArea — that was the overlap bug. Real UX loss; revisit
-      before launch.
+      before launch. NOTE (s48): a quick pass already rewired the bonus pill to live
+      BETWEEN the streak and coin readouts inside the partner streak bar's HBox
+      (mounted in $HBox/Spacer, centred) — see streak_bar.gd _mount_bonus_pill. This
+      DECIDE is effectively answered pending device-verify; confirm the pill sits
+      centred + hides cleanly at 1.0 without reflowing the bar, then close.
+
+  ── s48 BUG SWEEP — 5 fixes (DEV; UNVERIFIED, ride the s46 batch) ──
+  Full sweep of all .gd + the server. Codebase healthy; these are the fixable finds.
+  [ ] FIX 1 THEME LANE ISOLATION (themed_bg/themed_card/streak_bar): re-laned
+      partner/preview surfaces now disconnect theme_changed (the active lane) before
+      subscribing their own lane (_leave_active_lane). Was: a self theme change
+      spuriously repainted partner/preview surfaces (value-correct, wasteful, broke
+      lane isolation). VERIFY: partner/self/preview themes all still track; the
+      partner panel does NOT repaint when you change YOUR leader. (Value was right, so
+      the test is "no regression".)
+  [ ] FIX 2 SHOP STUCK PREVIEW (shop_panel): _reconcile_preview_selection() at the
+      top of _repaint ends the preview when the selected sticker leaves the buyable
+      set. VERIFY: preview a sticker → buy it → backdrop snaps back to the live theme
+      (was stuck on the bought sticker, clear affordance gone with the rail item).
+  [ ] FIX 3 SHOP SAFE-AREA INSET (shop_panel): the carried s43 item — shop's
+      PreviewLayout now takes the safe-area top inset (shop-owned _apply_safe_area_
+      inset, mirrors App). VERIFY on a notched device: shop dupe calendar sits at the
+      SAME height as the you-panel (not high under the status strip). Watch the
+      preview tray bottom — the min-height trim assumes the static-open tray honours
+      custom_minimum_size.y like the real trays; if it clips, that's the dial.
+  [ ] NOT-FIXED, logged (s48): (a) seed-fold STILL OWED — seed_devkit.sql lacks
+      button/cloud/jester_hat/shadow_man; PROD has them (s47), but the next reset /
+      fresh reseed loses them. (b) State.yesterday_iso() DEAD CODE + wrong docstring
+      (claims Bonus.gd uses it; Bonus reads today_iso) — delete both. (c) buySticker
+      coin check is pre-batch (accepted near-impossible race). (d) future rest-day
+      notif reschedule self-heals on open (accepted; in the notifications doc).
 
   [ ] 4.D2 week mode — PARTNER-RENDER on PROD never exercised by two real
       users (s39). Self + partner override resolution is built and verified
@@ -350,7 +397,15 @@ before code). Realistic store launch: Sept-Oct 2026.
 [~] 4.23 [CODE] App local-date-change watcher — BUILT s34, DEVICE-VERIFIED s36 (D-S4 PASS): _last_seen_date marker + _check_date_rollover() first on every FOCUS_IN: date moved EITHER direction → both calendars jump_to_today(); open trays on now-future dates close; payout ceremony is one-shot, consumed at accounting (2nd mock-day re-rolls MOTD only, correct). Skipped mid-ceremony WITHOUT consuming the marker. Time: ~30min.
 [~] 4.24 [CODE] Dead-cell treatment + off-month nav — DECIDED + BUILT s34, DEVICE-PARTIAL s36. Authority: four_tasks_calendar_cells_design_notes.md. Sealed 0-tick days → dead-inert, uninteractable, no tray; pre-install identical; off-month flattened, tap = grid navigates home then delegates as in-month tap (direction-agnostic; navigation-only when grey/pre-install at home); grey stamp tier LATENT. Build: day_cell.gd (SEALED_GREY, OFF_MONTH, flattened dead visual, F1 DeadOverlay MOUSE_FILTER_IGNORE fix s35) + calendar_grid.gd (sealed branch, nav-delegate). DEVICE s36: grey skips dead self-panel PASS; FORWARD off-month tap (trailing → navs + tray) PASS, F1 fix proven live. PARKED: partner-panel grey immutability (D-S2, no seed), BACKWARD off-month + today-overflow (D-S3, needs July). Time: ~1h.
 [~] 4.25 [CODE] Walkback span-sealing — SERVER HALF DONE s33 (wire-passed) + CLIENT DEVICE-VERIFIED s36 (D-S6 PASS, tile CLOSED): grey rescue dialog fires correct (grey tier, streak-at-stake 3, cost 50000); broke balance DISARMS the SAVE button (affordability gate working — only arms when affordable); LET IT GO seals the missed day + runs payout (decline path, streak→0, no charge); funded accept → rest-day beat (separately seen). Server: buildSpan + evaluateSpanRescue + sealSpan, per-day streak walk, shared sealed_at, W13r/W14r/W19/W20/W11/W12 wire-passed s33; wind-down null-target greys paint via refresh_after_morning (D-S5 PASS). DONE.
-[~] 4.26 [CODE] Notifications — BUILT s33, DEVICE-PARTIAL. Design authority: four_tasks_notifications_design_notes.md (times 6:30am/8pm fixed v1.0; lowercase copy; boot permission; structural suppression — day-0 morning never scheduled, evening skips 4/4 + rest day; lapse decay daily*7 then gap+1/nudge then weekly, horizon 56; mock clock = silent). Plugin godot-mobile-plugins/godot-notification-scheduler; gradle build now ON (laptop). Notifications.gd autoload, zero existing-file edits. D-N1-D-N4 GREEN; tile closes when the ambient cases (open tests block) go green on both phones. Time: ~3h (ESTIMATE).
+[~] 4.26 [CODE] Notifications — SCHEDULING BUILT s33; RELIABILITY RE-OPENED s48 (LAUNCH BLOCKER). Design authority: four_tasks_notifications_design_notes.md (MERGED + REVERSED s48). The s33 scheduling LOGIC stands + is still authoritative (times 6:30am/8pm fixed v1.0; lowercase copy; structural suppression — day-0 morning never scheduled, evening skips 4/4 + rest day; lapse decay daily*7 then gap+1/nudge then weekly, horizon 56; mock clock = silent; ids 1000/2000 + sweep 0-60). Plugin godot-mobile-plugins/godot-notification-scheduler; Notifications.gd autoload. D-N1-D-N4 GREEN (logic).
+    ★ s48 REVERSAL: the s33 decision "never request exact alarms, inexact ±15min is fine" is WRONG — it's the likely root cause of Ayshe's 8pm nudge never firing on her Samsung. TWO mechanisms, not one fix: (1) stock Android 13+ gates exact alarms (SCHEDULE_EXACT_ALARM denied by default on 14 fresh installs); the app only ever requested POST_NOTIFICATIONS, never the exact-alarm grant. (2) Samsung One UI kills idle apps' alarms (~3 days → restricted bucket throttles Alarms; ~16 → deep sleep). Google Play PROHIBITS the direct battery-whitelist intent (Syncthing rejection), so the fix routes through allowed intents only + a safety net.
+    BUILD TILES (risk-first; spec in the doc):
+      N1 — Manifest + Layer 1: declare USE_EXACT_ALARM (install-granted, leads — borderline for a habit tracker at Play review, honest risk in the doc) + SCHEDULE_EXACT_ALARM (fallback); confirm RECEIVE_BOOT_COMPLETED + INTERNET; wire Notifications.gd to request the exact-alarm permission after POST_NOTIFICATIONS; add the plugin's exact-alarm + battery signals as rebuild triggers; VERIFY the plugin schedules with setExactAndAllowWhileIdle. **N1 ALONE MOST LIKELY FIXES AYSHE — ship + verify it FIRST.**
+      N2 — Layer 2 first-run permission sequence (POST_NOTIF → exact-alarm → battery), at end-of-onboarding, re-entrant, settings re-entry point. Allowed intents ONLY — never ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS on the Play build.
+      N3 — Layer 3 Samsung card: Build.MANUFACTURER-detected, dismissible, deep-linked "Never sleeping apps" guidance.
+      N4 — Layer 4 audit (TEST tile): VERIFY opening the app after a missed nudge yields correct streak/seal state — the safety net that caps every OEM that defeats N1-N3. Gates "notifications done".
+    VERIFY-AT-BUILD: read the plugin's Android source for (a) exact path uses setExactAndAllowWhileIdle, (b) which battery intent its request fires (must NOT be the prohibited one — deep-link settings manually if it is).
+    Delivery test matrix D-D1..D-D4 (NEW s48) in the open-tests block gates LAUNCH. Time: ~3h s33 (scheduling, EST); reliability tiles unbuilt.
 [~] 4.27 [CODE] Safe-area top inset — BUILT s34, DEVICE-VERIFIED s36 (D-S1 PASS, self-phone): Layout.safe_top_inset() (DisplayServer safe-area top edge, physical→design conversion, mobile-gated 0 elsewhere); App._apply_safe_area_inset() (inset onto panel VBox, off each tray's runtime minimum). Boot print confirmed "[App] safe_top_inset=172", title clear of bar, tray fits. SOUTH-PHONE REPEAT still owed (CAVEAT: barred-but-cutoutless devices report 0 — theoretical for the pool). Loader/onboarding eyeballed clear. Time: ~30min.
 
 ━━━ FORK POINT ━━━ APPtrioc launches from snapshot after 4.14a. See PHASE 5b. ━━━
@@ -608,3 +663,17 @@ Running project total at session 44 close: ~219.75h
 (s44 ~1h ESTIMATE — s43 selector reskin device-verified; W21-W23 wire pack
 (s41 shop/seal endpoints) added + dev-passed; bookkeeping. THIRTEEN time-debts
 owed since s32 — reconciliation still pending.)
+
+Running project total at session 47 close: ~228.75h
+(s45 ~5h · s46 ~3h · s47 ~3h — ALL ESTIMATES. s45 = 4.14b theme consumer layer;
+s46 = partner panel theme lane + status bar (UNVERIFIED); s47 = Ayshe prototype
+prod data port (forward-only, migrate-not-reset). FIFTEEN time-debts owed since
+s32. NOTE: the s47 devlog time line originally carried s46's description by
+copy-paste — corrected s48.)
+
+Running project total at session 48 close: ~228.75h (+ s48 unfilled ESTIMATE)
+(s48 = full-stack bug sweep + 5 fixes [3 code: theme lane isolation, shop stuck
+preview, shop safe-area inset — all UNVERIFIED, ride the s46 batch] + the merged
+notification-reliability doc. Code figure firms on device-verify. SIXTEEN
+time-debts now owed since s32 — the reconciliation pass spans s32-s48 and is
+badly overdue; worth a dedicated session.)

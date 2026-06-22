@@ -1,7 +1,30 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-21 AWST (session 46)
-Last updated: session 46 — PARTNER PANEL gained its theme + status bar (UNVERIFIED;
+Last edit: 2026-06-22 AWST (session 48)
+Last updated: session 48 — FULL-STACK BUG SWEEP + 5 fixes + NOTIFICATION RELIABILITY
+doc. Swept all .gd + the whole server: codebase is healthy, most findings low-sev.
+SHIPPED (all UNVERIFIED — device-verify with the s46 batch): (1) THEME LANE ISOLATION
+— themed_bg/themed_card/streak_bar disconnected the active lane (theme_changed) when
+re-laned to PARTNER/PREVIEW, so a self theme change spuriously repainted partner/preview
+surfaces (values stayed correct; wasteful + broke lane isolation). Fixed via a
+_leave_active_lane() drop before subscribing the new lane. (2) SHOP STUCK PREVIEW —
+buying a tried-on sticker removed its rail item (and the tap-again clear affordance)
+while begin_preview stayed active = backdrop stuck on the bought sticker with no way to
+clear. Fixed via _reconcile_preview_selection() at the top of _repaint (ends preview when
+the selected sticker leaves the buyable set). (3) SHOP SAFE-AREA INSET — the shop's
+PreviewLayout didn't take the safe-area top inset the real panels get (the carried s43
+open item), so the dupe sat ~inset px high on a notched device. Fixed by mirroring
+App._apply_safe_area_inset in the shop. NOT FIXED (logged): seed-fold still owed (next
+reset loses 4 catalogue rows — prod already has them via s47); State.yesterday_iso() is
+dead code with a wrong docstring; buy-endpoint coin check is pre-batch (near-impossible
+race, accepted); future rest-day notification reschedule edge (self-heals, accepted).
+NOTIFICATION RELIABILITY: researched + wrote the merged notifications doc — exact alarms
+are now REQUIRED (reverses the s33 inexact-is-fine decision, the likely Ayshe-Samsung
+bug). Session 48 time: ~Xh ESTIMATE (sweep + 5 fixes + research + doc).
+
+[s47 — Ayshe prototype data port to PROD (forward-only, migrate-not-reset). Full detail
+in the SESSION 47 block below. ~3h ESTIMATE.]
+[s46 — PARTNER PANEL gained its theme + status bar (UNVERIFIED;
 boots clean from editor, not yet phone-confirmed). The s45 theme consumer layer was
 SELF-only — the partner panel wore YOUR palette and had no status bar. THEME: ThemeManager
 grew a third lane (LANE_PARTNER alongside ACTIVE+PREVIEW, Lane enum) with its own
@@ -1152,9 +1175,126 @@ Ported Ayshe's prototype May/June progress into the live prod pairing. Forward-o
 - Rowless in-range gap days (e.g. May 16–23) render UNMARKED-white, not the dead-grey expected for missed days — derivation-semantics question, deferred to its own chat.
 - Morgan-side reconstruction not done — his prod May/June calendar still empty. Same pattern when wanted: calendar reconstruct + floor-push (catalogue already at parity).
 
-Session 47 time: ~3h ESTIMATE (the three-lane refactor + the streak-bar user-source
-split + the scene fix; UNVERIFIED — device-verify firms it).
+Session 47 time: ~3h ESTIMATE (the Ayshe prototype prod data port — catalogue parity,
+31 backdated sealed days, install-floor push, coin/balance port; the grey-cell diagnosis.
+NOT the three-lane refactor — that was s46; the earlier time line here was a copy-paste
+mislabel, corrected.).
 
 Running total at session 47 close: ~228.75h
- FIFTEEN time-debts now owed since s32 — the reconciliation pass
-spans s32-s46 and is well, well overdue
+(s47 ~3h ESTIMATE. FIFTEEN time-debts now owed since s32 — the reconciliation pass
+spans s32-s46 and is well, well overdue.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SESSION 48 — 2026-06-22 AWST — full-stack bug sweep + 5 fixes + notification reliability doc (DEV + doc)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+All five code fixes UNVERIFIED — they boot-reason clean but ride the s46 batch to the
+phone. No new feature work; a sweep, the fixes it surfaced, and a launch-blocker doc.
+
+THE SWEEP. Read every client .gd + the whole server (index.ts, 3601 lines). Verdict:
+the codebase is in good shape — server routing, the {ok,data} envelope, the claim/seal
+walkback, the UTC-integer date math (DST-safe), buySticker atomicity, the morning-sequence
+await guards are all sound. Most findings low-severity. The high-churn s45/s46 theme +
+shop surfaces carried the only fixable code bugs.
+
+FIX 1 — THEME LANE ISOLATION (themed_bg.gd, themed_card.gd, streak_bar.gd).
+Each surface is born on LANE_ACTIVE and connects theme_changed in _ready(). When App
+re-lanes it to PARTNER (or the shop to PREVIEW), it pointed _lane at the new lane and
+subscribed that lane's signal — but NEVER disconnected theme_changed. So a partner/preview
+surface stayed wired to the active lane too: changing YOUR own theme fired a spurious
+repaint on partner/preview surfaces. The VALUES stayed correct (every _apply reads
+get_roles(_lane) with the live lane), so nothing visibly corrupted — but it's wasteful and
+breaks the one-way lane isolation the 3-lane model exists to enforce. The partner streak
+bar hit it every time (set_partner_source always runs post-ready). FIX: a _leave_active_lane()
+helper that disconnects theme_changed before the switch methods subscribe the new lane;
+each surface now listens to exactly one lane. (themed_bg/card guard the switch on
+_lane==LANE_ACTIVE; streak_bar's _ready connects conditionally, so its disconnect is
+guarded too.)
+
+FIX 2 — SHOP STUCK PREVIEW (shop_panel.gd). The try-on preview clears by tapping the
+selected sticker AGAIN. But BUYING it removes the rail item (it becomes owned), so the
+tap-again clear affordance vanishes while ThemeManager.begin_preview is still active —
+backdrop stuck on the just-bought sticker's preview, unclearable from the UI. FIX:
+_reconcile_preview_selection() at the top of every _repaint — if a sticker is selected but
+no longer buyable (the buy case), end the preview + clear the selection, returning the
+backdrop to the live theme. Swiping away mid-preview is intentionally left alone (real
+panels read the ACTIVE lane, so a lingering PREVIEW lane is invisible there). Medium-sev —
+the only user-visible fix this session.
+
+FIX 3 — SHOP SAFE-AREA INSET (shop_panel.gd). The carried s43 open item bit (Ayshe's
+Samsung screenshot showed it): the shop's PreviewLayout doesn't take the safe-area top
+inset App gives the real panels (App only insets PanelYou/PanelPartner, deliberately
+excluding the shop). So the shop's dupe calendar sat ~inset px high under the status strip.
+FIX: a shop-owned _apply_safe_area_inset() mirroring App's exactly — PreviewLayout.offset_top
++= inset, preview tray min-height trimmed by the inset, guarded inset>0 (desktop untouched).
+Background is a root-level sibling left UNshifted on purpose (it fills behind the OS strip
+like the real panels' bg — teal-behind-clock). The rail already self-insets (s43). NOTE:
+the tray trim assumes the static-open preview tray honours custom_minimum_size.y like the
+real trays — verify on device; if the preview tray clips, that's the dial.
+
+NOT FIXED — logged, deliberately not touched:
+- SEED-FOLD still owed. seed_devkit.sql lacks button/cloud/jester_hat/shadow_man (grep-0).
+  PROD already has them (s47 INSERT OR IGNORE), so prod is fine — but the NEXT reset (or a
+  fresh dev reseed) comes up with the old catalogue. Still the prereq for any future reset.
+- State.yesterday_iso() is DEAD CODE (no callers, grep-confirmed) with a WRONG docstring
+  claiming Bonus.gd uses it — Bonus.gd reads today_iso() (correct: the partner bonus pill is
+  a LIVE preview of the partner's today). Delete the function + the comment; the stale
+  comment is a trap (a "fix" matching it would break the live semantics).
+- buySticker coin check is PRE-batch, not in-batch: two concurrent buys could both pass
+  coins>=price then both debit negative. Near-impossible (one user, one device, long-press +
+  confirm gated); D1 makes the conditional-update guard awkward; the architecture doc favours
+  legibility here. Accepted limitation; harden later with UPDATE...WHERE coins>=? + meta.changes
+  if ever touched.
+- FUTURE-dated rest-day doesn't immediately reschedule notifications (Notifications._on_day_
+  changed filters its rebuild to today). Self-heals on next app open. Accepted; do NOT fix into
+  a per-future-day reschedule (now also recorded in the notifications doc).
+
+NOTIFICATION RELIABILITY — the launch-blocker doc (four_tasks_notifications_design_notes.md,
+MERGED + REVERSAL). Ayshe's 8pm reminder never fired on her Samsung. Researched the current
+Android landscape; the merged doc REVERSES the s33 decision "never request exact alarms,
+inexact ±15min is fine" — that decision is the likely root cause. Two mechanisms, not one
+fix: (1) stock Android 13+ gates exact alarms (SCHEDULE_EXACT_ALARM denied by default on
+14 fresh installs); the app only ever requested POST_NOTIFICATIONS, never the exact-alarm
+grant — matches "can't remember if the right permission was given at boot." (2) Samsung One
+UI kills idle apps' alarms outright (~3 days → restricted bucket throttles Alarms; ~16 → deep
+sleep). STRATEGY LOCKED (4 layers): declare USE_EXACT_ALARM (install-granted, leads — borderline
+for a habit tracker at Play review, honest risk flagged) + SCHEDULE_EXACT_ALARM (fallback);
+request exact-alarm + battery exemption through POLICY-ALLOWED intents only (NEVER the direct
+battery-whitelist intent — that's the Syncthing Play-rejection); a Samsung-specific "Never
+sleeping apps" guidance card; and the SAFETY NET — guarantee opening the app reconstructs
+correct streak/seal state so a dropped nudge costs at most a missed ping, never a missed day
+(Four Tasks' server-source + lazy-walkback already mostly give this; the doc makes it an
+explicit invariant + a test tile). The plugin already exposes every hook (exact-alarm request,
+battery request, grant/deny signals) — the gap is Notifications.gd calls only the post-notif
+request. Build tiles N1-N4 spec'd; N1 (manifest + exact-alarm wiring) alone most likely fixes
+Ayshe — ship + verify it FIRST. Delivery test matrix (D-D1..D-D4) added as a named launch gate.
+The doc MERGES + supersedes the old s33 notifications doc (its scheduling LOGIC — copy, times,
+suppression, decay, ids — is unchanged + still authoritative; only the alarm TYPE + permissions
+reverse). Verify-at-build: read the plugin's Android source to confirm (a) its exact path uses
+setExactAndAllowWhileIdle, (b) which battery intent it fires (must not be the prohibited one).
+
+ALSO (bookkeeping): corrected the s47 devlog time line — it carried s46's work description
+(three-lane refactor) by copy-paste; s47 was the Ayshe prod data port.
+
+TOUCHED (code): themed_bg.gd, themed_card.gd, streak_bar.gd, shop_panel.gd.
+TOUCHED (docs): four_tasks_notifications_design_notes.md (merged + reversal).
+
+VERIFY ON DEVICE (the s48 ledger items — ride the s46 batch):
+- Fix 1: partner/self/preview themes all still track correctly; no regression. (The leak was
+  value-correct, so the visible test is "nothing broke" + the partner panel doesn't repaint
+  when YOU change your leader.)
+- Fix 2: preview a sticker → buy it → backdrop snaps back to your live theme (not stuck).
+- Fix 3: on a notched device, the shop's dupe calendar sits at the same height as the
+  you-panel (not high under the status strip). Watch the preview tray bottom for clipping.
+
+NEXT: device-verify the s46 + s48 batch together. Then the notification work (N1 first — the
+likely Ayshe fix), or the BonusPill re-home, or bucket-2/3 painted art, or the seed-fold +
+prod deploy. Week-mode doc rewrite still owed. The s32-s48 time-debt reconciliation is now
+SIXTEEN sessions deep.
+
+Session 48 time: ~Xh ESTIMATE (the sweep + 5 fixes + notification research + the merged doc;
+UNVERIFIED — device-verify firms the code figure).
+
+Running total at session 48 close: ~228.75h (+ s48 unfilled ESTIMATE)
+(s48 time is an ESTIMATE placeholder — the code fixes are UNVERIFIED so the figure firms on
+device-verify, same as s46. SIXTEEN time-debts now owed since s32 — the reconciliation pass
+spans s32-s48 and is badly overdue; worth a dedicated pass.)
