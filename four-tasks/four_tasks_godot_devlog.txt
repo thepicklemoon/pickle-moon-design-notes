@@ -1,7 +1,99 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-23 AWST (session 49)
-Last updated: session 49 — UI TUNING PASS + symmetric bonus pill + stamp bugfix +
+Last edit: 2026-06-23 AWST (session 50)
+Last updated: session 50 — ANYTIME MOTD EDITOR (tile 4.5 client half) + frameless picker
+refactor + reroll economy reconciled to the live server + word-reel long spin + tier-pill
+buttons. The MOTD spinner was a fully built widget with only TWO of its three trigger
+contexts wired (onboarding, morning ceremony); this session built the THIRD — the anytime
+long-press editor — and in doing so refactored the picker and reconciled the reroll charge
+to the server endpoint that already existed. SHIPPED (all UNVERIFIED on device beyond what
+was eyeballed in-session; the whole surface needs a phone pass).
+
+FRAMELESS PICKER REFACTOR: the picker scene baked in its own card + a fixed 1000px centred
+reel block + per-wheel pixel-width floors, all authored for the onboarding full-screen
+overlay — which made it fight every other host and produced a cascade of layout bugs (card-
+in-card, text escaping the card, the emoji reel marooned at the edge, the selector band
+offset from the centre row). Rebuilt the picker as a FRAMELESS fill-parent component: four
+reels + one selector band, sized to its host, reels weighted by size_flags_stretch_ratio
+(1/1/1.2/0.5 — emoji half-width) NOT pixel floors, wheels SHRINK_CENTER vertically (size_
+flags_vertical=4) so the strip's fixed centre-row math (192px from top, true centre only at
+the 480 height) actually lands on the band. msg_wheel dropped its fixed custom_minimum_size
+and its per-wheel SelectorLine (the picker's one band is the highlight now). Every host now
+frames the bare picker: onboarding's PickerHost became the card (picker path is now $Picker
+Host/PickerMargin/MsgPicker, _style_host_card added); the morning sequence uses a NEW
+MotdPickerCard wrapper (card + picker, forwards the full open/spin/reroll/composed_text/
+selected_sticker + reels_ready/spun contract, so the morning coordinator drives it
+UNCHANGED); the editor mounts the bare picker in the calendar card. The old motd_dialog.gd
+approach was BUILT then BINNED in favour of the fade — DELETE it from disk if present.
+
+ANYTIME EDITOR (motd_editor.gd, class_name MotdEditor — a driver like morning_sequence,
+App owns it and hands it the nodes): long-press the self header MOTD line → the self
+CALENDAR fades fully out (FADE_OUT_DUR 0.32), then after a staggered breath (FADE_STAGGER
+0.18) the SPINNER fades in (FADE_IN_DUR 0.34) occupying the SAME card footprint — no dialog,
+no scrim. The coins live in the streak bar ABOVE the card, already on screen, so the fade
+needs no coin readout of its own. Reroll / save / cancel beneath the reels. On save the new
+MOTD typewriter-glitches into the header subtitle (GlitchType.reveal — the morning beat-10
+effect), the sticker rides in beside it, and the calendar fades back. Spinner root is
+MOUSE_FILTER_STOP so the faded calendar beneath can't take taps; calendar input is also
+hard-toggled off for the duration. Mount point = the calendar card's CardMargin (the spinner
+is a sibling of the calendar grid, same insets). The long-press detector was added to panel_
+heading.gd's subtitle (self-side, non-preview only — mirrors the hamburger long-press),
+emitting motd_long_pressed; App wires it (gated on morning inactive + editor inactive, locks
+swipe while open).
+
+REROLL ECONOMY — RECONCILED TO THE EXISTING SERVER (closes tile 4.5): the server ALREADY had
+the whole reroll economy — POST /users/:id/motd/reroll charges REROLL_COST=100 atomically
+(coins>=cost guard), returns {user, roll} (new balance + a fresh roll), and economyPayload()
+ships reroll_cost in GET /users. WIRE-VERIFIED this session on dev: 6286→6186 = exactly -100,
+payload confirms reroll_cost:100. The client was initially built WRONG (batched a reroll_
+count into the save write — a model the server doesn't implement); reverted and reconciled
+to call the endpoint per spin (lesson: server-before-client — should have checked first).
+Charge model (Morgan-confirmed): each reroll charges the instant you spin, NON-refundable
+(reroll is a VENT not a sink), cancel does NOT refund what you already spent. Cost stays FLAT
+100 (random 90-140 floated, rejected — predictability is the point; parked "may revisit").
+Backend.gd gained reroll_motd() + motd_rerolled/motd_reroll_failed; State.gd gained reroll_
+cost() (reads economy.reroll_cost, fallback 100), reroll_motd() wrapper, _on_motd_rerolled
+(merges the server balance into self_user), motd_reroll_succeeded/motd_reroll_rejected;
+set_motd reverted to FREE (the words-write is free, rerolls were already charged per spin).
+
+REROLL UX (iterated live against Morgan's friction): tap → reels spin + coins drop INSTANTLY
+(optimistic, no round-trip wait), the charge fires in the BACKGROUND and reconciles the pill
+MONOTONIC-DOWNWARD (a lagging concurrent charge reports a higher figure but never bounces the
+pill up; lands exactly on truth once spending settles). The reroll button DISARMS for the
+SPIN duration — NOT the server round-trip — re-arming on the picker's spun() signal: this is
+the built-in READ GATE (Morgan wanted people to read the result before re-rolling) and
+incidental rate-limiting. A rare server rejection (race / network) means the optimistic spin
+already played = a free reroll; ACCEPTED (100 coins negligible, nothing to game), the pill
+reconciles up to truth.
+
+WORD-REEL LONG SPIN: the three WORD reels got a new roll_long (wrapping spin, ROLL_LONG_DUR
+1.15s, 22-40 rows — borrows the auto-spin's wrap-while-tweening via _apply_spin_distance so
+travel is list-length-independent and blurs richly through the ~90-100 word pool) to MASK the
+disarm so the wait isn't visible. The EMOJI reel does its OWN thing: the snappy 0.85s jiggle
+for 2+ stickers, and NO motion at all for a ONE-sticker pool (legitimate — people can run a
+single-sticker pool; the wheel detects n<=1, settles on index 0 immediately and still emits
+so the driver doesn't hang). spun() is driven off the last WORD reel (the longest-running)
+not whatever reel is last in the array, so spun() means "everything settled" not "the quick
+emoji jiggle finished". Note roll_long is shared, so onboarding's "spin again" also gets the
+longer spin (flagged, accepted).
+
+TIER-PILL BUTTONS: save GREEN (#dcfce7/#14532d), cancel RED (#fee2e2/#7f1d1d), reroll REST-
+purple (#ede9fe/#4c1d95) — the same die-cut StyleBoxFlat the status pills wear (radius 18,
+padding 18h/20v, font 44 = FONT_SIZE_PILL_TEXT, the sacred cell-tier colours from day_cell.gd
+COLOURS). Pressed-darken + disabled-dim states so the disarm reads VISUALLY (reroll fades
+while spinning, save is dim until reels build). Sized to content (no fixed width/height) to
+match the status pill height — eyeball the width-flexible layout on device (might want a
+PILL_PADDING_H nudge). Reroll glyph is placeholder 🎲 (real art later); centre glyph slot
+between save/cancel is an empty TextureRect placeholder reserving the space.
+
+~13 client files touched: msg_picker.tscn/.gd, msg_wheel.tscn/.gd, motd_picker_card.tscn/.gd
+(NEW), onboarding_motd.tscn/.gd, panel_heading.gd, App.gd, motd_editor.gd, State.gd,
+Backend.gd. motd_dialog.gd DELETED. NO server changes (the server was already complete).
+Tile 4.5 client half DONE (UNVERIFIED). Server side fully wire-verified.
+Session 50 time: ~Xh ESTIMATE (long client build + frameless refactor + economy reconcile +
+spin tuning + button styling; UNVERIFIED-heavy — device-verify firms it).
+
+[s49 — UI TUNING PASS + symmetric bonus pill + stamp bugfix +
 glyph-sprite wiring + app-wide font swap + shop-preview overhaul. A long visual-tuning
 session on the client. SHIPPED (all UNVERIFIED beyond the items eyeballed in-session —
 device-verify the whole surface): GRID restyled to a dark field (slate UNMARKED cells
@@ -40,6 +132,7 @@ layout to the real panels; the tray-overlap was a FULL_RECT-card-in-collapsed-sl
 tray Control reported ~0 min-height so the anchored card overflowed UP) — fixed by giving the
 preview tray instance a real custom_minimum_size. State.yesterday_iso() dead code removed.
 Session 49 time: ~Xh ESTIMATE (long tuning session; UNVERIFIED-heavy — device-verify firms it).
+]
 
 [s48 — FULL-STACK BUG SWEEP + 5 fixes + NOTIFICATION RELIABILITY
 doc. Swept all .gd + the whole server: codebase is healthy, most findings low-sev.
@@ -1502,3 +1595,7 @@ Running total at session 49 close: ~228.75h (+ s48 and s49 unfilled ESTIMATEs)
 (s48 + s49 are ESTIMATE placeholders — both UNVERIFIED, figures firm on device-verify.
 SEVENTEEN time-debts now owed since s32 — the reconciliation pass spans s32-s49 and is badly
 overdue.)
+Running total at session 50 close: ~228.75h (+ s48, s49, and s50 unfilled ESTIMATEs)
+(s48 + s49 + s50 are ESTIMATE placeholders — all UNVERIFIED, figures firm on device-verify.
+EIGHTEEN time-debts now owed since s32 — the reconciliation pass spans s32-s50 and is badly
+overdue. Do it from device-verified state, not before.)
