@@ -1,7 +1,47 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-22 AWST (session 48)
-Last updated: session 48 — FULL-STACK BUG SWEEP + 5 fixes + NOTIFICATION RELIABILITY
+Last edit: 2026-06-23 AWST (session 49)
+Last updated: session 49 — UI TUNING PASS + symmetric bonus pill + stamp bugfix +
+glyph-sprite wiring + app-wide font swap + shop-preview overhaul. A long visual-tuning
+session on the client. SHIPPED (all UNVERIFIED beyond the items eyeballed in-session —
+device-verify the whole surface): GRID restyled to a dark field (slate UNMARKED cells
+#334155, borders removed, dead cells #1e293b, DeadOverlay node DELETED — it was painting
+Godot's default grey over the bg, a latent bug; date number top-left; cell separation
+finally 12 — the Layout const was DEAD, the .tscn h/v_separation is what renders; corner
+radius 18; bottom strip a deliberate 43px = 1/3 cell; card 1061; nav arrows stripped to
+BARE GLYPHS via StyleBoxEmpty). TRAY snug-fit (removed 3 height inflators; explicit heights
+in the manual-anchor idiom — Body 556 / Card 735 / BottomSpacer 43; rows 130; tray RESERVES
+its slot when closed so the calendar never resizes on open/close). STREAK BAR 130 tall, white
+outline removed (border width 0 LOCALLY — msg_picker's shared constant untouched). THREE-PILL
+SYSTEM: all die-cut (radius 18), cell-tier coloured — streak pill NEW (flame+count wrapped in
+StreakPill) RED tier #fee2e2/#7f1d1d, coin yellow (anchor), bonus REST tier #ede9fe/#4c1d95
+(INVERTED from the old dark-purple/white to the pale-tier style); pill text unified to one
+size 44 (FONT_SIZE_PILL_TEXT — the old bonus 32 sat off the pixel grid and rendered jagged).
+SYMMETRIC BONUS PILL [confirmed in-session]: BOTH panels now carry one, each driven by its
+own panel-owner's tasks, showing what that effort gives the OTHER (Bonus.self_multiplier added
+alongside partner_multiplier; bonus_pill `side` mode; streak_bar set_self_source + both bars
+mount; the self mount is an EXPLICIT App call, not a _ready auto-mount — a timing trap that
+would otherwise give the partner bar a self-pill). STAMP first-open BUGFIX [confirmed]: the
+tray stamp read card.size before first layout (=(0,0)) and rocketed off-screen on first open;
+fixed by centre-anchoring (explicit 0.5 anchors + half-size offsets), same lesson as the
+day-cell sticker guard. ORIGINAL-ART GLYPH SPRITES: flame/coin/sparkle emoji -> painted PNG
+with emoji fallback (load-or-fallback, ResourceLoader.exists; paths res://assets/ui/{flame,
+coin,sparkle}.png; flame/coin live on device, sparkle wired by extracting the baked ✨ from
+the bonus label TEXT into its own node) — also resolves the s41 invisible-emoji-on-laptop-
+export item; shared glyph size FONT_SIZE_PILL_GLYPH=72; art pending repaint (didn't scale
+crisp at 72) + an outline. APP-WIDE FONT SWAP [confirmed]: UI default DepartureMono->JetBrains,
+MOTD subtitle JetBrains->DepartureMono, a one-week trial (NOT a committed decision); Fonts.gd
+now sets ThemeDB.fallback_font in code (genuine single source of truth) + Project Settings
+custom font CLEARED (it was overriding). SHOP-PREVIEW OVERHAUL: the under-shop preview calendar
+(an inert you-panel dupe) was drifting + bare — gave it static heading ("preview calendar" /
+"message of the day" via panel_heading preview mode), static readouts ("streak"/"coins" via a
+LANE_PREVIEW branch), an inert "task bonus" pill (bonus_pill "preview" side), and synced its
+layout to the real panels; the tray-overlap was a FULL_RECT-card-in-collapsed-slot trap (the
+tray Control reported ~0 min-height so the anchored card overflowed UP) — fixed by giving the
+preview tray instance a real custom_minimum_size. State.yesterday_iso() dead code removed.
+Session 49 time: ~Xh ESTIMATE (long tuning session; UNVERIFIED-heavy — device-verify firms it).
+
+[s48 — FULL-STACK BUG SWEEP + 5 fixes + NOTIFICATION RELIABILITY
 doc. Swept all .gd + the whole server: codebase is healthy, most findings low-sev.
 SHIPPED (all UNVERIFIED — device-verify with the s46 batch): (1) THEME LANE ISOLATION
 — themed_bg/themed_card/streak_bar disconnected the active lane (theme_changed) when
@@ -20,7 +60,7 @@ dead code with a wrong docstring; buy-endpoint coin check is pre-batch (near-imp
 race, accepted); future rest-day notification reschedule edge (self-heals, accepted).
 NOTIFICATION RELIABILITY: researched + wrote the merged notifications doc — exact alarms
 are now REQUIRED (reverses the s33 inexact-is-fine decision, the likely Ayshe-Samsung
-bug). Session 48 time: ~Xh ESTIMATE (sweep + 5 fixes + research + doc).
+bug). Session 48 time: ~Xh ESTIMATE (sweep + 5 fixes + research + doc).]
 
 [s47 — Ayshe prototype data port to PROD (forward-only, migrate-not-reset). Full detail
 in the SESSION 47 block below. ~3h ESTIMATE.]
@@ -1298,3 +1338,167 @@ Running total at session 48 close: ~228.75h (+ s48 unfilled ESTIMATE)
 (s48 time is an ESTIMATE placeholder — the code fixes are UNVERIFIED so the figure firms on
 device-verify, same as s46. SIXTEEN time-debts now owed since s32 — the reconciliation pass
 spans s32-s48 and is badly overdue; worth a dedicated pass.)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+SESSION 49 — 2026-06-23 AWST — UI tuning pass: dark grid · snug tray · 3-pill streak bar · symmetric bonus pill · stamp bugfix · glyph sprites · font swap · shop-preview overhaul (DEV)
+
+Long visual-tuning session on the client. 22 files touched. The full surface is
+UNVERIFIED beyond the items marked [confirmed] (eyeballed in-session via screenshots;
+"looked right in a screenshot" is NOT the device-confirmed bar). Device-verify the whole
+batch — it's the largest unverified surface in a while.
+
+CALENDAR GRID — restyled to a dark field so completed days pop.
+- UNMARKED cells slate #334155 (was white #f1f5f9), border REMOVED (border==bg). Dead cells
+  #1e293b (sink darker than live). Active-tier cell borders (RED/GREEN/etc) KEPT.
+- DeadOverlay node DELETED from day_cell.tscn — it was an unstyled Panel painting Godot's
+  default opaque grey OVER the light bg (latent bug; OFF_MONTH tap-through is now direct, the
+  s35-F1 mouse_filter dance is moot). All dead_overlay refs stripped from day_cell.gd.
+- Date number TOP-LEFT (was centred 16px default → illegible), font 36, coexists with the
+  lower-right completion sticker.
+- Cell separation 6→12. KEY FINDING: Layout.CELL_SEPARATION was DEAD CONFIG — read nowhere;
+  the rendered separation is the .tscn's Grid h/v_separation. Fixed BOTH (const now honest,
+  .tscn renders 12). Corner radius 18 (Layout.CELL_CORNER_RADIUS — this one IS read).
+- Bottom strip a deliberate 43px (1/3 cell, rhymes with the tray). Card height 1061 (Layout
+  CALENDAR_CARD_MIN_HEIGHT + both app.tscn CalendarCards), Grid 840, VBox separation 12.
+- Nav arrows (←/→) stripped to BARE GLYPHS — they wore Godot's default grey-square Button
+  theme. calendar_grid.gd _strip_button_box applies StyleBoxEmpty to all states; disabled
+  still greys via the glyph colour; 140×60 hit target intact.
+
+TASK TRAY — snug-fit + taller rows.
+- Removed THREE height inflators (tray .tscn min-size 970, Body EXPAND, app.tscn instance
+  size_flags_vertical=3). The app uses MANUAL ANCHOR layout — parents fill but never derive
+  height from children — so removing forced heights collapsed the card to zero. FIX: explicit
+  heights in that idiom — Header 88, Body 556, BottomSpacer 43 (1/3 cell), Card 735.
+- Task rows 64→130 (= a day cell), label font 40. Tray RESERVES its slot when closed (fixed-
+  height child) so the calendar NEVER resizes on open/close.
+
+STREAK BAR + 3-PILL SYSTEM.
+- Bar 130 tall (StatusArea slot, both panels). White outline removed (streak_bar.gd border
+  width →0 LOCALLY — NOT zeroing the constant, msg_picker.gd:103 still reads it for its border).
+- THREE die-cut pills (radius 18 — was capsule 28), cell-tier coloured:
+  • Streak pill NEW — flame+count were bare Labels in the HBox; wrapped in StreakPill/PillHBox
+    mirroring CoinPill. RED tier #fee2e2 bg / #7f1d1d text. The flame-texture swap still works
+    (it's parent-relative: flame_label.get_parent()).
+  • Coin pill — yellow (the anchor the others match toward; unchanged).
+  • Bonus pill — REST tier #ede9fe lavender / #4c1d95 text, INVERTED from the old dark-purple/
+    white to match the pale-tier style of the other two.
+- Pill text unified to ONE size 44 (FONT_SIZE_PILL_TEXT) across streak count / coin count /
+  bonus text. The old bonus 32 sat off DepartureMono's pixel grid and rendered jagged
+  ("cooked"); 44 samples clean. Streak count dropped from its hero 52 (Morgan chose full
+  uniformity over hierarchy). Glyph sizes share FONT_SIZE_PILL_GLYPH=72.
+
+SYMMETRIC BONUS PILL [confirmed in-session: "works perfectly"].
+Both panels now carry a bonus pill, each driven by the tasks of the person whose panel it
+sits on, showing what that effort gives the OTHER:
+- PanelPartner pill → partner's progress → "bonus you get from them" (the existing reading).
+- PanelYou pill → YOUR progress → "bonus they get from you" (new).
+- Bonus.gd refactored: shared _multiplier_for(user) + partner_multiplier() + new
+  self_multiplier(). Same tier table, different source.
+- bonus_pill.gd: `side` mode ("self"/"partner") branches the multiplier source, the refresh
+  gate (self's vs partner's today), and the identity signal (self_changed vs partner_changed).
+- streak_bar.gd: set_self_source() added; both bars mount the pill; side set per bar in
+  _mount_bonus_pill.
+- TIMING TRAP CAUGHT: a bar's _ready runs BEFORE App's source-assignment, so an auto-mount in
+  _ready would give the partner bar a self-pill. The self mount is therefore an EXPLICIT
+  App.gd call (streak_bar_you.set_self_source(), beside the partner one), not a _ready mount.
+- OPEN EDGE: the self-side pill shows even when solo/unpaired (no partner to give to). DECIDE
+  next session whether to gate on is_paired().
+
+STAMP FIRST-OPEN BUGFIX [confirmed: "saved it"].
+The tray stamp rocketed off-screen on the FIRST tray open of a sealed day (correct on the
+2nd). Root cause: tasks_tray.gd centred the stamp via `(card.size - stamp.size)/2` while the
+card was freshly visible and NOT yet laid out, so card.size was (0,0) → stamp at negative
+coords → the slap scaled it from there off-screen. FIX: centre via explicit 0.5 anchors on
+all four sides + offsets at ±half the 420×200 box — layout-driven, never reads a stale size,
+first-frame correct. Same "never trust size before layout" lesson as the day-cell sticker
+guard (which uses a size>0 guard because its placement is a scatter, not a centre).
+
+ORIGINAL-ART GLYPH SPRITES — flame / coin / sparkle.
+Replacing the 🔥🟡✨ emoji with painted PNGs (also kills the s41 invisible-emoji-on-laptop-
+export bug — sprites sidestep emoji font coverage entirely). Direct res:// paths + emoji
+fallback (NOT routed through the Stickers system — these are fixed app chrome, not themeable).
+- Paths: res://assets/ui/{flame.png, coin.png, sparkle.png}.
+- Load-or-fallback via ResourceLoader.exists → emoji Label if the PNG is absent. Safe to ship
+  before art lands (renders emoji unchanged).
+- Flame + coin wired in streak_bar.gd (_apply_glyph_sprites + _load_sprite + _ensure_glyph_
+  tex). The theme flame-SKIN still overlays the default sprite if a pack ships fire art.
+- Sparkle wired in bonus_pill.gd + bonus_pill.tscn: the ✨ was BAKED into the bonus label's
+  text string; extracted into its own SparkleLabel node (text now "×N.N bonus"), swappable.
+- Shared glyph display size FONT_SIZE_PILL_GLYPH=72. ART PENDING: the base PNGs didn't scale
+  crisp at 72 (a small native canvas upscaled + NEAREST = blocky) — Morgan repainting larger,
+  matched canvas + fill-ratio, and adding an OUTLINE.
+
+APP-WIDE FONT SWAP [confirmed on device] — a one-week trial, NOT a committed decision.
+- UI default (project-wide): DepartureMono → JetBrainsMono. MOTD subtitle accent: JetBrains
+  → DepartureMono. Each plays the other's role.
+- Fonts.gd: the two constants swapped, AND _ready now sets ThemeDB.fallback_font = UI (so the
+  project-wide default follows the UI constant — Fonts.gd is now the genuine single source of
+  truth its docstring always claimed, instead of the real default living in Project Settings).
+- The swap didn't take until Morgan CLEARED Project Settings → GUI → Theme → Custom Font (it
+  was set to DepartureMono and overrode the runtime fallback_font). Also needed a FULL project
+  reload (autoload _ready only re-runs on a full launch, not a play-scene — the known trap).
+- Side note: JetBrains is an outline font (not pixel-grid), samples clean at any size — the
+  small-text "cooked" problem may be moot independent of the size unification.
+
+SHOP-PREVIEW OVERHAUL — the under-shop preview calendar (an inert you-panel dupe).
+It was drifting from the real panels (still on pre-session heights) and bare. Made it convey +
+deliver more:
+- Heading: static "preview calendar" / "message of the day" via a panel_heading.gd preview
+  mode (set_preview_surface, called by the shop's existing duck-typed _mark_preview_surfaces
+  walk; _render early-returns in preview so live binding can't overwrite).
+- Readouts: static "streak" / "coins" via a LANE_PREVIEW branch in streak_bar._refresh (lane-
+  gated — the real self/partner bars keep live numbers). set_preview_surface now also calls
+  _refresh so the static text applies immediately.
+- Bonus pill: a new "preview" side on bonus_pill — fixed "task bonus", always visible, inert
+  (no live Bonus calls, no State signals, no rollover timer). The preview bar now mounts it.
+- Layout synced to the real panels (StatusArea 130, CalendarCard 1061).
+- THE TRAY-OVERLAP (chased hard, height was a red herring — dialing the card did nothing): the
+  tray's Card is anchored FULL_RECT inside the TasksTray Control, and FULL_RECT children don't
+  contribute to the parent's minimum size, so the TasksTray reported ~0 min-height to the VBox
+  and the anchored card overflowed UP into the calendar. FIX: gave the preview TasksTray
+  instance a real custom_minimum_size (0,735) so the VBox reserves a slot. (Latent in the
+  shared scene; the preview's layout settling exposed it. Worth watching the real panels — the
+  same FULL_RECT-card pattern is in tasks_tray.tscn; the real panels currently don't overlap.)
+
+STATE.GD — removed dead yesterday_iso() (0 callers; docstring wrongly claimed Bonus.gd used
+it — Bonus reads today_iso()). Trimmed a stale mock-clock comment. (Not device-verifiable.)
+
+PROCESS NOTE — the App.gd CLOBBER. App.gd was edited twice (set_self_source, then the header-
+icon offset). The 2nd edit was built by re-copying the session-START mirror, which CLOBBERED
+the 1st. Caught by a diff-against-mirror before it shipped. Lesson re-learned: for any file
+touched more than once in a session, build on the PRIOR working copy, never re-copy the start
+state. (Header icons — hamburger + leader slot — were also dropped to the title line via a new
+Layout.HEADER_ICON_TOP_OFFSET, tuned to 44.)
+
+This also RESOLVES the s41 ledger item "emoji glyphs missing on work-laptop Android export"
+— the streak-bar 🔥/🟡 and the bonus ✨ now have a sprite path with emoji fallback; once the
+art lands the chrome carries no emoji at all.
+
+TOUCHED (code): App.gd, Bonus.gd, Fonts.gd, Layout.gd, Palette.gd, State.gd, bonus_pill.gd,
+calendar_grid.gd, day_cell.gd, panel_heading.gd, streak_bar.gd, tasks_tray.gd.
+TOUCHED (scenes): app.tscn, bonus_pill.tscn, calendar_grid.tscn, day_cell.tscn, shop_panel.tscn,
+streak_bar.tscn, task_row.tscn, tasks_tray.tscn.
+
+VERIFY ON DEVICE (the s49 ledger — see todo OPEN TESTS):
+- The whole UI surface: grid restyle, tray snug-fit, streak bar 130, 3-pill system, header
+  alignment. Eyeballed in-session; confirm clean on device.
+- Stamp first-open on a sealed day, fresh launch (Morgan confirmed once — re-confirm).
+- Symmetric bonus pill PAIRED: self pill reads YOUR tasks, partner pill reads theirs (needs a
+  paired state — relevant to the Ayshe dogfood).
+- Font swap reads well across ALL screens (dialogs, shop, onboarding), not just the home panel.
+- Shop preview: heading/readouts/task-bonus pill static + correct, tray no longer overlaps.
+
+NEXT: device-verify the s49 batch. Repaint the 3 glyph sprites larger + outline, drop at the
+res://assets/ui paths, confirm crisp at 72. DECIDE the solo self-bonus-pill gate. Decide
+whether the font swap stays after the week. Then back to the carried work: notification N1-N4
+(the likely Ayshe fix), seed-fold + prod deploy, the BonusPill re-home is now RESOLVED (it
+lives on both panels), week-mode doc rewrite, and the s32-s49 time-debt reconciliation (now
+SEVENTEEN sessions deep).
+
+Session 49 time: ~Xh ESTIMATE (long tuning session; UNVERIFIED-heavy — device-verify firms it).
+
+Running total at session 49 close: ~228.75h (+ s48 and s49 unfilled ESTIMATEs)
+(s48 + s49 are ESTIMATE placeholders — both UNVERIFIED, figures firm on device-verify.
+SEVENTEEN time-debts now owed since s32 — the reconciliation pass spans s32-s49 and is badly
+overdue.)

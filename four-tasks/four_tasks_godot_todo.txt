@@ -1,7 +1,7 @@
 FOUR TASKS — Godot Todo
 ========================
-Last edit: 2026-06-22 AWST (session 48)
-Last updated: session 48 — FULL-STACK BUG SWEEP + 5 fixes + NOTIFICATION RELIABILITY doc. Swept all .gd + the whole server; codebase healthy, most findings low-sev. SHIPPED (UNVERIFIED, ride the s46 batch): (1) THEME LANE ISOLATION — themed_bg/themed_card/streak_bar now disconnect the active lane (theme_changed) when re-laned to PARTNER/PREVIEW (_leave_active_lane), so a self theme change no longer spuriously repaints partner/preview surfaces. (2) SHOP STUCK PREVIEW — _reconcile_preview_selection() ends the preview when the tried-on sticker leaves the buyable set (the buy case left it stuck, clear affordance gone). (3) SHOP SAFE-AREA INSET — the shop's PreviewLayout now takes the safe-area top inset (the carried s43 item; Ayshe's Samsung shot showed it), mirroring App._apply_safe_area_inset. NOT FIXED (logged): seed-fold still owed (next reset loses 4 catalogue rows; prod has them via s47); State.yesterday_iso() dead + wrong docstring; buy coin-check pre-batch (accepted race); future rest-day notif reschedule (self-heals). NOTIFICATION RELIABILITY doc MERGED + REVERSES the s33 "inexact is fine" decision — exact alarms now REQUIRED (likely Ayshe-Samsung bug); 4-layer strategy, tiles N1-N4, N1 first. Session 48 time: ~Xh ESTIMATE (sweep + fixes + research + doc).
+Last edit: 2026-06-23 AWST (session 49)
+Last updated: session 49 — UI TUNING PASS + symmetric bonus pill + stamp bugfix + glyph-sprite wiring + app-wide font swap + shop-preview overhaul. Long client visual-tuning session, 22 files. SHIPPED (UNVERIFIED beyond items eyeballed in-session — device-verify the whole surface): dark-field GRID (slate cells, no borders, DeadOverlay node deleted, date top-left, sep finally 12 [the Layout const was dead — .tscn renders], strip 43, card 1061, bare nav glyphs); snug TRAY (3 inflators removed, explicit anchor-idiom heights, rows 130, reserves slot when closed); STREAK BAR 130, no outline, THREE die-cut cell-tier pills (streak RED / coin yellow / bonus REST-purple inverted from dark), pill text unified to 44 (old bonus 32 rendered jagged off the pixel grid); SYMMETRIC BONUS PILL [confirmed] — both panels, each driven by its panel-owner's tasks showing what that gives the OTHER (self_multiplier added; timing trap caught — explicit App mount not _ready); STAMP first-open BUGFIX [confirmed] — was reading card.size pre-layout, now centre-anchored; GLYPH SPRITES — flame/coin/sparkle emoji→PNG with emoji fallback (res://assets/ui/, resolves the s41 laptop-export item; art pending repaint+outline); FONT SWAP [confirmed] — UI↔MOTD (JetBrains body / DepartureMono accent), one-week TRIAL not committed, Fonts.gd now drives ThemeDB.fallback_font + Project Settings font cleared; SHOP-PREVIEW overhaul — static heading/readouts/"task bonus" pill + layout sync, tray-overlap was a FULL_RECT-card-in-collapsed-slot trap (fixed via real tray min-size). State.yesterday_iso() dead code removed. The BonusPill RE-HOME open item is RESOLVED (lives on both panels). Session 49 time: ~Xh ESTIMATE. Swept all .gd + the whole server; codebase healthy, most findings low-sev. SHIPPED (UNVERIFIED, ride the s46 batch): (1) THEME LANE ISOLATION — themed_bg/themed_card/streak_bar now disconnect the active lane (theme_changed) when re-laned to PARTNER/PREVIEW (_leave_active_lane), so a self theme change no longer spuriously repaints partner/preview surfaces. (2) SHOP STUCK PREVIEW — _reconcile_preview_selection() ends the preview when the tried-on sticker leaves the buyable set (the buy case left it stuck, clear affordance gone). (3) SHOP SAFE-AREA INSET — the shop's PreviewLayout now takes the safe-area top inset (the carried s43 item; Ayshe's Samsung shot showed it), mirroring App._apply_safe_area_inset. NOT FIXED (logged): seed-fold still owed (next reset loses 4 catalogue rows; prod has them via s47); State.yesterday_iso() dead + wrong docstring; buy coin-check pre-batch (accepted race); future rest-day notif reschedule (self-heals). NOTIFICATION RELIABILITY doc MERGED + REVERSES the s33 "inexact is fine" decision — exact alarms now REQUIRED (likely Ayshe-Samsung bug); 4-layer strategy, tiles N1-N4, N1 first. Session 48 time: ~Xh ESTIMATE (sweep + fixes + research + doc).
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
 
@@ -43,9 +43,12 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       slot draws over the partner panel too (consistent w/ the hamburger,
       but leader is self-only — decide if it hides on the partner panel).
       All deferred UI; logged so it's not re-reported as unfinished.
-  [ ] Emoji glyphs missing on work-laptop Android export (🔥/🟡 streak bar
-      + CoinFX flights invisible; ★ fine). Check Godot version/export
-      parity vs home PC BEFORE any release build from the laptop.
+  [~] Emoji glyphs missing on work-laptop Android export (🔥/🟡 streak bar
+      + CoinFX flights invisible; ★ fine). ADDRESSED s49: streak-bar flame/coin
+      + bonus sparkle now load original PNG sprites (res://assets/ui/) with emoji
+      FALLBACK, sidestepping emoji font coverage entirely. Once the art lands the
+      chrome carries no emoji. CoinFX flights NOT yet sprited — still emoji-based;
+      that path is the remaining exposure. Re-confirm on a laptop export build.
   [ ] 4.26 ambient device cases (code GREEN D-N1-D-N4 s33; full pass spec
       in four_tasks_notifications_design_notes.md):
         D-N5 overnight morning nudge + no stale morning after open
@@ -68,6 +71,31 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       keep it). NOTE: store preset is devkit-clean as of s36 (verified
       via [Loader] devkit=false on the prod APK); this stays open as the
       standing per-build reminder.
+
+  ── s49 UI TUNING PASS (DEV; largest unverified surface — eyeballed in-session) ──
+  [ ] WHOLE UI SURFACE on device: dark-field grid (slate cells, no borders, dead
+      cells darker), date number top-left, cell sep 12, bottom strip 43, card 1061,
+      bare nav glyphs; tray snug-fit (rows 130, reserves slot closed — calendar must
+      NOT resize on open/close); streak bar 130; 3-pill system (die-cut, cell-tier
+      colours). All looked right in screenshots; confirm clean on device.
+  [ ] STAMP first-open on a SEALED day, FRESH launch (kill + reopen): renders centred
+      over the tasks, does NOT rocket off-screen. Morgan confirmed once in-session;
+      re-confirm clean. Also check the morning-ceremony slap + shop-preview stamp.
+  [ ] SYMMETRIC BONUS PILL paired: tick YOUR tasks → YOUR panel's pill climbs (the
+      bonus you give the partner); partner panel's pill reads THEIR progress. Needs a
+      paired state — relevant to the Ayshe dogfood. Solo: self pill currently SHOWS
+      with no partner (see DECIDE below).
+  [ ] FONT SWAP reads well across ALL screens — dialogs (tasks/weekday edit, rest/
+      rescue confirm), shop, onboarding, MOTD — not just the home panel. JetBrains
+      body / DepartureMono accent. (One-week trial; decide keep/revert after.)
+  [ ] SHOP PREVIEW: static heading ("preview calendar" / "message of the day"),
+      static readouts ("streak" / "coins"), inert "task bonus" pill, layout matches
+      the real panels, tray no longer overlaps the calendar. Real panels' headings/
+      readouts/bonus pills UNAFFECTED (the preview modes are lane/side-gated).
+  [ ] GLYPH SPRITES once painted: drop flame.png/coin.png/sparkle.png at
+      res://assets/ui/, reimport, confirm they render CRISP at 72 (the reason for the
+      repaint) with the outline, matched size across all three. Flame theme-skin still
+      overlays correctly. With the PNGs absent the bar must still render emoji.
 
   ── s42 TILE 4.SH — THIRD SWIPE PANEL + SHOP (DEV; spine verified) ──
   [x] App.gd 2→3-panel swipe: boots on calendarYOU (middle); you↔partner
@@ -494,6 +522,33 @@ GATE: Both products in market.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ACTIVE — ad-hoc items found during the port
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] [ART] s49 GLYPH SPRITES — paint flame.png / coin.png / sparkle.png, drop at
+    res://assets/ui/, reimport. Larger native canvas (didn't scale crisp at 72 —
+    upscale + NEAREST = blocky), matched canvas size + fill-ratio across all three,
+    with an OUTLINE (Morgan's call). Wiring is DONE + ships emoji fallback meanwhile.
+
+[ ] [DECIDE] s49 — gate the SELF-side bonus pill on is_paired()? It currently shows
+    even when solo (a "bonus you give the partner" pill with no partner). Either gate
+    it, or accept it as a potential-bonus teaser. One-line either way.
+
+[ ] [DECIDE] s49 FONT SWAP — after one week living with UI=JetBrains / MOTD=Departure,
+    decide KEEP or REVERT. If revert: swap the two Fonts.gd constants back (the
+    ThemeDB.fallback_font wiring stays — it's an improvement regardless). Note JetBrains
+    being an outline font may have independently fixed the small-text "cooked" look.
+
+[ ] s49 cleanup (low pri) — Layout consts now unused by the pills:
+    FONT_SIZE_{STREAK_COUNT, COIN_COUNT, BONUS_PILL, STREAK_FLAME, COIN_ICON}
+    (superseded by FONT_SIZE_PILL_TEXT=44 + FONT_SIZE_PILL_GLYPH=72). Plus older dead:
+    CELL_SEPARATION (still dead — the .tscn renders separation), TASKS_TRAY_MIN_HEIGHT.
+    Confirm no other readers before deleting.
+
+[ ] s49 WATCH — the shop-preview tray-overlap fix (real custom_minimum_size on the
+    preview TasksTray instance) papered over a LATENT trap in the shared tasks_tray.tscn:
+    the tray Card is anchored FULL_RECT and contributes ~0 min-height to its parent. The
+    REAL panels don't overlap today, but if a future layout change shifts their settling,
+    the same fix (give the tray slot a real min-height) applies. Logged so it's not a
+    mystery if it resurfaces.
 
 [x] Session 29 full-stack bug sweep + 20 fixes. Verified s31 (ledger cleared).
 
