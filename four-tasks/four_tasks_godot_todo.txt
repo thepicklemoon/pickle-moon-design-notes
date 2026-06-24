@@ -1,6 +1,8 @@
 FOUR TASKS — Godot Todo
 ========================
 Last edit: 2026-06-23 AWST (session 50)
+Last updated: session 51 — PREVIEW-SHOP TRAY OVERLAP FIXED (self-inflicted: an earlier-s51 safe-area tray trim was the cause; removed — the stack fits at 172 inset with no trim) + RECOVERY-PICKER LOCKOUT FIXED (the picker only offered 4 starter leaders, so anyone with a non-starter leader was permanently locked out of recovery — now sources the full 15-id ALL_LEADERS list, rows scroll) + STICKER-SELECTOR GESTURE SWAP (short-tap = pool toggle, long-press = context menu, reversed) + SHOP STATUS-LABEL REMOVED (a centred full-rect label painting "you own every sticker" over the calendar). Bugfix/polish, no features, no server changes. Files: onboarding_recovery.gd/.tscn, sticker_selector.gd, shop_panel.gd/.tscn; tasks_tray.gd reverted to pre-s51. ALL UNVERIFIED except the recovery picker + preview-shop fix were eyeballed on a 172-inset device build. Session 51 time: ~Xh ESTIMATE.
+
 Last updated: session 50 — ANYTIME MOTD EDITOR (tile 4.5 client half DONE, UNVERIFIED) + FRAMELESS PICKER REFACTOR + reroll economy reconciled to the live server + word-reel long spin + tier-pill buttons. ~13 client files; no server changes (server was already complete). SHIPPED (ALL UNVERIFIED on device — verify the whole MOTD surface on a phone first thing). FRAMELESS PICKER — the picker baked its own card + a fixed 1000px reel block + per-wheel pixel-width floors (authored for onboarding's full-screen overlay), which fought every other host (card-in-card, text escaping, emoji reel marooned, band off the centre row); rebuilt as a FRAMELESS fill-parent (4 reels + 1 selector band, reels ratio-weighted 1/1/1.2/0.5 not pixel floors, wheels SHRINK_CENTER so the strip's fixed 192px centre-row lands on the band). Every host now frames the bare picker: onboarding's PickerHost became the card; morning uses a NEW MotdPickerCard wrapper (forwards the full open/spin/reroll/composed_text/selected_sticker + reels_ready/spun contract so the coordinator is UNCHANGED); the editor mounts the bare picker in the calendar card. motd_dialog.gd BUILT then BINNED — DELETE from disk. ANYTIME EDITOR (motd_editor.gd, a driver like morning_sequence) — long-press the self header MOTD → self CALENDAR fades out, then after a staggered breath the SPINNER fades in IN THE SAME CARD FOOTPRINT (no dialog, no scrim; coins live in the streak bar above). Save typewriter-glitches the new MOTD into the header (GlitchType.reveal, the morning beat-10 effect) + calendar fades back; spinner root MOUSE_FILTER_STOP + calendar input hard-off so the faded calendar can't take taps. Long-press detector added to panel_heading subtitle (self/non-preview only, mirrors the hamburger), App wires it gated on morning+editor inactive, locks swipe. REROLL ECONOMY RECONCILED — the server ALREADY had it (POST /motd/reroll charges REROLL_COST=100 atomically, returns {user,roll}; economyPayload ships reroll_cost); WIRE-VERIFIED on dev 6286→6186 = -100. Client was first built WRONG (batched reroll_count into the save write, a model the server doesn't implement) — reverted, reconciled to call the endpoint PER SPIN (server-before-client lesson). Charge model (confirmed): each reroll charges the instant you spin, NON-refundable (vent not sink), cancel does NOT refund; cost FLAT 100 (random floated, rejected, parked "may revisit"). Backend.reroll_motd + signals; State.reroll_cost()/reroll_motd()/_on_motd_rerolled (merges balance) + succeeded/rejected signals; set_motd reverted to FREE. REROLL UX — tap → reels spin + coins drop INSTANTLY (optimistic, no round-trip wait), charge fires in background + reconciles pill MONOTONIC-DOWNWARD (lagging concurrent charge never bounces up); reroll button DISARMS for the SPIN duration (not the round-trip), re-arms on spun() = built-in READ GATE + incidental rate-limit. Free-roll on rare rejection ACCEPTED (100 coins negligible). WORD-REEL LONG SPIN — 3 word reels got roll_long (wrapping spin ~1.15s, 22-40 rows, borrows the auto-spin's wrap-while-tween so travel is list-length-independent) to MASK the disarm; EMOJI reel keeps the 0.85s jiggle for 2+ and NO motion for a 1-sticker pool (legitimate — wheel no-ops + settles so the driver doesn't hang); spun() driven off the last WORD reel (longest) so it means everything settled. roll_long is shared → onboarding's spin-again also gets it (flagged, accepted). TIER-PILL BUTTONS — save GREEN / cancel RED / reroll REST-purple, the status pills' die-cut StyleBoxFlat (radius 18, padding 18h/20v, font 44, sacred cell-tier colours), pressed-darken + disabled-dim so the disarm reads visually; sized to content (width-flexible — eyeball on device). Reroll glyph placeholder 🎲, centre glyph slot empty TextureRect. Tile 4.5 CLIENT HALF done (UNVERIFIED); server fully wire-verified. Session 50 time: ~Xh ESTIMATE.
 
 Forward-looking tile list organised by phase. Work topmost incomplete tile in current phase; drop down rather than jumping phases.
@@ -15,6 +17,24 @@ Tiers (for items outside phase structure): ACTIVE / PARKED / DEFERRED.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 OPEN TESTS (post-ledger, s31)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  ── s51 PREVIEW-SHOP FIX + RECOVERY LOCKOUT + GESTURE SWAP (UNVERIFIED) ──
+  [ ] PREVIEW-SHOP TRAY (172-inset device): swipe into the shop; tray card holds header
+      + ✓ task rows, sits 12px below the calendar, NOTHING over the bottom cells; lines
+      up with the live panel on swipe. (The s51 fix REMOVED the tray trim that caused the
+      overlap — confirm the removal didn't regress the 0-inset PC case either.)
+  [ ] SHOP STATUS LABEL gone: on an owns-everything account the "you own every sticker"
+      text no longer paints over the calendar (the label + node were removed).
+  [ ] RECOVERY PICKER: open recovery; BOTH sticker strips render all 15 leaders WITH ART
+      (a text fallback = a wrong art path); scroll horizontally through both; selection-dim
+      still works on the scrolling row; the taller strips didn't push the centred box past
+      the viewport on a short screen. THEN the real test: recover Morgan's prod account by
+      selecting his ACTUAL (non-starter) leader — the lockout case that started this.
+      (NB: still needs name+username+leader byte-exact for both Morgan AND Ayshe; if the
+      hash still won't match, the DevKit become-user_id path is the guaranteed way in.)
+  [ ] SELECTOR GESTURE SWAP: in the sticker selector, SHORT-TAP a rail item toggles its
+      pool ring; LONG-PRESS pops the crown context menu. Confirm set-leader (now behind
+      the long-press) doesn't feel sluggish when you actually want it.
 
 Device ledger D1-D15 CLEARED s31; W18 + git case-rename CLEARED s33.
 s34 UNVERIFIED LEDGER mostly CLEARED s36 (D-S1/D-S4/D-S5/D-S6/D-S7 PASS;
@@ -39,7 +59,8 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       fold s41: re-verify the freeze + shop + selector on prod, and watch
       owned_stickers populate on a REAL onboard (the createUser fix).
   [ ] Selector/leader-slot UI is FUNCTIONAL, not polished — no slide
-      animation, no die-cut in-pool indicator, no tap-context-menu, leader
+      animation, no die-cut in-pool indicator (context menu EXISTS — s41; s51 swapped
+      the gesture so it's now LONG-PRESS, short-tap toggles the pool), leader
       slot draws over the partner panel too (consistent w/ the hamburger,
       but leader is self-only — decide if it hides on the partner panel).
       All deferred UI; logged so it's not re-reported as unfinished.
@@ -249,8 +270,12 @@ D-S2/D-S3/D-S8 PARKED — see below). Remaining:
       PreviewLayout now takes the safe-area top inset (shop-owned _apply_safe_area_
       inset, mirrors App). VERIFY on a notched device: shop dupe calendar sits at the
       SAME height as the you-panel (not high under the status strip). Watch the
-      preview tray bottom — the min-height trim assumes the static-open tray honours
-      custom_minimum_size.y like the real trays; if it clips, that's the dial.
+      preview tray bottom. (s51 UPDATE: the preview tray min-height TRIM that this note
+      warned about was REMOVED — it was the cause of the s51 tray-over-calendar overlap.
+      The stack fits at a 172px inset with NO trim; the shop now only shifts PreviewLayout
+      down by the inset. tasks_tray.gd reverted to pre-s51. RE-VERIFY on the 172-inset
+      device: shop tray card holds its header+rows+✓bars, sits 12px below the calendar,
+      nothing over the cells; lines up with the live panel on swipe.)
   [ ] NOT-FIXED, logged (s48): (a) seed-fold STILL OWED — seed_devkit.sql lacks
       button/cloud/jester_hat/shadow_man; PROD has them (s47), but the next reset /
       fresh reseed loses them. (b) State.yesterday_iso() DEAD CODE + wrong docstring

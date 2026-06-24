@@ -1,6 +1,68 @@
 FOUR TASKS — Godot Devlog (v4)
 ==============================
-Last edit: 2026-06-23 AWST (session 50)
+Last edit: 2026-06-24 AWST (session 51)
+Last updated: session 51 — PREVIEW-SHOP LAYOUT FIX + RECOVERY-LOCKOUT FIX + sticker-selector gesture swap + shop status-label removal. A bugfix + polish session, no new features. Server untouched. All UNVERIFIED beyond what was confirmed on-device this session (the recovery picker and the preview-shop fix were both eyeballed against a 172px-inset device build). See the s51 block below.
+
+[s51 — PREVIEW-SHOP TRAY OVERLAP FIXED (self-inflicted) + RECOVERY-PICKER LOCKOUT FIXED
++ sticker-selector gesture swap + shop status-label removed. Bugfix/polish, no features,
+no server changes.
+
+RECOVERY-PICKER LOCKOUT (the important one). active_leader is one of the three identity
+values hashed into pair_key (and matched directly for solo recovery), but the recovery
+screen's sticker picker only offered the 4 STARTER leaders. Anyone who changed their
+leader to a bought sticker could no longer select it on recovery — their credential was
+unreachable, permanent lockout. This is every user who ever sets a non-starter leader,
+i.e. the intended progression — a launch blocker, found via Morgan being locked out of
+his own prod account. FIX (Fork A, ship-it): the picker now sources the FULL leader list
+(new ALL_LEADERS const in onboarding_recovery.gd, 15 ids = res://assets/icons minus the
+theme_proof test asset) instead of the 4-item STARTER_LEADERS, with a loud lockout-
+critical comment (a missing id = an un-recoverable user, so the list must stay complete
+as art is added). Both sticker rows (self + partner) wrapped in horizontal ScrollContainers
+(onboarding_recovery.tscn) so 15+ stickers scroll instead of overflowing the row. Chose a
+scroll-strip over a wheel: recovery is a find-a-known-target task, a strip shows every
+option and fits the screen's tight vertical budget. ROOT CAUSE NAMED (not yet fixed): no
+single source of truth for "what stickers exist" — the id list is hand-synced across
+res://assets/icons, onboarding_companions.CATALOGUE (DRIFTED stale, missing button/cloud/
+jester_hat/shadow_man), onboarding_avatar.STARTER_LEADERS, and the D1 stickers table.
+Recovery is the one consumer where drift is UNRECOVERABLE. Codegen/single-source is the
+post-launch fix (schema.sql COUPLING NOTE); for now ALL_LEADERS is the canonical recovery
+list, deliberately NOT borrowed from the drifted companions const.
+
+PREVIEW-SHOP TRAY OVERLAP — SELF-INFLICTED, took many rounds to trace (lesson logged).
+Symptom: on a 172px-safe-area device the shop preview's tray card sat over the calendar's
+bottom rows; on a fresh 0-inset PC it looked clean. ACTUAL CAUSE: a safe-area "fix" added
+earlier THIS session (an apply_safe_area_trim on the preview tray) was clawing back the
+inset-shift height off the tray slot — but the stack FITS at 172 inset with no trim (2142
+in 2180 available, 62px clearance; proven against the device geometry dump). The trim
+shrank the tray slot below its card-content height, the card overflowed/centred in the
+shrunk slot, header spilled over the calendar. FIX: remove the trim entirely — the shop's
+_apply_safe_area_inset now ONLY shifts PreviewLayout down by the inset (clears the notch);
+no tray trim, no card-position pin. tasks_tray.gd reverted byte-identical to its pre-s51
+state (all the churn removed). A SECOND, GENUINE bug was found and fixed along the way:
+the shop's ShopStatus label (a full-rect, vertically-CENTRED "you own every sticker" /
+"loading" / buy-error label) painted its text across the centre of the panel = over the
+calendar, visible whenever the buyable set is empty (i.e. Morgan's own owns-everything
+account, every device). REMOVED the label + node + _paint_status + _error_text +
+_friendly_error + the write-only _list_loaded; _on_buy_failed kept as a silent rollback
+ack (the affordability cases it guarded are prevented upstream by the confirm overlay; a
+rare server_error now fails silently with the sticker reappearing — acceptable, and any
+future buy-error UX belongs IN the confirm overlay, not floating over the calendar).
+
+STICKER-SELECTOR GESTURE SWAP (sticker_selector.gd, per Morgan after living in the app):
+rail items now SHORT-TAP = toggle pool membership, LONG-PRESS = context menu (was the
+reverse). Signal names tapped/held still name the GESTURE; the handlers name the ACTION,
+so the wiring reads honestly. held now carries the item left-centre too (the context menu
+moved to the long-press and needs the anchor the tap used to pass). Note: set-leader is now
+behind the longer gesture — verify it doesn't feel sluggish when you actually want it.
+
+FILES: onboarding_recovery.gd/.tscn (ALL_LEADERS + scroll-wrapped rows), sticker_selector.gd
+(gesture swap), shop_panel.gd (status label removed + trim removed), shop_panel.tscn
+(ShopStatus node removed). tasks_tray.gd reverted to pre-s51 (no net change). NO server
+changes. ALL UNVERIFIED except: recovery picker + preview-shop fix eyeballed on a 172-inset
+device build this session.
+Session 51 time: ~Xh ESTIMATE (mostly a long mis-traced bugfight on the preview overlap +
+the recovery fix + the gesture swap; UNVERIFIED — device-verify firms it).
+
 Last updated: session 50 — ANYTIME MOTD EDITOR (tile 4.5 client half) + frameless picker
 refactor + reroll economy reconciled to the live server + word-reel long spin + tier-pill
 buttons. The MOTD spinner was a fully built widget with only TWO of its three trigger
@@ -1599,3 +1661,7 @@ Running total at session 50 close: ~228.75h (+ s48, s49, and s50 unfilled ESTIMA
 (s48 + s49 + s50 are ESTIMATE placeholders — all UNVERIFIED, figures firm on device-verify.
 EIGHTEEN time-debts now owed since s32 — the reconciliation pass spans s32-s50 and is badly
 overdue. Do it from device-verified state, not before.)
+Running total at session 51 close: ~228.75h (+ s48, s49, s50, s51 unfilled ESTIMATEs)
+(s48 + s49 + s50 + s51 are ESTIMATE placeholders — all UNVERIFIED, figures firm on
+device-verify. NINETEEN time-debts now owed since s32 — the reconciliation pass spans
+s32-s51 and is badly overdue. Do it from device-verified state, not before.)
